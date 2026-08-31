@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <dinput.h>
 #include <Xinput.h>
@@ -43,8 +43,9 @@ public:
     void SetCameraControlEnabled(bool enabled);
     bool IsCameraControlEnabled() const { return cameraControlEnabled_; }
 
- /*   bool IsKeyPressed(BYTE keyCode) const;
-    bool IsKeyReleased(BYTE keyCode) const;*/
+    bool IsMouseLeftPressed() const { return mouseLeft_; }
+    bool IsMouseLeftTrigger() const { return mouseLeft_ && !prevMouseLeft_; }
+    bool IsMouseLeftReleased() const { return !mouseLeft_ && prevMouseLeft_; }
 
 private:
     IDirectInput8* directInput_ = nullptr;
@@ -58,6 +59,9 @@ private:
     XINPUT_STATE gamepadState_{};
     XINPUT_STATE prevGamepadState_{};
     bool gamepadConnected_ = false;
+
+    bool mouseLeft_ = false;
+    bool prevMouseLeft_ = false;
 
     WinApp* winApp_ = nullptr;
 

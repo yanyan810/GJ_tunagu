@@ -110,6 +110,8 @@ void Input::Update() {
     // 前フレームの状態を保存
     memcpy(prevKeys_, keys_, sizeof(keys_));
     prevGamepadState_ = gamepadState_;
+    prevMouseLeft_ = mouseLeft_;
+
     XINPUT_STATE newGamepadState{};
     gamepadConnected_ = XInputGetState(0, &newGamepadState) == ERROR_SUCCESS;
     gamepadState_ = gamepadConnected_ ? newGamepadState : XINPUT_STATE{};
@@ -127,6 +129,9 @@ void Input::Update() {
     }
 
     UpdateMouseDelta();
+
+    // マウス左クリック状態の更新
+    mouseLeft_ = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
 
     // === 修正済み：トグル処理は1回だけ ===
     bool toggleKey = keys_[DIK_F1];

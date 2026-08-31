@@ -17,7 +17,8 @@ enum class DebrisType {
 
 enum class DebrisState {
     Floating,
-    Attached
+    Attached,
+    Thrown
 };
 
 class Debris {
@@ -26,7 +27,9 @@ public:
     ~Debris();
 
     void Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam, DebrisType type, const Vector3& pos);
+    void Update(float dt);
     void UpdateFloating(float dt);
+    void UpdateThrown(float dt);
     
     // アタッチ中の更新。マグロのワールド行列、ピッチ/ヨー、うねり位相などを受け取る
     void UpdateAttached(
@@ -47,6 +50,9 @@ public:
     );
 
     void Draw();
+
+    // 投射処理
+    void Throw(const Vector3& pos, const Vector3& velocity);
 
     // アタッチ状態に移行
     void Attach(const Vector3& localOffset, const Vector3& localRot);
@@ -82,4 +88,8 @@ private:
     // フワフワ挙動用
     float floatTimer_ = 0.0f;
     float floatOffset_ = 0.0f; // ランダム初期位相
+
+    // 投射中の物理挙動用
+    Vector3 velocity_ = { 0.0f, 0.0f, 0.0f };
+    float throwTimer_ = 0.0f;
 };

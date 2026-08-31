@@ -90,7 +90,7 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     }
 }
 
-void Player::Update(float dt, const Input& input) {
+void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<Debris>>& debrisList) {
     if (!model_ || !model_->GetModel()) return;
 
     // 1. 装備（ゴミ）の重さと推進力を集計して運動性能を再計算 (擬似物理)
@@ -120,15 +120,15 @@ void Player::Update(float dt, const Input& input) {
         yaw_ += rotateSpeedYaw * dt;
     }
 
-    // 上下移動入力（Spaceで上昇、Sで下降）
+    // 上下移動入力（Wで上昇、Sで下降）
     float moveSpeedY = 0.0f;
     float targetPitch = 0.0f;
     
-    if (input.IsKeyPressed(DIK_SPACE)) {
-        moveSpeedY = maxForwardSpeed_ * 0.4f; // 上昇速度
+    if (input.IsKeyPressed(DIK_W)) {
+        moveSpeedY = maxForwardSpeed_ * 0.2f; // 上昇速度
         targetPitch = -0.4f; // 頭を上に向ける (ラジアンなので負が上)
     } else if (input.IsKeyPressed(DIK_S)) {
-        moveSpeedY = -maxForwardSpeed_ * 0.4f; // 下降速度
+        moveSpeedY = -maxForwardSpeed_ * 0.2f; // 下降速度
         targetPitch = 0.4f; // 頭を下に向ける
     }
 
@@ -136,11 +136,8 @@ void Player::Update(float dt, const Input& input) {
     float pitchLerpRate = 7.0f;
     pitch_ = pitch_ + (targetPitch - pitch_) * pitchLerpRate * dt;
 
-    // 前進入力（Wキーで前進。Sは下降キーになったため後退はなし）
-    float moveSpeedZ = 0.0f;
-    if (input.IsKeyPressed(DIK_W)) {
-        moveSpeedZ = maxForwardSpeed_;
-    }
+    // 前進（常に勝手に前に進む）
+    float moveSpeedZ = maxForwardSpeed_;
 
     // 水平進行方向ベクトル（ヨー角のみから計算）
     float dirX = std::sin(yaw_);
@@ -159,18 +156,110 @@ void Player::Update(float dt, const Input& input) {
     model_->SetTranslate(pos_);
     model_->SetRotate({ pitch_, yaw_ + kModelRotateYawOffset, kModelRotateRollOffset });
 
+    // --- ゴミ投げ（チャージ＆投射）処理 ---
+    if (input.IsMouseLeftTrigger()) {
+        isCharging_ = true;
+        chargeTimer_ = 0.0f;
+        chargeCount_ = (attachedDebris_.empty() ? 0 : 1);
+    }
+
+    if (isCharging_) {
+        chargeTimer_ += dt;
+        int maxDebris = static_cast<int>(attachedDebris_.size());
+        if (maxDebris > 0) {
+            // 0.5秒ごとに投げる個数を増やす
+            chargeCount_ = 1 + static_cast<int>(chargeTimer_ / 0.5f);
+            if (chargeCount_ > maxDebris) {
+                chargeCount_ = maxDebris;
+            }
+        } else {
+            chargeCount_ = 0;
+        }
+    }
+
+    if (input.IsMouseLeftReleased()) {
+        if (isCharging_) {
+            isCharging_ = false;
+            int throwCount = chargeCount_;
+
+            if (throwCount > 0) {
+                // 身震いモーション開始（0.4秒間ブルブルする）
+                throwMotionTimer_ = 0.4f;
+
+                for (int i = 0; i < throwCount; ++i) {
+                    if (attachedDebris_.empty()) break;
+
+                    // 体からゴミを取り外す（末尾から）
+                    auto debris = std::move(attachedDebris_.back());
+                    attachedDebris_.pop_back();
+
+                    // プレイヤーの向きから投射方向を計算
+                    float dirX = std::sin(yaw_) * std::cos(pitch_);
+                    float dirY = -std::sin(pitch_);
+                    float dirZ = std::cos(yaw_) * std::cos(pitch_);
+                    Vector3 forward = { dirX, dirY, dirZ };
+
+                    // 複数投げる時は少し散らす（スプレッド）
+                    float spread = 0.18f;
+                    float rx = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
+                    float ry = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
+                    float rz = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
+
+                    float baseSpeed = 24.0f;
+                    Vector3 velocity = {
+                        (forward.x + rx) * baseSpeed,
+                        (forward.y + ry) * baseSpeed,
+                        (forward.z + rz) * baseSpeed
+                    };
+
+                    // 初期位置はプレイヤーの少し前
+                    Vector3 startPos = {
+                        pos_.x + forward.x * 2.2f,
+                        pos_.y + forward.y * 2.2f,
+                        pos_.z + forward.z * 2.2f
+                    };
+
+                    // ゴミを飛ばす
+                    debris->Throw(startPos, velocity);
+
+                    // シーンのリストに追加
+                    debrisList.push_back(std::move(debris));
+                }
+            }
+            chargeCount_ = 0;
+            chargeTimer_ = 0.0f;
+        }
+    }
+
+    // 身震いモーションのタイマー更新
+    if (throwMotionTimer_ > 0.0f) {
+        throwMotionTimer_ -= dt;
+    }
+
     // 4. 尾びれのクネクネうねりアニメーション (頂点変形)
     float currentSpeed = std::sqrt(vel_.x * vel_.x + vel_.y * vel_.y + vel_.z * vel_.z);
     
-    // 静止時はゆっくり動き、移動中は速く動く
+    // 静止時はゆっくり動き、移動中は速く動く。身震い（ブルブル）中は非常に高速。
     float phaseSpeed = 4.0f + currentSpeed * 2.0f;
+    if (throwMotionTimer_ > 0.0f) {
+        phaseSpeed += 35.0f; // 超高速でブルブルさせる
+    } else if (isCharging_ && chargeCount_ > 0) {
+        phaseSpeed += chargeCount_ * 3.0f; // チャージ中はチャージ数に応じて小刻みに震える
+    }
     swimPhase_ += phaseSpeed * dt;
 
     Model* rawModel = model_->GetModel();
     uint32_t vtxCount = (uint32_t)sourceVertices_.size();
 
     float waveFreq = 1.5f;
-    float waveAmp = 0.15f + (currentSpeed / 15.0f) * 0.15f; 
+    // チャージ中や身震い中は振幅を調整
+    float baseAmp = 0.15f + (currentSpeed / 15.0f) * 0.15f; 
+    float waveAmp = baseAmp;
+    if (throwMotionTimer_ > 0.0f) {
+        waveAmp = baseAmp * 2.6f; // 身震い中は大きくうねる
+    } else if (isCharging_ && chargeCount_ > 0) {
+        waveAmp = baseAmp * 0.7f; // チャージ中は少し振幅を抑える
+    }
 
     for (uint32_t i = 0; i < vtxCount; ++i) {
         Vector3 src = sourceVertices_[i];

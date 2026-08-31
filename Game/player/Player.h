@@ -16,7 +16,7 @@ class Debris;
 class Player {
 public:
     void Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam);
-    void Update(float dt, const Input& input);
+    void Update(float dt, const Input& input, std::vector<std::unique_ptr<Debris>>& debrisList);
     void Draw();
 
     // カメラの追従やアタッチの計算に必要なgetter
@@ -57,5 +57,12 @@ private:
 
     // 尾びれが最小値側か最大値側か
     bool tailIsMin_ = true;
-};
 
+    // ゴミ投げチャージシステム
+    float chargeTimer_ = 0.0f;
+    int chargeCount_ = 0;
+    bool isCharging_ = false;
+
+    // 身震い（ブルブル）モーションタイマー
+    float throwMotionTimer_ = 0.0f;
+};
