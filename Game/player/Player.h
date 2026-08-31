@@ -1,8 +1,61 @@
 #pragma once
+#include <memory>
+#include <vector>
+#include <string>
+#include "Vector3.h"
+#include "MathStruct.h"
+
+class Object3d;
+class Object3dCommon;
+class DirectXCommon;
+class Camera;
+class Input;
+class Debris;
+
 // 新しいゲーム向けのプレイヤー骨組みです。
 class Player {
 public:
-    void Initialize();
-    void Update(float dt);
+    void Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam);
+    void Update(float dt, const Input& input);
     void Draw();
+
+    // カメラの追従やアタッチの計算に必要なgetter
+    const Vector3& GetPosition() const { return pos_; }
+    float GetYaw() const { return yaw_; }
+    float GetPitch() const { return pitch_; }
+    Matrix4x4 GetWorldMatrix() const;
+
+    // ゴミオブジェクトとの衝突判定とアタッチ処理
+    void CheckDebrisCollision(std::vector<std::unique_ptr<Debris>>& debrisList);
+
+private:
+    std::unique_ptr<Object3d> model_;
+    Camera* camera_ = nullptr;
+
+    // 移動用パラメータ
+    Vector3 pos_ = { 0.0f, 0.0f, 0.0f };
+    Vector3 vel_ = { 0.0f, 0.0f, 0.0f };
+    float yaw_ = 0.0f;    // 左右旋回
+    float pitch_ = 0.0f;  // 上下向き
+
+    float maxForwardSpeed_ = 15.0f;
+    float maxBackwardSpeed_ = -6.0f;
+
+    // アタッチされたゴミのリスト
+    std::vector<std::unique_ptr<Debris>> attachedDebris_;
+
+    // マグロの泳ぎアニメーション（クネクネ）パラメータ
+    std::vector<Vector3> sourceVertices_;
+    float swimPhase_ = 0.0f;
+
+    // 前後軸・左右軸の自動検出結果
+    int spineAxis_ = 2; // 0:X, 1:Y, 2:Z (デフォルトはZが前後)
+    int swingAxis_ = 0; // 左右に揺らす軸 (デフォルトはX)
+    float spineMin_ = 0.0f;
+    float spineMax_ = 0.0f;
+    float spineLength_ = 1.0f;
+
+    // 尾びれが最小値側か最大値側か
+    bool tailIsMin_ = true;
 };
+

@@ -172,117 +172,15 @@
     <ClCompile Include="Game\scene\Main\GameScene.cpp">
       <Filter>Game\Scene\Main</Filter>
     </ClCompile>
-    <ClCompile Include="Game\scene\Main\GameScene.DebugAI.cpp">
-      <Filter>Game\Scene\Main</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Main\GameSceneDebugProfile.cpp">
-      <Filter>Game\Scene\Main</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Main\GameScene.Lifecycle.cpp">
-      <Filter>Game\Scene\Main</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Main\GameScene.Render.cpp">
-      <Filter>Game\Scene\Main</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Main\GameScene.UI.cpp">
-      <Filter>Game\Scene\Main</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Main\GameScene.Update.cpp">
-      <Filter>Game\Scene\Main</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Flow\TitleScene.cpp">
-      <Filter>Game\Scene\Flow</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\ParticleTestScene.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\ParticleTestScene.Dialogs.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\ParticleTestScene.DopeSheet.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\ParticleTestScene.ImGui.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\ParticleTestScene.Objects.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\ParticleTestScene.Serialization.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\ParticleTestScene.Timeline.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\TestScene.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\TestScene.UI.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\TestScene.PathPreview.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\TestScene.Trajectory.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\TestSceneBossTuning.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Test\TestSceneKnockbackPreview.cpp">
-      <Filter>Game\Scene\Test</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Flow\GameOverScene.cpp">
-      <Filter>Game\Scene\Flow</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Flow\GameClearScene.cpp">
-      <Filter>Game\Scene\Flow</Filter>
-    </ClCompile>
     <!-- Game\Player: プレイヤー -->
     <ClCompile Include="Game\player\Player.cpp">
       <Filter>Game\Player</Filter>
     </ClCompile>
-    <ClCompile Include="Game\player\PlayerAttack.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerAttackI.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerAttackIDown.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerAttackINeutral.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerAttackISide.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerAttackIUp.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerAttackU.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerInput.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerMovement.cpp">
-      <Filter>Game\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\player\PlayerPresentation.cpp">
+    <ClCompile Include="Game\player\Debris.cpp">
       <Filter>Game\Player</Filter>
     </ClCompile>
     <!-- Game\Enemy: エネミー -->
     <ClCompile Include="Game\enemy\Enemy.cpp">
-      <Filter>Game\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\enemy\EnemyManager.cpp">
-      <Filter>Game\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\enemy\Bullet.cpp">
-      <Filter>Game\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\enemy\BossAI.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
     <!-- externals\imgui -->
@@ -322,12 +220,6 @@
     <ClCompile Include="Engine\DebugAI\DebugAnomalyDetector.cpp">
       <Filter>Engine\DebugAI</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\DebugAI\Protocol\DebugProtocol.cpp">
-      <Filter>ソース ファイル\Engine\DebugAI</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\DebugAI\Transport\NamedPipeDebugAITransport.cpp">
-      <Filter>ソース ファイル\Engine\DebugAI</Filter>
-    </ClCompile>
     <ClCompile Include="Engine\DebugAI\ApiDebugBot.cpp">
       <Filter>Engine\DebugAI</Filter>
     </ClCompile>
@@ -345,9 +237,6 @@
     </ClCompile>
     <ClCompile Include="Engine\DebugAI\DebugObservationEventRecorder.cpp">
       <Filter>Engine\DebugAI</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\DebugAI\DebugInputReplay.cpp">
-      <Filter>ソース ファイル\Engine\DebugAI</Filter>
     </ClCompile>
     <ClCompile Include="Engine\DebugAI\GeminiDebugActionProvider.cpp">
       <Filter>Engine\DebugAI</Filter>
@@ -377,12 +266,9 @@
     </ClCompile>
     <ClCompile Include="Engine\Core\SceneManager.cpp" />
     <ClCompile Include="Engine\Level\LevelLoader.cpp" />
-    <ClCompile Include="Game\scene\Debug\DebugScene.cpp">
-      <Filter>Game\Scene\Debug</Filter>
-    </ClCompile>
-    <ClCompile Include="Game\scene\Debug\DebugAITestScene.cpp">
-      <Filter>Game\Scene\Debug</Filter>
-    </ClCompile>
+    <ClCompile Include="Engine\DebugAI\Protocol\DebugProtocol.cpp" />
+    <ClCompile Include="Engine\DebugAI\Transport\NamedPipeDebugAITransport.cpp" />
+    <ClCompile Include="Engine\DebugAI\DebugInputReplay.cpp" />
   </ItemGroup>
   <!-- ===== .h ファイル ===== -->
   <ItemGroup>
@@ -492,63 +378,15 @@
     <ClInclude Include="Game\scene\Main\GameScene.h">
       <Filter>Game\Scene\Main</Filter>
     </ClInclude>
-    <ClInclude Include="Game\scene\Main\GameSceneDebugAdapter.h">
-      <Filter>Game\Scene\Main</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Main\GameSceneDebugProfile.h">
-      <Filter>Game\Scene\Main</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Flow\TitleScene.h">
-      <Filter>Game\Scene\Flow</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Test\ParticleTestScene.h">
-      <Filter>Game\Scene\Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Test\ParticleTestEditorTypes.h">
-      <Filter>Game\Scene\Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Test\ParticleTestSceneSupport.h">
-      <Filter>Game\Scene\Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Test\TestScene.h">
-      <Filter>Game\Scene\Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Test\TestScene.Trajectory.h">
-      <Filter>Game\Scene\Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Test\TestSceneBossTuning.h">
-      <Filter>Game\Scene\Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Test\TestSceneKnockbackPreview.h">
-      <Filter>Game\Scene\Test</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Flow\GameOverScene.h">
-      <Filter>Game\Scene\Flow</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Flow\GameClearScene.h">
-      <Filter>Game\Scene\Flow</Filter>
-    </ClInclude>
     <!-- Game\Player -->
     <ClInclude Include="Game\player\Player.h">
       <Filter>Game\Player</Filter>
     </ClInclude>
-    <ClInclude Include="Game\player\PlayerAttackI.h">
-      <Filter>Game\Player</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\player\PlayerAttackIInternal.h">
+    <ClInclude Include="Game\player\Debris.h">
       <Filter>Game\Player</Filter>
     </ClInclude>
     <!-- Game\Enemy -->
     <ClInclude Include="Game\enemy\Enemy.h">
-      <Filter>Game\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\enemy\EnemyManager.h">
-      <Filter>Game\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\enemy\Bullet.h">
-      <Filter>Game\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\enemy\BossAI.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
     <!-- externals\imgui -->
@@ -602,24 +440,6 @@
     <ClInclude Include="Engine\DebugAI\ApiDebugBot.h">
       <Filter>Engine\DebugAI</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\DebugAI\Protocol\DebugGenericTypes.h">
-      <Filter>ヘッダー ファイル\Engine\DebugAI</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\DebugAI\Protocol\DebugProtocol.h">
-      <Filter>ヘッダー ファイル\Engine\DebugAI</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\DebugAI\Protocol\IGenericGameDebugAdapter.h">
-      <Filter>ヘッダー ファイル\Engine\DebugAI</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\DebugAI\Protocol\IGenericDebugActionProvider.h">
-      <Filter>ヘッダー ファイル\Engine\DebugAI</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\DebugAI\Transport\IDebugAITransport.h">
-      <Filter>ヘッダー ファイル\Engine\DebugAI</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\DebugAI\Transport\NamedPipeDebugAITransport.h">
-      <Filter>ヘッダー ファイル\Engine\DebugAI</Filter>
-    </ClInclude>
     <ClInclude Include="Engine\DebugAI\BasicCombatDebugBot.h">
       <Filter>Engine\DebugAI</Filter>
     </ClInclude>
@@ -628,9 +448,6 @@
     </ClInclude>
     <ClInclude Include="Engine\DebugAI\DebugLogger.h">
       <Filter>Engine\DebugAI</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\DebugAI\DebugInputReplay.h">
-      <Filter>ヘッダー ファイル\Engine\DebugAI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\DebugAI\DebugGenericActionReplay.h">
       <Filter>Engine\DebugAI</Filter>
@@ -675,12 +492,13 @@
     <ClInclude Include="Engine\Core\SceneManager.h" />
     <ClInclude Include="Engine\Level\LevelLoader.h" />
     <ClInclude Include="Engine\Core\GameApp.h" />
-    <ClInclude Include="Game\scene\Debug\DebugScene.h">
-      <Filter>Game\Scene\Debug</Filter>
-    </ClInclude>
-    <ClInclude Include="Game\scene\Debug\DebugAITestScene.h">
-      <Filter>Game\Scene\Debug</Filter>
-    </ClInclude>
+    <ClInclude Include="Engine\DebugAI\Protocol\DebugGenericTypes.h" />
+    <ClInclude Include="Engine\DebugAI\Protocol\DebugProtocol.h" />
+    <ClInclude Include="Engine\DebugAI\Protocol\IGenericGameDebugAdapter.h" />
+    <ClInclude Include="Engine\DebugAI\Protocol\IGenericDebugActionProvider.h" />
+    <ClInclude Include="Engine\DebugAI\Transport\IDebugAITransport.h" />
+    <ClInclude Include="Engine\DebugAI\Transport\NamedPipeDebugAITransport.h" />
+    <ClInclude Include="Engine\DebugAI\DebugInputReplay.h" />
   </ItemGroup>
   <!-- ===== シェーダーファイル ===== -->
   <ItemGroup>
