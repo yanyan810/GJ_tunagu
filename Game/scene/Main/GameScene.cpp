@@ -78,14 +78,14 @@ void GameScene::OnExit(GameApp& /*app*/) {
 
 void GameScene::Update(GameApp& app, float dt) {
     if (player_ && app.GetInput()) {
-        player_->Update(dt, *app.GetInput());
+        player_->Update(dt, *app.GetInput(), debrisList_);
         // プレイヤーと漂うゴミとの衝突判定
         player_->CheckDebrisCollision(debrisList_);
     }
 
-    // 漂うゴミの浮遊アニメーション更新
+    // ゴミオブジェクトの更新（漂流 / 投射状態）
     for (auto& debris : debrisList_) {
-        debris->UpdateFloating(dt);
+        debris->Update(dt);
     }
     
     for (const auto& enemy : enemies_) {

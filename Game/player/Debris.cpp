@@ -171,3 +171,47 @@ void Debris::Draw() {
         model_->Draw();
     }
 }
+
+void Debris::Update(float dt) {
+    if (state_ == DebrisState::Floating) {
+        UpdateFloating(dt);
+    } else if (state_ == DebrisState::Thrown) {
+        UpdateThrown(dt);
+    }
+}
+
+void Debris::UpdateThrown(float dt) {
+    if (!model_) return;
+
+    // 速度による移動
+    pos_.x += velocity_.x * dt;
+    pos_.y += velocity_.y * dt;
+    pos_.z += velocity_.z * dt;
+
+    // 海水の抵抗による減速
+    velocity_.x *= (1.0f - 1.2f * dt);
+    velocity_.y *= (1.0f - 1.2f * dt);
+    velocity_.z *= (1.0f - 1.2f * dt);
+
+    // 投げられた際の回転
+    rot_.x += 6.0f * dt;
+    rot_.y += 4.0f * dt;
+
+    throwTimer_ += dt;
+    if (throwTimer_ > 2.0f) {
+        // 2秒経ったら元の Floatingに戻る
+        state_ = DebrisState::Floating;
+        floatTimer_ = 0.0f;
+    }
+
+    model_->SetTranslate(pos_);
+    model_->SetRotate(rot_);
+    model_->Update(dt);
+}
+
+void Debris::Throw(const Vector3& pos, const Vector3& velocity) {
+    state_ = DebrisState::Thrown;
+    pos_ = pos;
+    velocity_ = velocity;
+    throwTimer_ = 0.0f;
+}
