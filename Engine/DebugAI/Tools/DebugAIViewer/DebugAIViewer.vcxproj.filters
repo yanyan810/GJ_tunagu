@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="AdapterDiagnostics.cpp" />
+    <ClCompile Include="DebugAIViewer.cpp" />
+    <ClCompile Include="CoverageTracker.cpp" />
+    <ClCompile Include="ExternalGenericAIProvider.cpp" />
+    <ClCompile Include="GameWindowCapture.cpp" />
+    <ClCompile Include="ScenarioRunner.cpp" />
+    <ClCompile Include="TestReportGenerator.cpp" />
+    <ClCompile Include="..\..\Protocol\DebugProtocol.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AdapterDiagnostics.h" />
+    <ClInclude Include="CoverageTracker.h" />
+    <ClInclude Include="ExternalGenericAIProvider.h" />
+    <ClInclude Include="GameWindowCapture.h" />
+    <ClInclude Include="ScenarioRunner.h" />
+    <ClInclude Include="TestReportGenerator.h" />
+  </ItemGroup>
+</Project>

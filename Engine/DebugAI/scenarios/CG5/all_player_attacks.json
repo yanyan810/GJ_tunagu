@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "all_player_attacks",
+  "name": "All Player Attacks",
+  "description": "Reach Battle, use every currently available player attack, and confirm at least one hit.",
+  "sceneId": "Game",
+  "actor": "Player",
+  "autoRecord": true,
+  "verifyReplay": true,
+  "replayVerificationTimeoutSeconds": 180,
+  "timeoutSeconds": 180,
+  "goals": [
+    {
+      "id": "reach_battle",
+      "type": "phaseReached",
+      "description": "Reach the Battle phase",
+      "value": "Battle"
+    },
+    {
+      "id": "use_all_attacks",
+      "type": "allActionsWithTag",
+      "description": "Use every available player attack",
+      "tag": "combat.attack"
+    },
+    {
+      "id": "confirm_damage",
+      "type": "enemyDamage",
+      "description": "Deal damage to an enemy",
+      "amount": 1
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+    "animationCamera": {
+        "fovY": 0.44999998807907104,
+        "keyframes": [],
+        "position": [
+            0.0,
+            3.0,
+            -12.0
+        ],
+        "preview": false,
+        "previewSwapped": false,
+        "rotation": [
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "objects": [
+        {
+            "billboard": false,
+            "blendMode": 1,
+            "bloomColor": [
+                1.0,
+                0.7200000286102295,
+                0.2199999988079071,
+                1.0
+            ],
+            "bloomPostEffect": false,
+            "bonePoses": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "geometryType": -1,
+            "id": 1,
+            "keyframes": [],
+            "modelPath": "cube/cube.obj",
+            "name": "EffectObject_01",
+            "outlineBloomColor": [
+                1.0,
+                0.7200000286102295,
+                0.2199999988079071,
+                1.0
+            ],
+            "outlineBloomPostEffect": false,
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "selectedBone": 0,
+            "showBones": false,
+            "texturePath": ""
+        }
+    ],
+    "particleNodes": [],
+    "timeline": {
+        "duration": 1.0,
+        "loop": true
+    }
+}

@@ -1,0 +1,174 @@
+{
+    "animationCamera": {
+        "fovY": 0.44999998807907104,
+        "keyframes": [],
+        "position": [
+            0.0,
+            3.0,
+            -12.0
+        ],
+        "preview": false,
+        "previewSwapped": false,
+        "rotation": [
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "objects": [
+        {
+            "billboard": false,
+            "blendMode": 1,
+            "bloomColor": [
+                1.0,
+                0.7200000286102295,
+                0.2199999988079071,
+                1.0
+            ],
+            "bloomPostEffect": false,
+            "bonePoses": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                0.0
+            ],
+            "geometryType": 5,
+            "id": 4,
+            "keyframes": [
+                {
+                    "bloomColor": [
+                        1.0,
+                        0.7200000286102295,
+                        0.2199999988079071,
+                        1.0
+                    ],
+                    "bloomPostEffect": false,
+                    "color": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "outlineBloomColor": [
+                        1.0,
+                        0.7200000286102295,
+                        0.2199999988079071,
+                        1.0
+                    ],
+                    "outlineBloomPostEffect": false,
+                    "position": [
+                        0.0,
+                        0.1999969631433487,
+                        0.0
+                    ],
+                    "rotation": [
+                        -3.069999933242798,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        0.22818179428577423,
+                        1.0
+                    ],
+                    "time": 0.0
+                },
+                {
+                    "bloomColor": [
+                        1.0,
+                        0.7200000286102295,
+                        0.2199999988079071,
+                        1.0
+                    ],
+                    "bloomPostEffect": false,
+                    "color": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        0.0
+                    ],
+                    "outlineBloomColor": [
+                        1.0,
+                        0.7200000286102295,
+                        0.2199999988079071,
+                        1.0
+                    ],
+                    "outlineBloomPostEffect": false,
+                    "position": [
+                        0.0,
+                        0.1999969631433487,
+                        0.0
+                    ],
+                    "rotation": [
+                        -3.069999933242798,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        5.150000095367432,
+                        0.22818179428577423,
+                        13.399999618530273
+                    ],
+                    "time": 0.29520294070243835
+                }
+            ],
+            "modelPath": "geometry:Cylinder",
+            "name": "Cylinder_04",
+            "outlineBloomColor": [
+                1.0,
+                0.7200000286102295,
+                0.2199999988079071,
+                1.0
+            ],
+            "outlineBloomPostEffect": false,
+            "position": [
+                0.0,
+                0.1999969631433487,
+                0.0
+            ],
+            "rotation": [
+                -3.069999933242798,
+                0.0,
+                0.0
+            ],
+            "scale": [
+                5.150000095367432,
+                0.22818179428577423,
+                13.399999618530273
+            ],
+            "selectedBone": 0,
+            "showBones": false,
+            "texturePath": "gradationLine.png"
+        }
+    ],
+    "particleNodes": [
+        {
+            "emitCount": 10,
+            "endTime": 0.29520294070243835,
+            "name": "fallAttak_Effect_1",
+            "particleFileName": "fallAttak_Effect.json",
+            "position": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "presetDuration": 0.29520294070243835,
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "startTime": 0.0
+        }
+    ],
+    "timeline": {
+        "duration": 1.0,
+        "loop": true
+    }
+}

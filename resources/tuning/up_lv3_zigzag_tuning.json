@@ -1,0 +1,536 @@
+{
+    "battle": {
+        "useHpDamage": false
+    },
+    "bossAttacks": [
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.3499999940395355,
+                "baseKnockback": 4.0,
+                "damagePercent": 5.0,
+                "hitStunSec": 0.20000000298023224,
+                "hpDamage": 5,
+                "knockbackDir": [
+                    0.4000000059604645,
+                    0.15000000596046448,
+                    0.0
+                ],
+                "knockbackScale": 0.029999999329447746,
+                "useFixedKnockback": false
+            },
+            "hitbox": {
+                "activeSec": 0.10000000149011612,
+                "damage": 5,
+                "halfSize": [
+                    0.949999988079071,
+                    3.0999999046325684,
+                    0.5
+                ],
+                "offset": [
+                    0.8999999761581421,
+                    2.75,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Normal / Combo"
+        },
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.3499999940395355,
+                "baseKnockback": 21.799999237060547,
+                "damagePercent": 16.0,
+                "hitStunSec": 0.44999998807907104,
+                "hpDamage": 16,
+                "knockbackDir": [
+                    0.5199999809265137,
+                    2.0,
+                    0.0
+                ],
+                "knockbackScale": 0.10000000149011612,
+                "useFixedKnockback": false
+            },
+            "hitbox": {
+                "activeSec": 0.07999999821186066,
+                "damage": 10,
+                "halfSize": [
+                    2.200000047683716,
+                    1.2999999523162842,
+                    1.2000000476837158
+                ],
+                "offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Jump Slash / Land"
+        },
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.3499999940395355,
+                "baseKnockback": 11.600000381469727,
+                "damagePercent": 5.0,
+                "hitStunSec": 0.3499999940395355,
+                "hpDamage": 12,
+                "knockbackDir": [
+                    1.0,
+                    0.9700000286102295,
+                    0.0
+                ],
+                "knockbackScale": 0.0,
+                "useFixedKnockback": false
+            },
+            "hitbox": {
+                "activeSec": 0.05999999865889549,
+                "damage": 10,
+                "halfSize": [
+                    3.109999895095825,
+                    1.899999976158142,
+                    1.2000000476837158
+                ],
+                "offset": [
+                    0.25,
+                    1.2999999523162842,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Rush"
+        },
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.0,
+                "baseKnockback": 23.899999618530273,
+                "damagePercent": 8.0,
+                "hitStunSec": 0.4000000059604645,
+                "hpDamage": 8,
+                "knockbackDir": [
+                    0.3499999940395355,
+                    0.9800000190734863,
+                    0.0
+                ],
+                "knockbackScale": 0.05000000074505806,
+                "useFixedKnockback": true
+            },
+            "hitbox": {
+                "activeSec": 0.11999999731779099,
+                "damage": 8,
+                "halfSize": [
+                    2.549999952316284,
+                    3.700000047683716,
+                    0.6000000238418579
+                ],
+                "offset": [
+                    2.0999999046325684,
+                    1.75,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Double Melee 1"
+        },
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.3499999940395355,
+                "baseKnockback": 23.299999237060547,
+                "damagePercent": 12.0,
+                "hitStunSec": 0.5,
+                "hpDamage": 12,
+                "knockbackDir": [
+                    1.0,
+                    -0.6000000238418579,
+                    0.0
+                ],
+                "knockbackScale": 0.07999999821186066,
+                "useFixedKnockback": false
+            },
+            "hitbox": {
+                "activeSec": 0.11999999731779099,
+                "damage": 12,
+                "halfSize": [
+                    4.599999904632568,
+                    4.099999904632568,
+                    0.6000000238418579
+                ],
+                "offset": [
+                    0.75,
+                    3.3499999046325684,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Double Melee 2"
+        },
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.3499999940395355,
+                "baseKnockback": 0.0,
+                "damagePercent": 0.0,
+                "hitStunSec": 0.5,
+                "hpDamage": 0,
+                "knockbackDir": [
+                    1.0,
+                    0.0,
+                    0.0
+                ],
+                "knockbackScale": 0.0,
+                "useFixedKnockback": false
+            },
+            "hitbox": {
+                "activeSec": 0.10000000149011612,
+                "damage": 0,
+                "halfSize": [
+                    0.800000011920929,
+                    2.4000000953674316,
+                    0.6000000238418579
+                ],
+                "offset": [
+                    1.350000023841858,
+                    2.1500000953674316,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Grab Catch"
+        },
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.3499999940395355,
+                "baseKnockback": 0.5,
+                "damagePercent": 0.30000001192092896,
+                "hitStunSec": 0.0,
+                "hpDamage": 1,
+                "knockbackDir": [
+                    0.0,
+                    0.10000000149011612,
+                    0.0
+                ],
+                "knockbackScale": 0.0,
+                "useFixedKnockback": false
+            },
+            "hitbox": {
+                "activeSec": 0.10000000149011612,
+                "damage": 3,
+                "halfSize": [
+                    2.0999999046325684,
+                    2.799999952316284,
+                    0.6000000238418579
+                ],
+                "offset": [
+                    0.05000000074505806,
+                    2.299999952316284,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Grab Hit"
+        },
+        {
+            "custom": false,
+            "hit": {
+                "actionSpeedRatio": 0.3499999940395355,
+                "baseKnockback": 14.0,
+                "damagePercent": 15.0,
+                "hitStunSec": 0.4000000059604645,
+                "hpDamage": 15,
+                "knockbackDir": [
+                    0.800000011920929,
+                    0.5,
+                    0.0
+                ],
+                "knockbackScale": 0.07999999821186066,
+                "useFixedKnockback": false
+            },
+            "hitbox": {
+                "activeSec": 0.11999999731779099,
+                "damage": 6,
+                "halfSize": [
+                    2.75,
+                    3.1500000953674316,
+                    0.800000011920929
+                ],
+                "offset": [
+                    0.5,
+                    2.200000047683716,
+                    0.0
+                ],
+                "startDelaySec": 0.0
+            },
+            "name": "Grab Finish"
+        }
+    ],
+    "grabHold": {
+        "mirrorXByFacing": true,
+        "offset": [
+            1.25,
+            2.0,
+            0.0
+        ]
+    },
+    "hitStop": {
+        "bossAttackSec": 0.10000000149011612,
+        "enabled": true,
+        "playerAttackSec": 0.07999999821186066,
+        "specialPlayerAttackSec": 0.14000000059604645
+    },
+    "playerUAttacks": {
+        "Air U": {
+            "Neutral": {
+                "actionSec": 0.3400000035762787,
+                "activeSec": 0.1599999964237213,
+                "damage": 9,
+                "halfSize": [
+                    0.699999988079071,
+                    0.699999988079071,
+                    0.5
+                ],
+                "name": "Air Neutral U",
+                "offset": [
+                    0.8500000238418579,
+                    0.75,
+                    0.0
+                ],
+                "startDelaySec": 0.019999999552965164
+            },
+            "Side": {
+                "actionSec": 0.4000000059604645,
+                "activeSec": 0.15000000596046448,
+                "damage": 12,
+                "halfSize": [
+                    0.8500000238418579,
+                    0.75,
+                    0.550000011920929
+                ],
+                "name": "Air Side U",
+                "offset": [
+                    1.100000023841858,
+                    0.699999988079071,
+                    0.0
+                ],
+                "startDelaySec": 0.03999999910593033
+            },
+            "Up": {
+                "actionSec": 0.3799999952316284,
+                "activeSec": 0.1599999964237213,
+                "damage": 11,
+                "halfSize": [
+                    0.800000011920929,
+                    1.0,
+                    0.550000011920929
+                ],
+                "name": "Air Up U",
+                "offset": [
+                    0.20000000298023224,
+                    1.350000023841858,
+                    0.0
+                ],
+                "startDelaySec": 0.029999999329447746
+            }
+        },
+        "Ground U": {
+            "Neutral": {
+                "actionSec": 0.2800000011920929,
+                "activeSec": 0.11999999731779099,
+                "damage": 8,
+                "halfSize": [
+                    0.550000011920929,
+                    0.699999988079071,
+                    0.44999998807907104
+                ],
+                "name": "Ground Neutral U",
+                "offset": [
+                    0.8999999761581421,
+                    0.699999988079071,
+                    0.0
+                ],
+                "startDelaySec": 0.029999999329447746
+            },
+            "Side": {
+                "actionSec": 0.3799999952316284,
+                "activeSec": 0.12999999523162842,
+                "damage": 12,
+                "halfSize": [
+                    0.800000011920929,
+                    0.800000011920929,
+                    0.5
+                ],
+                "name": "Ground Side U",
+                "offset": [
+                    1.149999976158142,
+                    0.75,
+                    0.0
+                ],
+                "startDelaySec": 0.03999999910593033
+            },
+            "Up": {
+                "actionSec": 0.36000001430511475,
+                "activeSec": 0.14000000059604645,
+                "damage": 11,
+                "halfSize": [
+                    0.699999988079071,
+                    1.0499999523162842,
+                    0.5
+                ],
+                "name": "Ground Up U",
+                "offset": [
+                    0.25,
+                    1.4500000476837158,
+                    0.0
+                ],
+                "startDelaySec": 0.03999999910593033
+            }
+        },
+        "Smash U": {
+            "Neutral": {
+                "actionSec": 0.47999998927116394,
+                "activeSec": 0.11999999731779099,
+                "damage": 16,
+                "halfSize": [
+                    0.949999988079071,
+                    0.8999999761581421,
+                    0.550000011920929
+                ],
+                "name": "Smash Neutral U",
+                "offset": [
+                    1.25,
+                    0.8500000238418579,
+                    0.0
+                ],
+                "startDelaySec": 0.07999999821186066
+            },
+            "Side": {
+                "actionSec": 0.550000011920929,
+                "activeSec": 0.14000000059604645,
+                "damage": 20,
+                "halfSize": [
+                    1.149999976158142,
+                    0.949999988079071,
+                    0.6000000238418579
+                ],
+                "name": "Smash Side U",
+                "offset": [
+                    1.4500000476837158,
+                    0.8500000238418579,
+                    0.0
+                ],
+                "startDelaySec": 0.10000000149011612
+            },
+            "Up": {
+                "actionSec": 0.5199999809265137,
+                "activeSec": 0.12999999523162842,
+                "damage": 18,
+                "halfSize": [
+                    0.8999999761581421,
+                    1.2000000476837158,
+                    0.6000000238418579
+                ],
+                "name": "Smash Up U",
+                "offset": [
+                    0.3499999940395355,
+                    1.649999976158142,
+                    0.0
+                ],
+                "startDelaySec": 0.09000000357627869
+            }
+        }
+    },
+    "specialMoveTunings": {
+        "NeutralSpecial_Lv1": {
+            "hitStopSec": 0.05999999865889549,
+            "speedRate": 1.0,
+            "startFollowPlayer": true,
+            "startOffsetX": 5.0,
+            "startOffsetY": 0.0,
+            "waypoints": []
+        },
+        "NeutralSpecial_Lv2": {
+            "hitStopSec": 0.05999999865889549,
+            "speedRate": 1.0,
+            "startFollowPlayer": true,
+            "startOffsetX": 5.0,
+            "startOffsetY": 0.0,
+            "waypoints": []
+        },
+        "NeutralSpecial_Lv3": {
+            "hitStopSec": 0.05999999865889549,
+            "speedRate": 1.0,
+            "startFollowPlayer": true,
+            "startOffsetX": 5.0,
+            "startOffsetY": 0.0,
+            "waypoints": []
+        },
+        "UpSpecial_Lv1": {
+            "hitStopSec": 0.05999999865889549,
+            "speedRate": 1.0,
+            "startFollowPlayer": true,
+            "startOffsetX": 5.0,
+            "startOffsetY": 0.0,
+            "waypoints": []
+        },
+        "UpSpecial_Lv2": {
+            "hitStopSec": 0.05999999865889549,
+            "speedRate": 1.0,
+            "startFollowPlayer": true,
+            "startOffsetX": 5.0,
+            "startOffsetY": 0.0,
+            "waypoints": []
+        },
+        "UpSpecial_Lv3": {
+            "hitStopSec": 0.05999999865889549,
+            "speedRate": 1.0,
+            "startFollowPlayer": true,
+            "startOffsetX": 3.832636833190918,
+            "startOffsetY": 3.7452802658081055,
+            "waypoints": [
+                {
+                    "duration": 0.03999999910593033,
+                    "hits": [],
+                    "offsetX": -8.550872802734375,
+                    "offsetY": 0.9758336544036865
+                },
+                {
+                    "duration": 0.03999999910593033,
+                    "hits": [
+                        0.4050000011920929
+                    ],
+                    "offsetX": 8.236177444458008,
+                    "offsetY": 1.887156367301941
+                },
+                {
+                    "duration": 0.03999999910593033,
+                    "hits": [
+                        0.6069999933242798
+                    ],
+                    "offsetX": -5.180755615234375,
+                    "offsetY": 3.790121078491211
+                },
+                {
+                    "duration": 0.03999999910593033,
+                    "hits": [
+                        0.4480000138282776
+                    ],
+                    "offsetX": 3.531360149383545,
+                    "offsetY": 4.474879741668701
+                },
+                {
+                    "duration": 0.019999999552965164,
+                    "hits": [
+                        0.8100000023841858
+                    ],
+                    "offsetX": -0.12914836406707764,
+                    "offsetY": 9.047847747802734
+                }
+            ]
+        }
+    },
+    "version": 3
+}

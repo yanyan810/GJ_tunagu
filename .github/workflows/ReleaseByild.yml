@@ -1,0 +1,41 @@
+name: ReleaseBuild
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  # ソリューションのパス
+  SOLUTION_FILE_PATH: CG2_Setup.sln
+  # Visual Studio 構成
+  CONFIGURATION: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
+
+      - name: Restore NuGet packages (if any)
+        run: nuget restore "${{ env.SOLUTION_FILE_PATH }}" || echo "No NuGet packages to restore"
+
+      - name: Build solution
+        run: |
+          echo "Building Release..."
+          msbuild "${{ env.SOLUTION_FILE_PATH }}" /p:Platform=x64 /p:Configuration=${{ env.CONFIGURATION }} /m /verbosity:minimal
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReleaseBuild
+          path: |
+            **/x64/Release/*.exe
+            **/x64/Release/*.dll

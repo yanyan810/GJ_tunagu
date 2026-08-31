@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "evade_response",
+  "name": "Evade Response",
+  "description": "Reach Battle and confirm that the player uses at least one configured evasive action.",
+  "sceneId": "Game",
+  "actor": "Player",
+  "autoRecord": true,
+  "verifyReplay": true,
+  "replayVerificationTimeoutSeconds": 180,
+  "timeoutSeconds": 120,
+  "goals": [
+    {
+      "id": "reach_battle",
+      "type": "phaseReached",
+      "description": "Reach the Battle phase",
+      "value": "Battle"
+    },
+    {
+      "id": "use_evasion",
+      "type": "anyAction",
+      "description": "Use Jump, DodgeAway, Retreat, or Guard",
+      "actionIds": [
+        "Jump",
+        "DodgeAway",
+        "Retreat",
+        "Guard"
+      ]
+    }
+  ]
+}

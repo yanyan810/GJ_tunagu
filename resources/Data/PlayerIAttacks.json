@@ -1,0 +1,639 @@
+{
+    "attacks": [
+        {
+            "levels": [
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 0,
+                    "motionKeyframes": [],
+                    "name": "NeutralSpecial_Level0",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 1,
+                    "motionKeyframes": [],
+                    "name": "NeutralSpecial_Level1",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 2,
+                    "motionKeyframes": [],
+                    "name": "NeutralSpecial_Level2",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 3,
+                    "motionKeyframes": [],
+                    "name": "NeutralSpecial_Level3",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                }
+            ],
+            "type": "NeutralSpecial"
+        },
+        {
+            "levels": [
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 0,
+                    "motionKeyframes": [],
+                    "name": "SideSpecial_Level0",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 1,
+                    "motionKeyframes": [],
+                    "name": "SideSpecial_Level1",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 2,
+                    "motionKeyframes": [],
+                    "name": "SideSpecial_Level2",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": true,
+                    "hitboxes": [],
+                    "level": 3,
+                    "motionKeyframes": [],
+                    "name": "SideSpecial_Level3",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                }
+            ],
+            "type": "SideSpecial"
+        },
+        {
+            "levels": [
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 0,
+                    "motionKeyframes": [],
+                    "name": "UpSpecial_Level0",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 1,
+                    "motionKeyframes": [],
+                    "name": "UpSpecial_Level1",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 2,
+                    "motionKeyframes": [],
+                    "name": "UpSpecial_Level2",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [
+                        {
+                            "followPlayerMovement": false,
+                            "jsonPath": "resources/effects/slash_effect.json",
+                            "movementPointIndex": 3,
+                            "name": "I_Attack_2_3_0",
+                            "offset": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "positionMode": "movementPoint",
+                            "time": 0.0
+                        }
+                    ],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": true,
+                    "hitboxes": [
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": true,
+                            "halfSize": [
+                                0.6000000238418579,
+                                0.800000011920929,
+                                0.5
+                            ],
+                            "hitStopSec": 0.07999999821186066,
+                            "multiHit": false,
+                            "offset": [
+                                1.0,
+                                1.0,
+                                0.0
+                            ],
+                            "time": 0.0
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                11.649999618530273,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.018385212868452072
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                11.850000381469727,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.03852139785885811
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                0.0,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.06040855497121811
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                11.600000381469727,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.08054473996162415
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                12.600000381469727,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.10068093240261078
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                11.850000381469727,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.11906614154577255
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                12.25,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.14007781445980072
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                11.550000190734863,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.15933851897716522
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                12.100000381469727,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.17947469651699066
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                11.949999809265137,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.20136186480522156
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                12.449999809265137,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.21974708139896393
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.009999999776482582,
+                            "multiHit": false,
+                            "offset": [
+                                11.949999809265137,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.23988324403762817
+                        },
+                        {
+                            "active": true,
+                            "damage": 12,
+                            "duration": 0.009999999776482582,
+                            "followPlayerMovement": false,
+                            "halfSize": [
+                                3.700000047683716,
+                                3.6500000953674316,
+                                0.5
+                            ],
+                            "hitStopSec": 0.14000000059604645,
+                            "multiHit": false,
+                            "offset": [
+                                12.0,
+                                3.0,
+                                0.0
+                            ],
+                            "time": 0.37295717000961304
+                        }
+                    ],
+                    "level": 3,
+                    "motionKeyframes": [],
+                    "name": "UpSpecial_Level3",
+                    "opacityKeyframes": [
+                        {
+                            "alpha": 0.0,
+                            "interpolation": "step",
+                            "time": 0.10000000149011612
+                        },
+                        {
+                            "alpha": 1.0,
+                            "interpolation": "step",
+                            "time": 0.30000001192092896
+                        }
+                    ],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [
+                        {
+                            "interpolation": "linear",
+                            "offset": [
+                                -6.392232894897461,
+                                -2.422640323638916,
+                                2.1815989017486572
+                            ],
+                            "space": "bossTarget",
+                            "time": 0.0
+                        },
+                        {
+                            "interpolation": "linear",
+                            "offset": [
+                                6.701503276824951,
+                                1.9101240634918213,
+                                4.7891058921813965
+                            ],
+                            "space": "bossTarget",
+                            "time": 0.10000000149011612
+                        },
+                        {
+                            "interpolation": "linear",
+                            "offset": [
+                                -6.362281322479248,
+                                1.1605308055877686,
+                                1.9485548734664917
+                            ],
+                            "space": "bossTarget",
+                            "time": 0.20000000298023224
+                        },
+                        {
+                            "interpolation": "linear",
+                            "offset": [
+                                0.0,
+                                -3.0,
+                                0.0
+                            ],
+                            "space": "bossTarget",
+                            "time": 0.30000001192092896
+                        },
+                        {
+                            "interpolation": "linear",
+                            "offset": [
+                                0.0,
+                                7.56600284576416,
+                                0.0
+                            ],
+                            "space": "bossTarget",
+                            "time": 0.4000000059604645
+                        }
+                    ],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                }
+            ],
+            "type": "UpSpecial"
+        },
+        {
+            "levels": [
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 0,
+                    "motionKeyframes": [],
+                    "name": "DownSpecial_Level0",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 1,
+                    "motionKeyframes": [],
+                    "name": "DownSpecial_Level1",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 2,
+                    "motionKeyframes": [],
+                    "name": "DownSpecial_Level2",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                },
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 3,
+                    "motionKeyframes": [],
+                    "name": "DownSpecial_Level3",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                }
+            ],
+            "type": "DownSpecial"
+        }
+    ],
+    "editorBossTarget": {
+        "bodyHalfSize": [
+            1.2000000476837158,
+            2.0,
+            1.399999976158142
+        ],
+        "feetPosition": [
+            0.0,
+            0.0,
+            5.0
+        ],
+        "matchTestSceneLayout": true,
+        "show": true,
+        "showHitbox": true
+    },
+    "version": 3
+}

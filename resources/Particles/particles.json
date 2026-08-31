@@ -1,0 +1,136 @@
+[
+    {
+        "billboardMode": 0,
+        "blendMode": 1,
+        "depthTestEnabled": true,
+        "emitter": {
+            "acceleration": [
+                0.0,
+                -1.5399999618530273,
+                0.0
+            ],
+            "angleRandomDeg": 360.0,
+            "count": 128,
+            "endColor": [
+                1.0,
+                1.0,
+                1.0,
+                0.0
+            ],
+            "frequency": 0.23000000417232513,
+            "jitterDeg": 0.0,
+            "lifeTimeMax": 2.5999999046325684,
+            "lifeTimeMin": 1.100000023841858,
+            "radius": 5.0,
+            "scaleEnd": [
+                0.009999999776482582,
+                0.009999999776482582,
+                0.009999999776482582
+            ],
+            "scaleStart": [
+                0.25,
+                0.25,
+                0.25
+            ],
+            "shapeAngle": 0.5,
+            "shapeSize": [
+                5.0,
+                5.0,
+                5.0
+            ],
+            "shapeType": 0,
+            "speedMax": 0.11999999731779099,
+            "speedMin": 0.3100000023841858,
+            "startColor": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translate": [
+                0.0,
+                0.0,
+                61.400001525878906
+            ],
+            "velocityBase": [
+                0.0,
+                0.46000000834465027,
+                0.0
+            ],
+            "velocityVariance": 0.10000000149011612
+        },
+        "isAutoEmit": false,
+        "modelName": "1",
+        "modelType": 1,
+        "name": "gpu_test",
+        "postEffectMode": 0,
+        "texturePath": "Resources/ui/white.png"
+    },
+    {
+        "billboardMode": 0,
+        "blendMode": 2,
+        "depthTestEnabled": false,
+        "emitter": {
+            "acceleration": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "angleRandomDeg": 360.0,
+            "count": 24,
+            "endColor": [
+                1.0,
+                0.15000000596046448,
+                0.019999999552965164,
+                0.0
+            ],
+            "frequency": 0.05000000074505806,
+            "jitterDeg": 0.0,
+            "lifeTimeMax": 0.2800000011920929,
+            "lifeTimeMin": 0.11999999731779099,
+            "radius": 0.44999998807907104,
+            "scaleEnd": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scaleStart": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+            ],
+            "shapeAngle": 0.5,
+            "shapeSize": [
+                0.3499999940395355,
+                0.3499999940395355,
+                0.3499999940395355
+            ],
+            "shapeType": 0,
+            "speedMax": 0.20000000298023224,
+            "speedMin": 0.03999999910593033,
+            "startColor": [
+                1.0,
+                0.8500000238418579,
+                0.25,
+                1.0
+            ],
+            "translate": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "velocityBase": [
+                0.0,
+                0.029999999329447746,
+                0.0
+            ],
+            "velocityVariance": 0.2199999988079071
+        },
+        "isAutoEmit": false,
+        "modelName": "",
+        "modelType": 0,
+        "name": "HitEffect",
+        "postEffectMode": 11,
+        "texturePath": "resources/circle.png"
+    }
+]

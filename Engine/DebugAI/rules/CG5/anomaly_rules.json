@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "rules": [
+    {
+      "id": "player_hp_negative",
+      "severity": "error",
+      "scope": "observation",
+      "scenes": ["Game"],
+      "property": "player.hp",
+      "operator": "lessThan",
+      "value": 0,
+      "cooldownFrames": 300,
+      "message": "Player HP became negative."
+    },
+    {
+      "id": "enemy_hp_negative",
+      "severity": "error",
+      "scope": "entity",
+      "scenes": ["Game"],
+      "category": "Enemy",
+      "property": "hp",
+      "operator": "lessThan",
+      "value": 0,
+      "cooldownFrames": 300,
+      "message": "Enemy HP became negative."
+    },
+    {
+      "id": "player_position_invalid",
+      "severity": "error",
+      "scope": "observation",
+      "scenes": ["Game"],
+      "property": "player.position",
+      "operator": "isNotFinite",
+      "cooldownFrames": 300,
+      "message": "Player position contains NaN or infinity."
+    },
+    {
+      "id": "entity_position_invalid",
+      "severity": "error",
+      "scope": "entity",
+      "scenes": ["Game"],
+      "property": "position",
+      "operator": "isNotFinite",
+      "cooldownFrames": 300,
+      "message": "Entity position contains NaN or infinity."
+    },
+    {
+      "id": "player_outside_safety_bounds",
+      "severity": "warning",
+      "scope": "observation",
+      "scenes": ["Game"],
+      "phases": ["Battle"],
+      "property": "player.position",
+      "operator": "outsideRange",
+      "min": [-100.0, -100.0, -100.0],
+      "max": [100.0, 100.0, 100.0],
+      "durationFrames": 30,
+      "cooldownFrames": 600,
+      "message": "Player remained outside the configured safety bounds."
+    },
+    {
+      "id": "fps_low_sustained",
+      "severity": "warning",
+      "scope": "observation",
+      "scenes": ["Game"],
+      "property": "fps",
+      "operator": "lessThan",
+      "value": 20.0,
+      "durationFrames": 180,
+      "cooldownFrames": 600,
+      "message": "FPS stayed below 20 for approximately three seconds."
+    },
+    {
+      "id": "progress_unchanged",
+      "severity": "warning",
+      "scope": "observation",
+      "scenes": ["Game"],
+      "phases": ["Battle"],
+      "property": "state.progressKey",
+      "operator": "unchangedForFrames",
+      "durationFrames": 1800,
+      "cooldownFrames": 1800,
+      "message": "Game progress remained unchanged for approximately thirty seconds."
+    }
+  ]
+}

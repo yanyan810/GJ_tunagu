@@ -1,0 +1,2056 @@
+{
+  "actions": [
+    {
+      "actionId": "AttackDownSpecial",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackDownSpecial\" ||",
+          "kind": "Action",
+          "line": 60,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackDownSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackDownSpecial\") {",
+          "kind": "Action",
+          "line": 783,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackDownSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackDownSpecial\";",
+          "kind": "Action",
+          "line": 820,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackDownSpecial"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "{ \"AttackDownSpecial\" },",
+          "kind": "Action",
+          "line": 38,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "AttackDownSpecial"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 2.1,
+        "nearestMissRange": 0.0,
+        "rangeConfidence": 0.6600000262260437,
+        "rangeEvidence": [
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 1.1,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kDownCounterHitboxHalfSize"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true,
+        "runtimeHitSamples": 1,
+        "runtimeMissSamples": 16,
+        "runtimeRangeVerified": true,
+        "runtimeSamples": 17,
+        "verifiedRangeMax": 1.7112421989440918
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "AttackNeutralSpecial",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackNeutralSpecial\" ||",
+          "kind": "Action",
+          "line": 57,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackNeutralSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackNeutralSpecial\") {",
+          "kind": "Action",
+          "line": 762,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackNeutralSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackNeutralSpecial\" ||",
+          "kind": "Action",
+          "line": 817,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackNeutralSpecial"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "{ \"AttackNeutralSpecial\" },",
+          "kind": "Action",
+          "line": 35,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "AttackNeutralSpecial"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 1.75,
+        "nearestMissRange": 1.280392050743103,
+        "rangeConfidence": 0.85,
+        "rangeEvidence": [
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.75,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kNeutralFinishHitboxHalfSize"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true,
+        "runtimeHitSamples": 28,
+        "runtimeMissSamples": 6,
+        "runtimeRangeVerified": true,
+        "runtimeSamples": 34,
+        "verifiedRangeMax": 2.543148060237758
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "AttackSideSpecial",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackSideSpecial\" ||",
+          "kind": "Action",
+          "line": 58,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackSideSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackSideSpecial\" || action.name == \"AttackSpecial\") {",
+          "kind": "Action",
+          "line": 769,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackSideSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackSideSpecial\" ||",
+          "kind": "Action",
+          "line": 818,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackSideSpecial"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "{ \"AttackSideSpecial\" },",
+          "kind": "Action",
+          "line": 36,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "AttackSideSpecial"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 2.25,
+        "nearestMissRange": 2.0803914070129395,
+        "rangeConfidence": 0.85,
+        "rangeEvidence": [
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 1.25,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kSideSlideHitboxHalfSize"
+          },
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.35,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kSideSlideChargedHitboxAdd"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true,
+        "runtimeHitSamples": 23,
+        "runtimeMissSamples": 7,
+        "runtimeRangeVerified": true,
+        "runtimeSamples": 30,
+        "verifiedRangeMax": 2.787137985229492
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "AttackSmash",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackSmash\" ||",
+          "kind": "Action",
+          "line": 56,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackSmash"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackSmash\") {",
+          "kind": "Action",
+          "line": 755,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackSmash"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackSmash\" ||",
+          "kind": "Action",
+          "line": 816,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackSmash"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "{ \"AttackSmash\" },",
+          "kind": "Action",
+          "line": 34,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "AttackSmash"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 3.5999999999999996,
+        "nearestMissRange": 1.7977649287564235,
+        "rangeConfidence": 0.8999999761581421,
+        "rangeEvidence": [
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Smash Neutral U",
+            "range": 2.2,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          },
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Smash Side U",
+            "range": 2.5999999999999996,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          },
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Smash Up U",
+            "range": 1.25,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true,
+        "runtimeHitSamples": 27,
+        "runtimeMissSamples": 16,
+        "runtimeRangeVerified": true,
+        "runtimeSamples": 43,
+        "verifiedRangeMax": 3.1166632175445557
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "AttackSpecial",
+      "availableNow": false,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": false,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackSpecial\") {",
+          "kind": "Action",
+          "line": 61,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackSideSpecial\" || action.name == \"AttackSpecial\") {",
+          "kind": "Action",
+          "line": 769,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackSpecial\" ||",
+          "kind": "Action",
+          "line": 814,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackSpecial"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "outAction = { \"AttackSpecial\" };",
+          "kind": "Action",
+          "line": 880,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackSpecial"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 5.2,
+        "rangeConfidence": 0.7799999713897705,
+        "rangeEvidence": [
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.75,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kNeutralFinishHitboxHalfSize"
+          },
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 1.25,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kSideSlideHitboxHalfSize"
+          },
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.35,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kSideSlideChargedHitboxAdd"
+          },
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.85,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kUpRiseHitboxHalfSize"
+          },
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 1.1,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kDownCounterHitboxHalfSize"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true
+      },
+      "runtimeObserved": false,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": false
+    },
+    {
+      "actionId": "AttackTilt",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackTilt\" ||",
+          "kind": "Action",
+          "line": 55,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackTilt"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackTilt\") {",
+          "kind": "Action",
+          "line": 748,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackTilt"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackTilt\" ||",
+          "kind": "Action",
+          "line": 815,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackTilt"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "{ \"AttackTilt\" },",
+          "kind": "Action",
+          "line": 33,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "AttackTilt"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 2.95,
+        "nearestMissRange": 1.656747227014758,
+        "rangeConfidence": 0.8999999761581421,
+        "rangeEvidence": [
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Ground Side U",
+            "range": 1.95,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true,
+        "runtimeHitSamples": 40,
+        "runtimeMissSamples": 6,
+        "runtimeRangeVerified": true,
+        "runtimeSamples": 46,
+        "verifiedRangeMax": 2.9499964714050293
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "AttackUpSpecial",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackUpSpecial\" ||",
+          "kind": "Action",
+          "line": 59,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackUpSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackUpSpecial\") {",
+          "kind": "Action",
+          "line": 776,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackUpSpecial"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackUpSpecial\" ||",
+          "kind": "Action",
+          "line": 819,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackUpSpecial"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "{ \"AttackUpSpecial\" },",
+          "kind": "Action",
+          "line": 37,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "AttackUpSpecial"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 5.2,
+        "nearestMissRange": 3.639349019260422,
+        "rangeConfidence": 0.85,
+        "rangeEvidence": [
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.85,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kUpRiseHitboxHalfSize"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 4.2,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashAreaX"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 2.5,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashAreaY"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 1.95,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashLineLength"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true,
+        "runtimeHitSamples": 29,
+        "runtimeMissSamples": 41,
+        "runtimeRangeVerified": true,
+        "runtimeSamples": 70,
+        "verifiedRangeMax": 5.137559029296051
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "AttackWeak",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackWeak\" ||",
+          "kind": "Action",
+          "line": 54,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "AttackWeak"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"AttackWeak\") {",
+          "kind": "Action",
+          "line": 741,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackWeak"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"AttackWeak\" ||",
+          "kind": "Action",
+          "line": 813,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackWeak"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "outAction = { \"AttackWeak\" };",
+          "kind": "Action",
+          "line": 876,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "AttackWeak"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 2.55,
+        "nearestMissRange": 0.737378754108725,
+        "rangeConfidence": 0.8999999761581421,
+        "rangeEvidence": [
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Ground Neutral U",
+            "range": 1.4500000000000002,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          },
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Air Neutral U",
+            "range": 1.5499999999999998,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true,
+        "runtimeHitSamples": 47,
+        "runtimeMissSamples": 11,
+        "runtimeRangeVerified": true,
+        "runtimeSamples": 58,
+        "verifiedRangeMax": 2.7999963760375977
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'attack'",
+          "source excerpt contains 'attack'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.DoubleMelee",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.DoubleMelee\") return State::Double_Melee_Dash;",
+          "kind": "Action",
+          "line": 128,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.DoubleMelee"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.DoubleMelee\");",
+          "kind": "Action",
+          "line": 297,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.DoubleMelee"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 3.0,
+        "rangeConfidence": 0.25,
+        "rangeEvidence": [],
+        "rangeSource": "conservative_default",
+        "requiresFacing": true
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'melee'",
+          "source excerpt contains 'melee'",
+          "source excerpt contains 'dash'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack",
+          "combat.melee"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack",
+        "combat.melee"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.Drop",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.Drop\") return State::Drop_Windup;",
+          "kind": "Action",
+          "line": 126,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Drop"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.Drop\");",
+          "kind": "Action",
+          "line": 295,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Drop"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "manual",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.6000000238418579,
+        "evidence": [
+          "source excerpt contains 'windup'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.Grab",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.Grab\") return State::Grab_WindUp;",
+          "kind": "Action",
+          "line": 130,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Grab"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.Grab\");",
+          "kind": "Action",
+          "line": 299,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Grab"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 3.0,
+        "rangeConfidence": 0.25,
+        "rangeEvidence": [],
+        "rangeSource": "conservative_default",
+        "requiresFacing": true
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'grab'",
+          "source excerpt contains 'grab'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.Melee",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.Melee\") return State::Melee_Dash;",
+          "kind": "Action",
+          "line": 127,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Melee"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.Melee\");",
+          "kind": "Action",
+          "line": 296,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Melee"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 3.0,
+        "rangeConfidence": 0.25,
+        "rangeEvidence": [],
+        "rangeSource": "conservative_default",
+        "requiresFacing": true
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'melee'",
+          "source excerpt contains 'melee'",
+          "source excerpt contains 'dash'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack",
+          "combat.melee"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack",
+        "combat.melee"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.Rush",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.Rush\") return State::Rush_ToRight;",
+          "kind": "Action",
+          "line": 129,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Rush"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.Rush\");",
+          "kind": "Action",
+          "line": 298,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Rush"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "manual",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "generic",
+        "confidence": 0.25,
+        "evidence": [],
+        "method": "local_source_scan",
+        "tags": [
+          "generic"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.Super25",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.Super25\") return State::Super25;",
+          "kind": "Action",
+          "line": 132,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Super25"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.Super25\");",
+          "kind": "Action",
+          "line": 301,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Super25"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 5.2,
+        "rangeConfidence": 0.8999999761581421,
+        "rangeEvidence": [
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.85,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kUpRiseHitboxHalfSize"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 4.2,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashAreaX"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 2.5,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashAreaY"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 1.95,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashLineLength"
+          },
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Ground Up U",
+            "range": 0.95,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'super'",
+          "source excerpt contains 'super'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.Super50",
+      "availableNow": true,
+      "category": "attack",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.Super50\") return State::Super50;",
+          "kind": "Action",
+          "line": 131,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Super50"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.Super50\");",
+          "kind": "Action",
+          "line": 300,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Super50"
+        }
+      ],
+      "properties": {
+        "estimatedRangeMax": 5.2,
+        "rangeConfidence": 0.8999999761581421,
+        "rangeEvidence": [
+          {
+            "confidence": 0.6600000262260437,
+            "label": "",
+            "range": 0.85,
+            "source": "Game\\player\\PlayerAttackIInternal.h",
+            "symbol": "kUpRiseHitboxHalfSize"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 4.2,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashAreaX"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 2.5,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashAreaY"
+          },
+          {
+            "confidence": 0.7799999713897705,
+            "label": "",
+            "range": 1.95,
+            "source": "Game\\player\\PlayerAttackIUp.cpp",
+            "symbol": "kUpLv3RangeSlashLineLength"
+          },
+          {
+            "confidence": 0.8999999761581421,
+            "label": "Ground Up U",
+            "range": 0.95,
+            "source": "Game\\player\\PlayerAttackU.cpp",
+            "symbol": "attackDefinition"
+          }
+        ],
+        "rangeSource": "source_scan",
+        "requiresFacing": true
+      },
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "attack",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'super'",
+          "source excerpt contains 'super'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "attack",
+          "combat.attack"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "attack",
+        "combat.attack"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Boss.Wander",
+      "availableNow": true,
+      "category": "movement",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (actionId == \"Boss.Wander\") return State::Wander;",
+          "kind": "Action",
+          "line": 125,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Wander"
+        },
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "addBossAction(\"Boss.Wander\");",
+          "kind": "Action",
+          "line": 294,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Boss.Wander"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "movement",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'wander'",
+          "source excerpt contains 'wander'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "movement",
+          "movement.approach"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "movement",
+        "movement.approach"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "DodgeAway",
+      "availableNow": true,
+      "category": "mobility",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (action.name == \"DodgeAway\") {",
+          "kind": "Action",
+          "line": 49,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "DodgeAway"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (!canJump && (actionId == \"DodgeAway\" || actionId == \"Jump\")) continue;",
+          "kind": "Action",
+          "line": 3985,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "DodgeAway"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Retreat\" || action.name == \"DodgeAway\") {",
+          "kind": "Action",
+          "line": 699,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "DodgeAway"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "command.action = action.name == \"DodgeAway\"",
+          "kind": "Action",
+          "line": 718,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "DodgeAway"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "mobility",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'dodge'",
+          "source excerpt contains 'dodge'",
+          "source excerpt contains 'jump'",
+          "source excerpt contains 'retreat'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "mobility",
+          "defense.evade"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "mobility",
+        "defense.evade"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Down",
+      "availableNow": true,
+      "category": "mobility",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"Down\" ||",
+          "kind": "Action",
+          "line": 322,
+          "source": "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+          "symbol": "Down"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Down\" || action.name == \"MoveBack\") {",
+          "kind": "Action",
+          "line": 732,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Down"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "outAction = { \"Down\" };",
+          "kind": "Action",
+          "line": 904,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Down"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Down\" || action.name == \"Guard\") {",
+          "kind": "Action",
+          "line": 49,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "Down"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "manual",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "defense",
+        "confidence": 0.5900000333786011,
+        "evidence": [
+          "source excerpt contains 'move'",
+          "source excerpt contains 'guard'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "defense"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "mobility"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Guard",
+      "availableNow": true,
+      "category": "defense",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"Guard\" ||",
+          "kind": "Action",
+          "line": 323,
+          "source": "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+          "symbol": "Guard"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Guard\") {",
+          "kind": "Action",
+          "line": 790,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Guard"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "outAction = { \"Guard\" };",
+          "kind": "Action",
+          "line": 893,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Guard"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Down\" || action.name == \"Guard\") {",
+          "kind": "Action",
+          "line": 49,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "Guard"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "defense",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'guard'",
+          "source excerpt contains 'guard'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "defense",
+          "defense.guard"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "defense",
+        "defense.guard"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Jump",
+      "availableNow": true,
+      "category": "mobility",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (!canJump && (actionId == \"DodgeAway\" || actionId == \"Jump\")) continue;",
+          "kind": "Action",
+          "line": 3985,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "Jump"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Jump\") {",
+          "kind": "Action",
+          "line": 737,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Jump"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "outAction = { \"Jump\" };",
+          "kind": "Action",
+          "line": 884,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Jump"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "{ \"Jump\" },",
+          "kind": "Action",
+          "line": 31,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "Jump"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "mobility",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'jump'",
+          "source excerpt contains 'jump'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "mobility",
+          "mobility.jump"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "mobility",
+        "mobility.jump"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Move",
+      "availableNow": true,
+      "category": "movement",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "std::vector<std::string> approachActions = { \"Move\" };",
+          "kind": "Action",
+          "line": 19,
+          "source": "Engine\\DebugAI\\BasicCombatDebugBot.h",
+          "symbol": "Move"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "return action.name == \"Move\" ||",
+          "kind": "Action",
+          "line": 321,
+          "source": "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+          "symbol": "Move"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (!canMove && (actionId == \"Retreat\" || actionId == \"Move\")) continue;",
+          "kind": "Action",
+          "line": 3986,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "Move"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "if (!choice) choice = firstAvailable({ \"Move\" });",
+          "kind": "Action",
+          "line": 4025,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "Move"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "movement",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'move'",
+          "source excerpt contains 'move'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "movement",
+          "movement.approach"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\BasicCombatDebugBot.h",
+        "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "movement",
+        "movement.approach"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "MoveBack",
+      "availableNow": false,
+      "category": "movement",
+      "enabled": true,
+      "enabledForLocalAI": false,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Down\" || action.name == \"MoveBack\") {",
+          "kind": "Action",
+          "line": 732,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "MoveBack"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": false,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "movement",
+        "confidence": 0.949999988079071,
+        "evidence": [
+          "actionId contains 'move'",
+          "source excerpt contains 'move'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "movement",
+          "movement.retreat"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "movement",
+        "movement.retreat"
+      ],
+      "verified": false
+    },
+    {
+      "actionId": "Retreat",
+      "availableNow": true,
+      "category": "movement",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Retreat\") {",
+          "kind": "Action",
+          "line": 51,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "Retreat"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (!canMove && (actionId == \"Retreat\" || actionId == \"Move\")) continue;",
+          "kind": "Action",
+          "line": 3986,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "Retreat"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Retreat\" || action.name == \"DodgeAway\") {",
+          "kind": "Action",
+          "line": 699,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Retreat"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "} else if (action.name == \"Retreat\" || action.name == \"DodgeAway\") {",
+          "kind": "Action",
+          "line": 47,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "Retreat"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "movement",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'retreat'",
+          "source excerpt contains 'retreat'",
+          "source excerpt contains 'move'",
+          "source excerpt contains 'dodge'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "movement",
+          "movement.retreat",
+          "defense.evade"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "movement",
+        "movement.retreat",
+        "defense.evade"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "SetActorState",
+      "availableNow": false,
+      "category": "flow",
+      "enabled": true,
+      "enabledForLocalAI": false,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "event.actionId = \"SetActorState\";",
+          "kind": "Action",
+          "line": 1069,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "SetActorState"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (action.actionId == \"SetActorState\") {",
+          "kind": "Action",
+          "line": 428,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "SetActorState"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": false,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "flow",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'setactorstate'",
+          "source excerpt contains 'setactorstate'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "flow"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "flow"
+      ],
+      "verified": false
+    },
+    {
+      "actionId": "SetScenePhase",
+      "availableNow": false,
+      "category": "flow",
+      "enabled": true,
+      "enabledForLocalAI": false,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.action.actionId = \"SetScenePhase\";",
+          "kind": "Action",
+          "line": 675,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "SetScenePhase"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (action.actionId == \"SetScenePhase\") {",
+          "kind": "Action",
+          "line": 407,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "SetScenePhase"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": false,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "flow",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'phase'",
+          "source excerpt contains 'phase'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "flow"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "tags": [
+        "flow"
+      ],
+      "verified": false
+    },
+    {
+      "actionId": "SkipIntro",
+      "availableNow": false,
+      "category": "flow",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "[](const DebugGenericAction& action) { return action.actionId == \"SkipIntro\"; });",
+          "kind": "Action",
+          "line": 1391,
+          "source": "Engine\\DebugAI\\DebugAIManager.cpp",
+          "symbol": "SkipIntro"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "if (action.name == \"SkipIntro\") {",
+          "kind": "Action",
+          "line": 679,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "SkipIntro"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "return { { \"SkipIntro\" } };",
+          "kind": "Action",
+          "line": 21,
+          "source": "Game\\scene\\Main\\GameSceneDebugProfile.cpp",
+          "symbol": "SkipIntro"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "flow",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'skip'",
+          "source excerpt contains 'skip'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "flow"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\DebugAIManager.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "flow"
+      ],
+      "verified": true
+    },
+    {
+      "actionId": "Wait",
+      "availableNow": true,
+      "category": "idle",
+      "enabled": true,
+      "enabledForLocalAI": true,
+      "evidence": [
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "outAction = { \"Wait\" };",
+          "kind": "Action",
+          "line": 142,
+          "source": "Engine\\DebugAI\\BasicCombatDebugBot.cpp",
+          "symbol": "Wait"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "std::vector<std::string> avoidActions = { \"Wait\" };",
+          "kind": "Action",
+          "line": 20,
+          "source": "Engine\\DebugAI\\BasicCombatDebugBot.h",
+          "symbol": "Wait"
+        },
+        {
+          "confidence": 0.9800000190734863,
+          "excerpt": "action.name == \"Wait\";",
+          "kind": "Action",
+          "line": 324,
+          "source": "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+          "symbol": "Wait"
+        },
+        {
+          "confidence": 0.6000000238418579,
+          "excerpt": "action = { \"Wait\" };",
+          "kind": "Action",
+          "line": 827,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "Wait"
+        }
+      ],
+      "properties": {},
+      "runtimeObserved": true,
+      "semanticApprovalSource": "source_scan_high_confidence",
+      "semanticApproved": true,
+      "semanticIgnored": false,
+      "semanticInference": {
+        "category": "idle",
+        "confidence": 0.9900000095367432,
+        "evidence": [
+          "actionId contains 'wait'",
+          "source excerpt contains 'wait'"
+        ],
+        "method": "local_source_scan",
+        "tags": [
+          "idle"
+        ]
+      },
+      "semanticReviewRequired": false,
+      "sourceDiscovered": true,
+      "sources": [
+        "Engine\\DebugAI\\BasicCombatDebugBot.cpp",
+        "Engine\\DebugAI\\BasicCombatDebugBot.h",
+        "Engine\\DebugAI\\DebugReplayRecorder.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+        "Game\\scene\\Main\\GameSceneDebugProfile.cpp"
+      ],
+      "tags": [
+        "idle"
+      ],
+      "verified": true
+    }
+  ],
+  "gameId": "CG5",
+  "generatedLocally": true,
+  "lastRuntimeFrame": 2275,
+  "lastRuntimeScene": "Game",
+  "schemaVersion": 2,
+  "semanticSummary": {
+    "autoApprovalThreshold": 0.9,
+    "autoApproved": 24,
+    "manuallyApproved": 3,
+    "manuallyIgnored": 0,
+    "method": "local_source_scan",
+    "reviewRequired": 0
+  },
+  "sourceFileCount": 252
+}

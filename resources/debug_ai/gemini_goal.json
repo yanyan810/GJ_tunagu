@@ -1,0 +1,24 @@
+{
+  "objective": "Defeat enemies and progress through the stage.",
+  "style": "bug-check defensive combat",
+  "actionSourceFiles": [
+    "Game/scene/Main/GameSceneDebugProfile.cpp",
+    "Game/scene/Main/GameScene.DebugAI.cpp"
+  ],
+  "sourceFiles": [
+    "Game/player/PlayerInput.cpp",
+    "Game/player/PlayerMovement.cpp",
+    "Game/player/PlayerAttack.cpp",
+    "Game/player/PlayerAttackU.cpp",
+    "Game/player/PlayerAttackI.cpp"
+  ],
+  "avoidActions": [
+    "Wait"
+  ],
+  "rules": [
+  "敵の攻撃が来る瞬間にジャンプや移動で距離を離れる",
+  "敵の攻撃が終わったらすぐに近づき攻撃をする",
+  ""
+  ],
+  "output": "Create or update generated/debug_ai/behavior_plan.json for generated AI output. Use resources/debug_ai files only as editable templates."
+}

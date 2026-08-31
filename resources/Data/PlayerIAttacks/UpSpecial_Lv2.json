@@ -1,0 +1,41 @@
+{
+    "attacks": [
+        {
+            "levels": [
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "freezeBossDuringAttack": false,
+                    "hitboxes": [],
+                    "level": 2,
+                    "motionKeyframes": [],
+                    "name": "UpSpecial_Level2",
+                    "opacityKeyframes": [],
+                    "particleKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 0.44999998807907104,
+                    "visualZKeyframes": []
+                }
+            ],
+            "type": "UpSpecial"
+        }
+    ],
+    "editorBossTarget": {
+        "bodyHalfSize": [
+            1.2000000476837158,
+            2.0,
+            1.399999976158142
+        ],
+        "feetPosition": [
+            0.0,
+            0.0,
+            5.0
+        ],
+        "matchTestSceneLayout": true,
+        "show": true,
+        "showHitbox": true
+    },
+    "version": 3
+}

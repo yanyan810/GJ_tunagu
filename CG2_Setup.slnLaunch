@@ -1,0 +1,24 @@
+[
+  {
+    "Name": "Game + DebugAI Viewer",
+    "Projects": [
+      {
+        "Path": "CG2_Setup.vcxproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.vcxproj",
+        "Action": "StartWithoutDebugging"
+      }
+    ]
+  },
+  {
+    "Name": "Game Only",
+    "Projects": [
+      {
+        "Path": "CG2_Setup.vcxproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

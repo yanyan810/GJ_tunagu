@@ -1,0 +1,23 @@
+{
+    "attacks": [
+        {
+            "levels": [
+                {
+                    "animationKeyframes": [],
+                    "effectKeyframes": [],
+                    "eventKeyframes": [],
+                    "hitboxes": [],
+                    "level": 2,
+                    "motionKeyframes": [],
+                    "name": "SideSpecial_Level2",
+                    "opacityKeyframes": [],
+                    "positionKeyframes": [],
+                    "rotationKeyframes": [],
+                    "totalSec": 1.0
+                }
+            ],
+            "type": "SideSpecial"
+        }
+    ],
+    "version": 3
+}

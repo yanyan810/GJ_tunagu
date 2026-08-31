@@ -1,0 +1,1420 @@
+{
+  "discoveredEnumValues": {
+    "AIWorkerMode": [
+      "ApiContinuous",
+      "ApiStep",
+      "LocalContinuous"
+    ],
+    "BlendMode": [
+      "SrA",
+      "Src",
+      "kBlendModeAdd",
+      "kBlendModeMultily",
+      "kBlendModeNone",
+      "kBlendModeNormal",
+      "kBlendModeScreen",
+      "kBlendModeSubtract",
+      "kCountOfBlendMode"
+    ],
+    "ControlledActorMode": [
+      "Boss",
+      "Both",
+      "Player"
+    ],
+    "EditorMode": [
+      "Blender",
+      "Particle",
+      "PlayerAttack"
+    ],
+    "GameSceneDebugPhase": [
+      "Battle",
+      "IntroVideo",
+      "OutroVideo",
+      "Unknown"
+    ],
+    "GizmoMode": [
+      "Rotate",
+      "Scale",
+      "Translate"
+    ],
+    "LaunchState": [
+      "Down",
+      "FreeFall",
+      "Launch",
+      "None"
+    ],
+    "MeleeState": [
+      "Approach",
+      "Attack",
+      "Cooldown",
+      "Windup"
+    ],
+    "PlayerAction": [
+      "Attack",
+      "Crouch",
+      "FastFall",
+      "Guard",
+      "Idle",
+      "Jump",
+      "Launched",
+      "Move"
+    ],
+    "PlayerIAttackState": [
+      "DownCounter_Active",
+      "DownCounter_Recover",
+      "DownCounter_Success",
+      "NeutralFinish_Active",
+      "NeutralFinish_Recover",
+      "NeutralFinish_Windup",
+      "None",
+      "SideSlide_Move",
+      "SideSlide_Recover",
+      "SideSlide_Windup",
+      "UpRise_Move",
+      "UpRise_Recover",
+      "UpRise_Windup"
+    ],
+    "PlayerSpecialEffectPositionMode": [
+      "FixedAtSpawn",
+      "FollowPlayer",
+      "MovementPoint"
+    ],
+    "PostEffectMode": [
+      "BoxFilter",
+      "Count",
+      "Dissolve",
+      "FullScreen",
+      "GaussianBlur",
+      "GaussianBlurX",
+      "GaussianBlurY",
+      "Grayscale",
+      "LuminanceBasedOutline",
+      "LuminanceOutlineMask",
+      "Outline",
+      "OutlineBloom",
+      "RadialBlur",
+      "Random",
+      "Vignette"
+    ],
+    "ShooterState": [
+      "Aim",
+      "Cooldown",
+      "Retreat",
+      "Windup"
+    ]
+  },
+  "gameId": "CG5",
+  "generatedLocally": true,
+  "lastRuntimeFrame": 2275,
+  "lastRuntimeScene": "Game",
+  "mappings": [
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "entity.properties[\"ai.state\"] = source.aiStateName;",
+          "kind": "StateMapping",
+          "line": 239,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "ai.state"
+        }
+      ],
+      "genericProperty": "ai.state",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "ai.state",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "entity.properties[\"ai.threat\"] = source.threatHint;",
+          "kind": "StateMapping",
+          "line": 240,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "ai.threat"
+        }
+      ],
+      "genericProperty": "ai.threat",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "ai.threat",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "AddSignalCandidate(result, \"enemy.attackActive\", symbol, kind, 0.92f, source);",
+          "kind": "StateMapping",
+          "line": 827,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "enemy.attackActive"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"enemy.attackActive\"] = enemyAttackActive;",
+          "kind": "StateMapping",
+          "line": 221,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "enemy.attackActive"
+        }
+      ],
+      "genericProperty": "enemy.attackActive",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "enemy.attackActive",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9200000166893005,
+      "evidence": [
+        {
+          "confidence": 0.9200000166893005,
+          "excerpt": "const bool isAttacking =",
+          "kind": "StateMapping",
+          "line": 595,
+          "source": "Game\\enemy\\Enemy.cpp",
+          "symbol": "isAttacking"
+        }
+      ],
+      "genericProperty": "enemy.attackActive",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "isAttacking",
+      "sources": [
+        "Game\\enemy\\Enemy.cpp"
+      ],
+      "valueKind": "bool"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9200000166893005,
+      "evidence": [
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "requestMeleeAttack_ = false;",
+          "kind": "StateMapping",
+          "line": 90,
+          "source": "Game\\enemy\\Enemy.cpp",
+          "symbol": "requestMeleeAttack_"
+        },
+        {
+          "confidence": 0.9200000166893005,
+          "excerpt": "if (!requestMeleeAttack_) return false;",
+          "kind": "StateMapping",
+          "line": 63,
+          "source": "Game\\enemy\\Enemy.h",
+          "symbol": "requestMeleeAttack_"
+        }
+      ],
+      "genericProperty": "enemy.attackActive",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "requestMeleeAttack_",
+      "sources": [
+        "Game\\enemy\\Enemy.cpp",
+        "Game\\enemy\\Enemy.h"
+      ],
+      "valueKind": "bool"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8399999737739563,
+      "evidence": [
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "float meleeWindupTime_ = 0.0f;",
+          "kind": "StateMapping",
+          "line": 208,
+          "source": "Game\\enemy\\Enemy.h",
+          "symbol": "meleeWindupTime_"
+        }
+      ],
+      "genericProperty": "enemy.attackStartup",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "meleeWindupTime_",
+      "sources": [
+        "Game\\enemy\\Enemy.h"
+      ],
+      "valueKind": "float"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8399999737739563,
+      "evidence": [
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "float shootWindupTime_ = 1.0f;",
+          "kind": "StateMapping",
+          "line": 218,
+          "source": "Game\\enemy\\Enemy.h",
+          "symbol": "shootWindupTime_"
+        }
+      ],
+      "genericProperty": "enemy.attackStartup",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "shootWindupTime_",
+      "sources": [
+        "Game\\enemy\\Enemy.h"
+      ],
+      "valueKind": "float"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.7799999713897705,
+      "evidence": [
+        {
+          "confidence": 0.7799999713897705,
+          "excerpt": "if (dist > chaseStopDist_) {",
+          "kind": "StateMapping",
+          "line": 150,
+          "source": "Game\\enemy\\BossAI.cpp",
+          "symbol": "chaseStopDist_"
+        },
+        {
+          "confidence": 0.7799999713897705,
+          "excerpt": "float chaseStopDist_ = 5.0f; // 近づきすぎない距離",
+          "kind": "StateMapping",
+          "line": 140,
+          "source": "Game\\enemy\\BossAI.h",
+          "symbol": "chaseStopDist_"
+        }
+      ],
+      "genericProperty": "enemy.distanceToPlayer",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "chaseStopDist_",
+      "sources": [
+        "Game\\enemy\\BossAI.cpp",
+        "Game\\enemy\\BossAI.h"
+      ],
+      "valueKind": "number"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "AddSignalCandidate(result, \"enemy.distanceToPlayer\", symbol, kind, 0.72f, source);",
+          "kind": "StateMapping",
+          "line": 836,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "enemy.distanceToPlayer"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"enemy.distanceToPlayer\"] = nearestEnemyId.empty() ? -1.0 : nearestEnemyDistance;",
+          "kind": "StateMapping",
+          "line": 222,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "enemy.distanceToPlayer"
+        }
+      ],
+      "genericProperty": "enemy.distanceToPlayer",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "enemy.distanceToPlayer",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.949999988079071,
+      "evidence": [
+        {
+          "confidence": 0.949999988079071,
+          "excerpt": "int GetHP() const { return hp_; }",
+          "kind": "StateMapping",
+          "line": 84,
+          "source": "Game\\enemy\\Enemy.h",
+          "symbol": "GetHP"
+        }
+      ],
+      "genericProperty": "enemy.hp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "GetHP",
+      "sources": [
+        "Game\\enemy\\Enemy.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8799999952316284,
+      "evidence": [
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "float   bossHpBarH_ = 32.0f;",
+          "kind": "StateMapping",
+          "line": 144,
+          "source": "Game\\scene\\Main\\GameScene.h",
+          "symbol": "bossHpBarH_"
+        }
+      ],
+      "genericProperty": "enemy.hp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "bossHpBarH_",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.h"
+      ],
+      "valueKind": "float"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8799999952316284,
+      "evidence": [
+        {
+          "confidence": 0.8799999952316284,
+          "excerpt": "float   bossHpBarW_ = 300.0f;",
+          "kind": "StateMapping",
+          "line": 143,
+          "source": "Game\\scene\\Main\\GameScene.h",
+          "symbol": "bossHpBarW_"
+        }
+      ],
+      "genericProperty": "enemy.hp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "bossHpBarW_",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.h"
+      ],
+      "valueKind": "float"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"enemy.hp\"] = static_cast<std::int64_t>(state.enemyHp);",
+          "kind": "StateMapping",
+          "line": 165,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "enemy.hp"
+        }
+      ],
+      "genericProperty": "enemy.hp",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "enemy.hp",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.949999988079071,
+      "evidence": [
+        {
+          "confidence": 0.949999988079071,
+          "excerpt": "const float hp = float(e.GetHP());",
+          "kind": "StateMapping",
+          "line": 36,
+          "source": "Game\\enemy\\BossAI.cpp",
+          "symbol": "hp"
+        }
+      ],
+      "genericProperty": "enemy.hp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "hp",
+      "sources": [
+        "Game\\enemy\\BossAI.cpp"
+      ],
+      "valueKind": "float"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.949999988079071,
+      "evidence": [
+        {
+          "confidence": 0.949999988079071,
+          "excerpt": "int GetHP() const { return hp_; }",
+          "kind": "StateMapping",
+          "line": 84,
+          "source": "Game\\enemy\\Enemy.h",
+          "symbol": "hp_"
+        }
+      ],
+      "genericProperty": "enemy.hp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "hp_",
+      "sources": [
+        "Game\\enemy\\Enemy.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9200000166893005,
+      "evidence": [
+        {
+          "confidence": 0.9200000166893005,
+          "excerpt": "float GetStateTime() const { return stateTime_; }",
+          "kind": "StateMapping",
+          "line": 50,
+          "source": "Game\\enemy\\BossAI.h",
+          "symbol": "state"
+        },
+        {
+          "confidence": 0.9200000166893005,
+          "excerpt": "DebugEntityState state;",
+          "kind": "StateMapping",
+          "line": 80,
+          "source": "Game\\enemy\\Bullet.cpp",
+          "symbol": "state"
+        },
+        {
+          "confidence": 0.9200000166893005,
+          "excerpt": "const char* BossStateName(BossAI::State state) {",
+          "kind": "StateMapping",
+          "line": 88,
+          "source": "Game\\enemy\\EnemyManager.cpp",
+          "symbol": "state"
+        }
+      ],
+      "genericProperty": "enemy.intent",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "state",
+      "sources": [
+        "Game\\enemy\\BossAI.h",
+        "Game\\enemy\\Bullet.cpp",
+        "Game\\enemy\\EnemyManager.cpp"
+      ],
+      "valueKind": "DebugEntityState"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9300000071525574,
+      "evidence": [
+        {
+          "confidence": 0.9300000071525574,
+          "excerpt": "int GetMaxHP() const { return maxHp_; }",
+          "kind": "StateMapping",
+          "line": 135,
+          "source": "Game\\enemy\\Enemy.h",
+          "symbol": "GetMaxHP"
+        }
+      ],
+      "genericProperty": "enemy.maxHp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "GetMaxHP",
+      "sources": [
+        "Game\\enemy\\Enemy.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9300000071525574,
+      "evidence": [
+        {
+          "confidence": 0.9300000071525574,
+          "excerpt": "int maxHP_ = 300;",
+          "kind": "StateMapping",
+          "line": 113,
+          "source": "Game\\enemy\\BossAI.h",
+          "symbol": "maxHP_"
+        }
+      ],
+      "genericProperty": "enemy.maxHp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "maxHP_",
+      "sources": [
+        "Game\\enemy\\BossAI.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9300000071525574,
+      "evidence": [
+        {
+          "confidence": 0.9300000071525574,
+          "excerpt": "void SetHP(int hp) { hp_ = std::clamp(hp, 0, maxHp_); alive_ = hp_ > 0; }",
+          "kind": "StateMapping",
+          "line": 86,
+          "source": "Game\\enemy\\Enemy.h",
+          "symbol": "maxHp_"
+        }
+      ],
+      "genericProperty": "enemy.maxHp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "maxHp_",
+      "sources": [
+        "Game\\enemy\\Enemy.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8600000143051147,
+      "evidence": [
+        {
+          "confidence": 0.8600000143051147,
+          "excerpt": "bool IsBossIncomingAttack(BossAI::State state) {",
+          "kind": "StateMapping",
+          "line": 141,
+          "source": "Game\\enemy\\EnemyManager.cpp",
+          "symbol": "IncomingAttack"
+        }
+      ],
+      "genericProperty": "enemy.threat",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "IncomingAttack",
+      "sources": [
+        "Game\\enemy\\EnemyManager.cpp"
+      ],
+      "valueKind": "inferred"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8600000143051147,
+      "evidence": [
+        {
+          "confidence": 0.8600000143051147,
+          "excerpt": "bool IsBossIncomingAttack(BossAI::State state) {",
+          "kind": "StateMapping",
+          "line": 141,
+          "source": "Game\\enemy\\EnemyManager.cpp",
+          "symbol": "IsBossIncomingAttack"
+        }
+      ],
+      "genericProperty": "enemy.threat",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "IsBossIncomingAttack",
+      "sources": [
+        "Game\\enemy\\EnemyManager.cpp"
+      ],
+      "valueKind": "inferred"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "\"enemy.state\", \"enemy.intent\", \"enemy.threat\",",
+          "kind": "StateMapping",
+          "line": 617,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "enemy.threat"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"enemy.threat\"] = enemyThreat;",
+          "kind": "StateMapping",
+          "line": 220,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "enemy.threat"
+        }
+      ],
+      "genericProperty": "enemy.threat",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "enemy.threat",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8600000143051147,
+      "evidence": [
+        {
+          "confidence": 0.8600000143051147,
+          "excerpt": "state.threatHint = \"IncomingAttack\";",
+          "kind": "StateMapping",
+          "line": 488,
+          "source": "Game\\enemy\\EnemyManager.cpp",
+          "symbol": "threatHint"
+        }
+      ],
+      "genericProperty": "enemy.threat",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "threatHint",
+      "sources": [
+        "Game\\enemy\\EnemyManager.cpp"
+      ],
+      "valueKind": "inferred"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "\"game.phase\", \"game.state\", \"game.mode\",",
+          "kind": "StateMapping",
+          "line": 612,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "game.phase"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"game.phase\"] = state.gamePhase;",
+          "kind": "StateMapping",
+          "line": 168,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "game.phase"
+        }
+      ],
+      "genericProperty": "game.phase",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "game.phase",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8399999737739563,
+      "evidence": [
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "DebugGameState CaptureDebugState() const;",
+          "kind": "StateMapping",
+          "line": 60,
+          "source": "Game\\scene\\Main\\GameScene.h",
+          "symbol": "CaptureDebugState"
+        }
+      ],
+      "genericProperty": "game.state",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "CaptureDebugState",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.h"
+      ],
+      "valueKind": "DebugGameState"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8399999737739563,
+      "evidence": [
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "const DebugGameState hitState = CaptureDebugState();",
+          "kind": "StateMapping",
+          "line": 395,
+          "source": "Game\\scene\\Main\\GameScene.Update.cpp",
+          "symbol": "hitState"
+        }
+      ],
+      "genericProperty": "game.state",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "hitState",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.Update.cpp"
+      ],
+      "valueKind": "DebugGameState"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8399999737739563,
+      "evidence": [
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "const DebugGameState manualStateBefore = recordManualAction ? CaptureDebugState() : DebugGameState{};",
+          "kind": "StateMapping",
+          "line": 359,
+          "source": "Game\\scene\\Main\\GameScene.Update.cpp",
+          "symbol": "manualStateBefore"
+        }
+      ],
+      "genericProperty": "game.state",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "manualStateBefore",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.Update.cpp"
+      ],
+      "valueKind": "DebugGameState"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9100000262260437,
+      "evidence": [
+        {
+          "confidence": 0.9100000262260437,
+          "excerpt": "PlayerAction GetCurrentAction() const { return action_; }",
+          "kind": "StateMapping",
+          "line": 311,
+          "source": "Game\\player\\Player.h",
+          "symbol": "GetCurrentAction"
+        }
+      ],
+      "genericProperty": "player.action",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "GetCurrentAction",
+      "sources": [
+        "Game\\player\\Player.h"
+      ],
+      "valueKind": "PlayerAction"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.action\"] = std::string(DebugPlayerActionName(playerAction));",
+          "kind": "StateMapping",
+          "line": 185,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.action"
+        }
+      ],
+      "genericProperty": "player.action",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.action",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "properties[\"player.attackType\"] =",
+          "kind": "StateMapping",
+          "line": 309,
+          "source": "Engine\\DebugAI\\DebugObservationEventRecorder.cpp",
+          "symbol": "player.attackType"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.attackType\"] = std::string(DebugPlayerAttackTypeName(attackType));",
+          "kind": "StateMapping",
+          "line": 186,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.attackType"
+        }
+      ],
+      "genericProperty": "player.attackType",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.attackType",
+      "sources": [
+        "Engine\\DebugAI\\DebugObservationEventRecorder.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8999999761581421,
+      "evidence": [
+        {
+          "confidence": 0.8999999761581421,
+          "excerpt": "bool CanStartAttackCommand_(const PlayerInputCommand& command) const;",
+          "kind": "StateMapping",
+          "line": 379,
+          "source": "Game\\player\\Player.h",
+          "symbol": "CanStartAttackCommand"
+        }
+      ],
+      "genericProperty": "player.canAttack",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "CanStartAttackCommand",
+      "sources": [
+        "Game\\player\\Player.h"
+      ],
+      "valueKind": "bool"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8999999761581421,
+      "evidence": [
+        {
+          "confidence": 0.8999999761581421,
+          "excerpt": "bool CanStartAttackCommand_(const PlayerInputCommand& command) const;",
+          "kind": "StateMapping",
+          "line": 379,
+          "source": "Game\\player\\Player.h",
+          "symbol": "CanStartAttackCommand_"
+        },
+        {
+          "confidence": 0.8999999761581421,
+          "excerpt": "bool Player::CanStartAttackCommand_(const PlayerInputCommand& command) const {",
+          "kind": "StateMapping",
+          "line": 436,
+          "source": "Game\\player\\PlayerAttack.cpp",
+          "symbol": "CanStartAttackCommand_"
+        },
+        {
+          "confidence": 0.8999999761581421,
+          "excerpt": "if (CanStartAttackCommand_(command)) {",
+          "kind": "StateMapping",
+          "line": 123,
+          "source": "Game\\player\\PlayerInput.cpp",
+          "symbol": "CanStartAttackCommand_"
+        }
+      ],
+      "genericProperty": "player.canAttack",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "CanStartAttackCommand_",
+      "sources": [
+        "Game\\player\\Player.h",
+        "Game\\player\\PlayerAttack.cpp",
+        "Game\\player\\PlayerInput.cpp"
+      ],
+      "valueKind": "bool"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "AddSignalCandidate(result, \"player.canAttack\", symbol, kind, 0.90f, source);",
+          "kind": "StateMapping",
+          "line": 849,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "player.canAttack"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.canAttack\"] = battleActive && !launched && !attacking;",
+          "kind": "StateMapping",
+          "line": 190,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.canAttack"
+        }
+      ],
+      "genericProperty": "player.canAttack",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.canAttack",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "AddSignalCandidate(result, \"player.canJump\", symbol, \"bool\", 0.90f, source);",
+          "kind": "StateMapping",
+          "line": 894,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "player.canJump"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.canJump\"] = canMove && scene_.player_->IsOnGround();",
+          "kind": "StateMapping",
+          "line": 189,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.canJump"
+        }
+      ],
+      "genericProperty": "player.canJump",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.canJump",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "AddSignalCandidate(result, \"player.canMove\", symbol, \"bool\", 0.90f, source);",
+          "kind": "StateMapping",
+          "line": 892,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "player.canMove"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.canMove\"] = canMove;",
+          "kind": "StateMapping",
+          "line": 188,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.canMove"
+        }
+      ],
+      "genericProperty": "player.canMove",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.canMove",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.949999988079071,
+      "evidence": [
+        {
+          "confidence": 0.949999988079071,
+          "excerpt": "int GetHP() const { return hp_; }",
+          "kind": "StateMapping",
+          "line": 280,
+          "source": "Game\\player\\Player.h",
+          "symbol": "GetHP"
+        }
+      ],
+      "genericProperty": "player.hp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "GetHP",
+      "sources": [
+        "Game\\player\\Player.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.949999988079071,
+      "evidence": [
+        {
+          "confidence": 0.949999988079071,
+          "excerpt": "int GetHP() const { return hp_; }",
+          "kind": "StateMapping",
+          "line": 280,
+          "source": "Game\\player\\Player.h",
+          "symbol": "hp_"
+        }
+      ],
+      "genericProperty": "player.hp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "hp_",
+      "sources": [
+        "Game\\player\\Player.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.hp\"] = static_cast<std::int64_t>(state.playerHp);",
+          "kind": "StateMapping",
+          "line": 162,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.hp"
+        }
+      ],
+      "genericProperty": "player.hp",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.hp",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8399999737739563,
+      "evidence": [
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "PlayerAttackType GetCurrentAttackType() const { return attackType_; }",
+          "kind": "StateMapping",
+          "line": 312,
+          "source": "Game\\player\\Player.h",
+          "symbol": "GetCurrentAttackType"
+        },
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "return GetCancelTuning(player.GetCurrentAttackType(), player.GetSpecialCancelCount());",
+          "kind": "StateMapping",
+          "line": 175,
+          "source": "Game\\player\\PlayerAttackIInternal.h",
+          "symbol": "GetCurrentAttackType"
+        }
+      ],
+      "genericProperty": "player.isAttacking",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "GetCurrentAttackType",
+      "sources": [
+        "Game\\player\\Player.h",
+        "Game\\player\\PlayerAttackIInternal.h"
+      ],
+      "valueKind": "bool/inferred"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.8399999737739563,
+      "evidence": [
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "bool IsSideSpecialLv3AttackActive() const;",
+          "kind": "StateMapping",
+          "line": 218,
+          "source": "Game\\player\\Player.h",
+          "symbol": "IsSideSpecialLv3AttackActive"
+        },
+        {
+          "confidence": 0.8399999737739563,
+          "excerpt": "bool Player::IsSideSpecialLv3AttackActive() const {",
+          "kind": "StateMapping",
+          "line": 140,
+          "source": "Game\\player\\PlayerAttackI.cpp",
+          "symbol": "IsSideSpecialLv3AttackActive"
+        }
+      ],
+      "genericProperty": "player.isAttacking",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "IsSideSpecialLv3AttackActive",
+      "sources": [
+        "Game\\player\\Player.h",
+        "Game\\player\\PlayerAttackI.cpp"
+      ],
+      "valueKind": "bool/inferred"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "AddSignalCandidate(result, \"player.isAttacking\", symbol, \"bool/inferred\", 0.84f, source);",
+          "kind": "StateMapping",
+          "line": 899,
+          "source": "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+          "symbol": "player.isAttacking"
+        },
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.isAttacking\"] = attacking;",
+          "kind": "StateMapping",
+          "line": 191,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.isAttacking"
+        }
+      ],
+      "genericProperty": "player.isAttacking",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.isAttacking",
+      "sources": [
+        "Engine\\DebugAI\\Tools\\DebugAIViewer\\DebugAIViewer.cpp",
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9300000071525574,
+      "evidence": [
+        {
+          "confidence": 0.9300000071525574,
+          "excerpt": "int GetMaxHP() const { return 100; }",
+          "kind": "StateMapping",
+          "line": 281,
+          "source": "Game\\player\\Player.h",
+          "symbol": "GetMaxHP"
+        }
+      ],
+      "genericProperty": "player.maxHp",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": false,
+      "sourceDiscovered": true,
+      "sourceSymbol": "GetMaxHP",
+      "sources": [
+        "Game\\player\\Player.h"
+      ],
+      "valueKind": "int"
+    },
+    {
+      "approvalSource": "pending_review",
+      "approved": false,
+      "autoApproved": false,
+      "confidence": 0.9599999785423279,
+      "evidence": [
+        {
+          "confidence": 0.9599999785423279,
+          "excerpt": "bool IsOnGround() const { return onGround_; }",
+          "kind": "StateMapping",
+          "line": 236,
+          "source": "Game\\player\\Player.h",
+          "symbol": "IsOnGround"
+        }
+      ],
+      "genericProperty": "player.onGround",
+      "ignored": false,
+      "reviewRequired": true,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "IsOnGround",
+      "sources": [
+        "Game\\player\\Player.h"
+      ],
+      "valueKind": "bool"
+    },
+    {
+      "approvalSource": "source_scan_high_confidence",
+      "approved": true,
+      "autoApproved": true,
+      "confidence": 0.9950000047683716,
+      "evidence": [
+        {
+          "confidence": 0.9950000047683716,
+          "excerpt": "observation.properties[\"player.onGround\"] = scene_.player_->IsOnGround();",
+          "kind": "StateMapping",
+          "line": 187,
+          "source": "Game\\scene\\Main\\GameScene.DebugAI.cpp",
+          "symbol": "player.onGround"
+        }
+      ],
+      "genericProperty": "player.onGround",
+      "ignored": false,
+      "reviewRequired": false,
+      "runtimeObserved": true,
+      "sourceDiscovered": true,
+      "sourceSymbol": "player.onGround",
+      "sources": [
+        "Game\\scene\\Main\\GameScene.DebugAI.cpp"
+      ],
+      "valueKind": "runtimeProperty"
+    }
+  ],
+  "reviewRequired": true,
+  "scanTargets": [],
+  "schemaVersion": 3,
+  "semanticSummary": {
+    "autoApprovalThreshold": 0.98,
+    "autoApproved": 15,
+    "manuallyApproved": 0,
+    "manuallyIgnored": 0,
+    "method": "local_source_scan",
+    "reviewRequired": 29
+  }
+}

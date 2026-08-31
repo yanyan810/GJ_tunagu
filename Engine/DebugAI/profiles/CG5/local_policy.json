@@ -1,0 +1,149 @@
+{
+  "approachAction": "Move",
+  "approachDurationFrames": 20,
+  "attackActions": [
+    "AttackWeak",
+    "AttackTilt",
+    "AttackSmash",
+    "AttackNeutralSpecial",
+    "AttackSideSpecial",
+    "AttackUpSpecial",
+    "AttackDownSpecial"
+  ],
+  "attackDistance": 3.0,
+  "attackDurationFrames": 15,
+  "closeRangeEnterDistance": 3.0,
+  "closeRangeExitDistance": 4.0,
+  "closeRangeWaitFrames": 4,
+  "evadeDurationFrames": 15,
+  "generatedBy": "Gemini",
+  "goal": "Explore the game, make progress, and test available actions.",
+  "idleAction": "Wait",
+  "model": "gemini-3.5-flash-lite",
+  "preferLeastUsedAttack": true,
+  "reason": "Explore all available combat and special actions by cycling through them while maintaining safe movement and defensive options.",
+  "rules": [
+    {
+      "actionIds": [
+        "Wait"
+      ],
+      "conditionMode": "all",
+      "conditions": [
+        {
+          "operator": "equals",
+          "property": "player.canMove",
+          "value": false
+        },
+        {
+          "operator": "equals",
+          "property": "player.canJump",
+          "value": false
+        },
+        {
+          "operator": "equals",
+          "property": "player.canAttack",
+          "value": false
+        }
+      ],
+      "durationFrames": 4,
+      "id": "unable_to_act",
+      "interruptCurrent": true,
+      "priority": 200,
+      "selection": "first"
+    },
+    {
+      "actionIds": [
+        "DodgeAway",
+        "Guard",
+        "Retreat",
+        "Jump"
+      ],
+      "conditionMode": "any",
+      "conditions": [
+        {
+          "operator": "equals",
+          "property": "enemy.threat",
+          "value": true
+        },
+        {
+          "operator": "equals",
+          "property": "enemy.attackActive",
+          "value": true
+        }
+      ],
+      "durationFrames": 15,
+      "id": "avoid_threat",
+      "interruptCurrent": true,
+      "priority": 100,
+      "selection": "firstAvailable"
+    },
+    {
+      "actionIds": [
+        "Move"
+      ],
+      "conditionMode": "all",
+      "conditions": [
+        {
+          "operator": "equals",
+          "property": "player.canMove",
+          "value": true
+        },
+        {
+          "enter": 4.0,
+          "exit": 2.5,
+          "operator": "hysteresisAbove",
+          "property": "enemy.distanceToPlayer"
+        }
+      ],
+      "coordinateSpace": "TargetRelative",
+      "direction": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "durationFrames": 20,
+      "id": "approach",
+      "interruptCurrent": false,
+      "priority": 30,
+      "repeatWhileMatched": true,
+      "selection": "first"
+    },
+    {
+      "actionIds": [
+        "AttackWeak",
+        "AttackTilt",
+        "AttackSmash",
+        "AttackNeutralSpecial",
+        "AttackSideSpecial",
+        "AttackUpSpecial",
+        "AttackDownSpecial"
+      ],
+      "conditionMode": "all",
+      "conditions": [
+        {
+          "operator": "equals",
+          "property": "player.canAttack",
+          "value": true
+        },
+        {
+          "operator": "equals",
+          "property": "player.isAttacking",
+          "value": false
+        }
+      ],
+      "durationFrames": 15,
+      "id": "attack",
+      "interruptCurrent": true,
+      "maxConsecutive": 0,
+      "priority": 50,
+      "selection": "leastUsed"
+    }
+  ],
+  "schemaVersion": 2,
+  "threatActions": [
+    "DodgeAway",
+    "Guard",
+    "Retreat",
+    "Jump"
+  ]
+}

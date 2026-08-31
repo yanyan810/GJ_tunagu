@@ -1,0 +1,75 @@
+name: 不要ファイル自動チェック
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  check-files:
+    name: 不要なファイルを検索
+    runs-on: ubuntu-latest
+
+    env:
+      # ===== 不要な「ファイル名」のパターン =====
+      UNWANTED_NAME_PATTERNS: >
+        *.pdb
+        *.ilk
+        *.user
+        *.ncb
+        *.suo
+        *.log
+        *.dmp
+        *.zip
+        imgui.ini
+        dxcompiler.dll
+        dxil.dll
+        dxc.exe
+
+      # ===== 不要な「ディレクトリ名」のパターン（ビルド系）=====
+      UNWANTED_DIR_PATTERNS: >
+        bin
+        Bin
+        obj
+        Obj
+        build
+        Build
+        x64
+        x86
+        .vs
+        generated
+        ipch
+        Logs
+
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v3
+
+      - name: 不要ファイル名のチェック
+        run: |
+          echo "=== チェック: 不要ファイル ==="
+          EXIT_CODE=0
+            for pattern in $UNWANTED_NAME_PATTERNS; do
+              MATCHES=$(git ls-files "*$pattern" | grep -v "^externals/assimp/" || true)
+              if [ ! -z "$MATCHES" ]; then
+               echo "::error title=不要ファイル発見::$pattern"
+              echo "$MATCHES"
+              EXIT_CODE=1
+            fi
+          done
+          exit $EXIT_CODE
+
+      - name: 不要フォルダのチェック
+        run: |
+          echo "=== チェック: 不要フォルダ ==="
+          EXIT_CODE=0
+          for pattern in $UNWANTED_DIR_PATTERNS; do
+            MATCHES=$(git ls-files | grep "$pattern/" || true)
+            if [ ! -z "$MATCHES" ]; then
+              echo "::error title=不要フォルダ発見::$pattern"
+              echo "$MATCHES"
+              EXIT_CODE=1
+            fi
+          done
+          exit $EXIT_CODE
