@@ -77,6 +77,11 @@ void GameScene::OnExit(GameApp& /*app*/) {
 }
 
 void GameScene::Update(GameApp& app, float dt) {
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F2)) {
+        RequestChangeScene_("BossTest");
+        return;
+    }
+
     if (player_ && app.GetInput()) {
         player_->Update(dt, *app.GetInput(), debrisList_);
         // プレイヤーと漂うゴミとの衝突判定
@@ -169,6 +174,7 @@ void GameScene::DrawImGui(GameApp& /*app*/) {
     ImGui::Begin("TUNA-GU Debug");
     ImGui::Text("Floating Debris: %d", static_cast<int>(debrisList_.size()));
     ImGui::Text("Press Esc to quit.");
+    ImGui::Text("Press F2 to open Boss Test Scene.");
     ImGui::End();
 #endif
 }

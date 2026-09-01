@@ -9,9 +9,12 @@ void DebugCamera::Initialize() {
 }
 
 void DebugCamera::Update() {
+    Update(1.0f / 60.0f);
+}
+
+void DebugCamera::Update(float dt) {
     if (!input_) return;
 
-    const float moveSpeed = 0.5f;
     const float sensitivity = 0.002f;
 
     // マウス回転量から角度を更新
@@ -25,10 +28,10 @@ void DebugCamera::Update() {
     if (pitchAngle_ < -maxPitch) pitchAngle_ = -maxPitch;
 
     // キーによる追加回転（任意）
-    if (input_->IsKeyPressed(DIK_RIGHT)) { yawAngle_ -= 0.01f; }
-    if (input_->IsKeyPressed(DIK_LEFT)) { yawAngle_ += 0.01f; }
-    if (input_->IsKeyPressed(DIK_UP)) { pitchAngle_ -= 0.01f; }
-    if (input_->IsKeyPressed(DIK_DOWN)) { pitchAngle_ += 0.01f; }
+    if (input_->IsKeyPressed(DIK_RIGHT)) { yawAngle_ -= 0.6f * dt; }
+    if (input_->IsKeyPressed(DIK_LEFT)) { yawAngle_ += 0.6f * dt; }
+    if (input_->IsKeyPressed(DIK_UP)) { pitchAngle_ -= 0.6f * dt; }
+    if (input_->IsKeyPressed(DIK_DOWN)) { pitchAngle_ += 0.6f * dt; }
 
     // matRot_ を角度から更新（Yaw → Pitch の順）
     matRot_ = Matrix4x4::Multiply(
@@ -38,12 +41,13 @@ void DebugCamera::Update() {
 
     // ローカル移動ベクトル
     Vector3 localMove = { 0.0f, 0.0f, 0.0f };
-    if (input_->IsKeyPressed(DIK_W)) { localMove.z += moveSpeed; }
-    if (input_->IsKeyPressed(DIK_S)) { localMove.z -= moveSpeed; }
-    if (input_->IsKeyPressed(DIK_D)) { localMove.x += moveSpeed; }
-    if (input_->IsKeyPressed(DIK_A)) { localMove.x -= moveSpeed; }
-    if (input_->IsKeyPressed(DIK_SPACE)) { localMove.y += moveSpeed; }
-    if (input_->IsKeyPressed(DIK_LSHIFT) || input_->IsKeyPressed(DIK_RSHIFT)) { localMove.y -= moveSpeed; }
+    const float frameMove = moveSpeed_ * dt;
+    if (input_->IsKeyPressed(DIK_W)) { localMove.z += frameMove; }
+    if (input_->IsKeyPressed(DIK_S)) { localMove.z -= frameMove; }
+    if (input_->IsKeyPressed(DIK_D)) { localMove.x += frameMove; }
+    if (input_->IsKeyPressed(DIK_A)) { localMove.x -= frameMove; }
+    if (input_->IsKeyPressed(DIK_SPACE)) { localMove.y += frameMove; }
+    if (input_->IsKeyPressed(DIK_LSHIFT) || input_->IsKeyPressed(DIK_RSHIFT)) { localMove.y -= frameMove; }
 
     // ローカル → ワールド変換
     Vector3 rotatedMove = {

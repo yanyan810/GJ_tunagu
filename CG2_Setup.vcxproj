@@ -195,6 +195,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Game\enemy\Enemy.cpp" />
+    <ClCompile Include="Game\boss\MineSpawnPoint.cpp" />
+    <ClCompile Include="Game\boss\Mine.cpp" />
     <ClCompile Include="Engine\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="Engine\Core\CrashHandler.cpp" />
     <ClCompile Include="Engine\Audio\AudioSystem.cpp" />
@@ -226,6 +228,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Engine\Core\ImGuiManagaer.cpp" />
     <ClCompile Include="Engine\Core\GameApp.cpp" />
     <ClCompile Include="Game\scene\Main\GameScene.cpp" />
+    <ClCompile Include="Game\scene\Test\BossTestScene.cpp" />
     <ClCompile Include="main.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">false</WholeProgramOptimization>
@@ -473,6 +476,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="externals\imgui\imstb_textedit.h" />
     <ClInclude Include="externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Game\enemy\Enemy.h" />
+    <ClInclude Include="Game\boss\MineSpawnPoint.h" />
+    <ClInclude Include="Game\boss\Mine.h" />
     <ClInclude Include="Engine\Core\D3DResourceLeakChecker.h" />
     <ClInclude Include="Engine\Core\CrashHandler.h" />
     <ClInclude Include="Engine\Audio\AudioSystem.h" />
@@ -525,6 +530,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Level\LevelLoader.h" />
     <ClInclude Include="Engine\Core\GameApp.h" />
     <ClInclude Include="Game\scene\Main\GameScene.h" />
+    <ClInclude Include="Game\scene\Test\BossTestScene.h" />
     <ClInclude Include="Game\player\Player.h" />
     <ClInclude Include="Game\player\Debris.h" />
   </ItemGroup>
