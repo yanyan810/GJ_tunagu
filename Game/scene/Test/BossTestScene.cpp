@@ -6,7 +6,11 @@
 #include "Input.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
+#include <nlohmann/json.hpp>
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <stdexcept>
 #ifdef USE_IMGUI
 #include "imgui.h"
 #endif
@@ -15,6 +19,8 @@ BossTestScene::BossTestScene() = default;
 BossTestScene::~BossTestScene() = default;
 
 namespace {
+constexpr const char* kMineSettingsPath = "resources/Data/BossAttacks.json";
+
 std::unique_ptr<Object3d> CreateObject(
     GameApp& app, Camera* camera, const char* modelPath,
     const Vector3& position, const Vector3& rotation, const Vector3& scale) {
@@ -33,6 +39,7 @@ std::unique_ptr<Object3d> CreateObject(
 }
 
 void BossTestScene::OnEnter(GameApp& app) {
+    LoadMineSettings_();
     camera_ = std::make_unique<Camera>();
     debugCamera_ = std::make_unique<DebugCamera>();
     debugCamera_->Initialize();
@@ -49,6 +56,8 @@ void BossTestScene::OnEnter(GameApp& app) {
 
     CreateTestField_(app);
     CreateTemporaryBoss_(app);
+    shockwaveVisual_ = CreateObject(app, camera_.get(), "ring.obj", {}, {}, { 1.0f, 1.0f, 1.0f });
+    shockwaveVisual_->SetMaterialColor({ 0.1f, 0.8f, 1.0f, 0.8f });
     mineSpawnPoints_.resize(3);
     mineSpawnPoints_[0].Settings().localPosition = { -0.8f, 0.0f, 0.0f };
     mineSpawnPoints_[0].Settings().scatterDirection = { -1.0f, 0.0f, 0.0f };
@@ -68,6 +77,8 @@ void BossTestScene::OnExit(GameApp& app) {
         app.GetInput()->SetCameraControlEnabled(false);
     }
     boss_.reset();
+    shockwaveRocks_.clear();
+    shockwaveVisual_.reset();
     mines_.clear();
     pendingMineEmissions_.clear();
     minePointDebugObjects_.clear();
@@ -121,6 +132,7 @@ void BossTestScene::ResetTestObjects_() {
     mines_.clear();
     pendingMineEmissions_.clear();
     nextMineEmission_ = 0;
+    ResetShockwave_();
 }
 
 void BossTestScene::AddMineSpawnPoint_(GameApp& app) {
@@ -209,14 +221,17 @@ void BossTestScene::UpdateMineDebugObjects_() {
 
 void BossTestScene::TestFireMines_(GameApp& app) {
     (void)app;
-    mines_.clear();
-    pendingMineEmissions_.clear();
-    nextMineEmission_ = 0;
-    mineLaunchTimer_ = 0.0f;
     if (mineSpawnPoints_.empty()) return;
     const Matrix4x4 bossWorld = Matrix4x4::MakeAffineMatrix(bossScale_, bossRotation_, bossPosition_);
-    pendingMineEmissions_ = mineSpawnPoints_[selectedMineSpawnPoint_].GenerateSamples(
+    auto newEmissions = mineSpawnPoints_[selectedMineSpawnPoint_].GenerateSamples(
         bossWorld, bossRotation_, random_);
+    const bool queueWasEmpty = pendingMineEmissions_.empty();
+    pendingMineEmissions_.insert(
+        pendingMineEmissions_.end(), newEmissions.begin(), newEmissions.end());
+    if (queueWasEmpty) {
+        nextMineEmission_ = 0;
+        mineLaunchTimer_ = 0.0f;
+    }
 }
 
 void BossTestScene::UpdateMineLaunchQueue_(GameApp& app, float dt) {
@@ -271,6 +286,212 @@ void BossTestScene::TriggerAllMines_() {
     }
 }
 
+void BossTestScene::TriggerShockwave_() {
+    shockwaveAffectedMines_.clear();
+    const Vector3 center = bossPosition_ + shockwavePositionOffset_;
+    shockwave_.Trigger(center, center.y, shockwaveSettings_, random_);
+}
+
+void BossTestScene::ResetShockwave_() {
+    shockwave_.Reset();
+    shockwaveRocks_.clear();
+    shockwaveAffectedMines_.clear();
+}
+
+void BossTestScene::UpdateShockwave_(GameApp& app, float dt) {
+    const bool waveWasActive = shockwave_.IsActive();
+    shockwave_.Update(dt);
+
+    for (const auto& spawn : shockwave_.ConsumeRockSpawns()) {
+        ShockwaveRockSpawn scaledSpawn = spawn;
+        const Vector3 relative = spawn.position - shockwave_.GetCenter();
+        scaledSpawn.position = shockwave_.GetCenter() + Vector3{
+            relative.x * std::max(0.01f, shockwaveAreaScale_.x),
+            relative.y * std::max(0.01f, shockwaveAreaScale_.y),
+            relative.z * std::max(0.01f, shockwaveAreaScale_.z)
+        };
+        const Vector3 scaledDirection{
+            spawn.outwardDirection.x * std::max(0.01f, shockwaveAreaScale_.x),
+            0.0f,
+            spawn.outwardDirection.z * std::max(0.01f, shockwaveAreaScale_.z)
+        };
+        scaledSpawn.outwardDirection = Matrix4x4::Normalize(scaledDirection);
+        auto rock = std::make_unique<ShockwaveRock>();
+        rock->Initialize(
+            app.ObjCom(), app.Dx(), camera_.get(), scaledSpawn, shockwaveSettings_.rock, random_);
+        shockwaveRocks_.push_back(std::move(rock));
+    }
+
+    for (auto& rock : shockwaveRocks_) rock->Update(dt);
+    std::erase_if(shockwaveRocks_, [](const std::unique_ptr<ShockwaveRock>& rock) {
+        return !rock || !rock->IsAlive();
+    });
+
+    const float completedRadius = std::max(
+        shockwaveSettings_.radiusStart, shockwaveSettings_.radiusMax);
+    const bool waveFullyExpanded = shockwave_.GetRadius() >= completedRadius;
+    if (waveWasActive && waveFullyExpanded) {
+        std::uniform_real_distribution<float> delay(
+            std::min(shockwaveSettings_.mineTrigger.delayMin, shockwaveSettings_.mineTrigger.delayMax),
+            std::max(shockwaveSettings_.mineTrigger.delayMin, shockwaveSettings_.mineTrigger.delayMax));
+        const Vector3 center = shockwave_.GetCenter();
+        const float radius = shockwave_.GetRadius();
+        const float radiusSquared = radius * radius;
+        const float scaleX = std::max(0.01f, shockwaveAreaScale_.x);
+        const float scaleZ = std::max(0.01f, shockwaveAreaScale_.z);
+        for (auto& mine : mines_) {
+            if (shockwaveAffectedMines_.contains(mine.get())) continue;
+            const Vector3 delta = mine->GetPosition() - center;
+            const float horizontalDistanceSquared =
+                (delta.x / scaleX) * (delta.x / scaleX) +
+                (delta.z / scaleZ) * (delta.z / scaleZ);
+            if (horizontalDistanceSquared <= radiusSquared) {
+                mine->TriggerExplosion(std::max(0.0f, delay(random_)));
+                shockwaveAffectedMines_.insert(mine.get());
+            }
+        }
+    }
+
+    if (shockwaveVisual_) {
+        const Vector3 previewCenter = bossPosition_ + shockwavePositionOffset_;
+        shockwaveVisual_->SetTranslate(shockwave_.IsActive() ? shockwave_.GetCenter() : previewCenter);
+        const float radius = shockwave_.IsActive()
+            ? shockwave_.GetRadius()
+            : std::max(0.0f, shockwaveSettings_.radiusMax);
+        shockwaveVisual_->SetScale({
+            radius * std::max(0.01f, shockwaveAreaScale_.x),
+            radius * std::max(0.01f, shockwaveAreaScale_.y),
+            radius * std::max(0.01f, shockwaveAreaScale_.z)
+        });
+        shockwaveVisual_->Update(dt);
+    }
+}
+
+void BossTestScene::ApplyExplosionSettingsToMines_() {
+    for (auto& mine : mines_) {
+        mine->SetExplosionRadius(mineMotionSettings_.explosionRadius);
+        mine->SetDamage(mineMotionSettings_.damage);
+        mine->SetMoveSpeedDamage(mineMotionSettings_.moveSpeedDamage);
+    }
+}
+
+bool BossTestScene::SaveMineSettings_() {
+    try {
+        const std::filesystem::path path(kMineSettingsPath);
+        std::filesystem::create_directories(path.parent_path());
+        nlohmann::json root;
+        root["version"] = 1;
+        root["mine"]["explosion"] = {
+            { "damage", mineMotionSettings_.damage },
+            { "moveSpeedDamage", mineMotionSettings_.moveSpeedDamage },
+            { "explosionRadius", mineMotionSettings_.explosionRadius },
+            { "normalFuseTime", normalMineFuseTime_ },
+            { "chainReactionFuseTime", chainReactionFuseTime_ },
+            { "triggerAllFuseJitter", triggerAllFuseJitter_ }
+        };
+        const auto& rock = shockwaveSettings_.rock;
+        root["shockwave"] = {
+            { "positionOffset", { shockwavePositionOffset_.x, shockwavePositionOffset_.y, shockwavePositionOffset_.z } },
+            { "areaScale", { shockwaveAreaScale_.x, shockwaveAreaScale_.y, shockwaveAreaScale_.z } },
+            { "radiusStart", shockwaveSettings_.radiusStart },
+            { "radiusMax", shockwaveSettings_.radiusMax },
+            { "expansionSpeed", shockwaveSettings_.expansionSpeed },
+            { "duration", shockwaveSettings_.duration },
+            { "rock", {
+                { "spawnCount", rock.spawnCount }, { "spawnInterval", rock.spawnInterval },
+                { "spawnRadiusMin", rock.spawnRadiusMin }, { "spawnRadiusMax", rock.spawnRadiusMax },
+                { "spawnHeightOffset", rock.spawnHeightOffset },
+                { "scaleMin", rock.scaleMin }, { "scaleMax", rock.scaleMax },
+                { "launchPowerMin", rock.launchPowerMin }, { "launchPowerMax", rock.launchPowerMax },
+                { "horizontalPower", rock.horizontalPower }, { "gravity", rock.gravity },
+                { "drag", rock.drag }, { "lifetime", rock.lifetime },
+                { "damage", rock.damage }, { "moveSpeedDamage", rock.moveSpeedDamage }
+            } },
+            { "mineTrigger", {
+                { "delayMin", shockwaveSettings_.mineTrigger.delayMin },
+                { "delayMax", shockwaveSettings_.mineTrigger.delayMax }
+            } }
+        };
+        std::ofstream output(path, std::ios::trunc);
+        if (!output) throw std::runtime_error("could not open output file");
+        output << root.dump(4) << '\n';
+        mineSettingsStatus_ = "Saved: " + path.generic_string();
+        return true;
+    } catch (const std::exception& exception) {
+        mineSettingsStatus_ = std::string("Save failed: ") + exception.what();
+        return false;
+    }
+}
+
+bool BossTestScene::LoadMineSettings_() {
+    try {
+        const std::filesystem::path path(kMineSettingsPath);
+        std::ifstream input(path);
+        if (!input) {
+            mineSettingsStatus_ = "Using defaults (settings file not found).";
+            return false;
+        }
+        const nlohmann::json root = nlohmann::json::parse(input);
+        const auto explosion = root.value("mine", nlohmann::json::object())
+            .value("explosion", nlohmann::json::object());
+        mineMotionSettings_.damage = std::max(0.0f, explosion.value("damage", mineMotionSettings_.damage));
+        mineMotionSettings_.moveSpeedDamage = std::max(
+            0.0f, explosion.value("moveSpeedDamage", mineMotionSettings_.moveSpeedDamage));
+        mineMotionSettings_.explosionRadius = std::max(
+            0.1f, explosion.value("explosionRadius", mineMotionSettings_.explosionRadius));
+        normalMineFuseTime_ = std::max(0.0f, explosion.value("normalFuseTime", normalMineFuseTime_));
+        chainReactionFuseTime_ = std::max(
+            0.0f, explosion.value("chainReactionFuseTime", chainReactionFuseTime_));
+        triggerAllFuseJitter_ = std::max(
+            0.0f, explosion.value("triggerAllFuseJitter", triggerAllFuseJitter_));
+        const auto shockwave = root.value("shockwave", nlohmann::json::object());
+        const auto positionOffset = shockwave.value("positionOffset", nlohmann::json::array());
+        if (positionOffset.is_array() && positionOffset.size() >= 3) {
+            shockwavePositionOffset_ = { positionOffset[0].get<float>(), positionOffset[1].get<float>(), positionOffset[2].get<float>() };
+        }
+        const auto areaScale = shockwave.value("areaScale", nlohmann::json::array());
+        if (areaScale.is_array() && areaScale.size() >= 3) {
+            shockwaveAreaScale_ = {
+                std::max(0.01f, areaScale[0].get<float>()),
+                std::max(0.01f, areaScale[1].get<float>()),
+                std::max(0.01f, areaScale[2].get<float>())
+            };
+        }
+        shockwaveSettings_.radiusStart = shockwave.value("radiusStart", shockwaveSettings_.radiusStart);
+        shockwaveSettings_.radiusMax = shockwave.value("radiusMax", shockwaveSettings_.radiusMax);
+        shockwaveSettings_.expansionSpeed = shockwave.value("expansionSpeed", shockwaveSettings_.expansionSpeed);
+        shockwaveSettings_.duration = shockwave.value("duration", shockwaveSettings_.duration);
+        const auto rock = shockwave.value("rock", nlohmann::json::object());
+        auto& rockSettings = shockwaveSettings_.rock;
+        rockSettings.spawnCount = rock.value("spawnCount", rockSettings.spawnCount);
+        rockSettings.spawnInterval = rock.value("spawnInterval", rockSettings.spawnInterval);
+        rockSettings.spawnRadiusMin = rock.value("spawnRadiusMin", rockSettings.spawnRadiusMin);
+        rockSettings.spawnRadiusMax = rock.value("spawnRadiusMax", rockSettings.spawnRadiusMax);
+        rockSettings.spawnHeightOffset = rock.value("spawnHeightOffset", rockSettings.spawnHeightOffset);
+        rockSettings.scaleMin = rock.value("scaleMin", rockSettings.scaleMin);
+        rockSettings.scaleMax = rock.value("scaleMax", rockSettings.scaleMax);
+        rockSettings.launchPowerMin = rock.value("launchPowerMin", rockSettings.launchPowerMin);
+        rockSettings.launchPowerMax = rock.value("launchPowerMax", rockSettings.launchPowerMax);
+        rockSettings.horizontalPower = rock.value("horizontalPower", rockSettings.horizontalPower);
+        rockSettings.gravity = rock.value("gravity", rockSettings.gravity);
+        rockSettings.drag = rock.value("drag", rockSettings.drag);
+        rockSettings.lifetime = rock.value("lifetime", rockSettings.lifetime);
+        rockSettings.damage = rock.value("damage", rockSettings.damage);
+        rockSettings.moveSpeedDamage = rock.value("moveSpeedDamage", rockSettings.moveSpeedDamage);
+        const auto mineTrigger = shockwave.value("mineTrigger", nlohmann::json::object());
+        shockwaveSettings_.mineTrigger.delayMin = mineTrigger.value(
+            "delayMin", shockwaveSettings_.mineTrigger.delayMin);
+        shockwaveSettings_.mineTrigger.delayMax = mineTrigger.value(
+            "delayMax", shockwaveSettings_.mineTrigger.delayMax);
+        ApplyExplosionSettingsToMines_();
+        mineSettingsStatus_ = "Loaded: " + path.generic_string();
+        return true;
+    } catch (const std::exception& exception) {
+        mineSettingsStatus_ = std::string("Load failed: ") + exception.what();
+        return false;
+    }
+}
+
 void BossTestScene::Update(GameApp& app, float dt) {
     Input* input = app.GetInput();
     if (input && input->IsKeyTrigger(DIK_F2)) {
@@ -296,6 +517,7 @@ void BossTestScene::Update(GameApp& app, float dt) {
         mines_.clear();
         pendingMineEmissions_.clear();
         nextMineEmission_ = 0;
+        shockwaveAffectedMines_.clear();
         pendingClearTestMines_ = false;
     }
     if (pendingResetTestObjects_) {
@@ -312,6 +534,14 @@ void BossTestScene::Update(GameApp& app, float dt) {
         }
         pendingTriggerFirstMine_ = false;
     }
+    if (pendingTriggerShockwave_) {
+        TriggerShockwave_();
+        pendingTriggerShockwave_ = false;
+    }
+    if (pendingResetShockwave_) {
+        ResetShockwave_();
+        pendingResetShockwave_ = false;
+    }
     if (input && input->IsKeyTrigger(DIK_ESCAPE)) {
         app.RequestQuit();
         return;
@@ -327,6 +557,7 @@ void BossTestScene::Update(GameApp& app, float dt) {
     ApplyBossTransform_();
     UpdateMineDebugObjects_();
     UpdateMineLaunchQueue_(app, dt);
+    UpdateShockwave_(app, dt);
     if (floor_) floor_->Update(dt);
     if (originMarker_) originMarker_->Update(dt);
     for (auto& marker : distanceMarkers_) marker->Update(dt);
@@ -346,6 +577,8 @@ void BossTestScene::Draw(GameApp& /*app*/) {
         for (const auto& object : debug.rangeEdges) object->Draw();
     }
     for (const auto& mine : mines_) mine->Draw();
+    if (showShockwaveRange_ && shockwaveVisual_) shockwaveVisual_->Draw();
+    for (const auto& rock : shockwaveRocks_) rock->Draw();
 }
 
 void BossTestScene::DrawImGui(GameApp& app) {
@@ -374,6 +607,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
     }
 
     if (ImGui::CollapsingHeader("Boss Attacks", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::TreeNodeEx("Mine", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::TextUnformatted("Mine Spawn Points");
         if (ImGui::Button("Add Spawn Point")) pendingAddMineSpawnPoint_ = true;
         ImGui::SameLine();
@@ -413,13 +647,19 @@ void BossTestScene::DrawImGui(GameApp& app) {
         ImGui::DragFloat("Normal Fuse Time", &normalMineFuseTime_, 0.02f, 0.0f, 10.0f);
         ImGui::DragFloat("Chain Reaction Fuse Time", &chainReactionFuseTime_, 0.02f, 0.0f, 10.0f);
         ImGui::DragFloat("Trigger All Jitter", &triggerAllFuseJitter_, 0.01f, 0.0f, 2.0f);
-        if (ImGui::DragFloat("Explosion Radius", &mineMotionSettings_.explosionRadius, 0.1f, 0.1f, 100.0f)) {
-            for (auto& mine : mines_) mine->SetExplosionRadius(mineMotionSettings_.explosionRadius);
+        bool explosionSettingsChanged = false;
+        explosionSettingsChanged |= ImGui::DragFloat(
+            "Damage", &mineMotionSettings_.damage, 0.5f, 0.0f, 10000.0f);
+        explosionSettingsChanged |= ImGui::DragFloat(
+            "Move Speed Damage", &mineMotionSettings_.moveSpeedDamage, 0.1f, 0.0f, 10000.0f);
+        explosionSettingsChanged |= ImGui::DragFloat(
+            "Explosion Radius", &mineMotionSettings_.explosionRadius, 0.1f, 0.1f, 100.0f);
+        if (explosionSettingsChanged) {
+            ApplyExplosionSettingsToMines_();
         }
         if (ImGui::Button("Trigger First Mine (Chain Test)")) pendingTriggerFirstMine_ = true;
         ImGui::SameLine();
         if (ImGui::Button("Trigger All Mines")) pendingTriggerAllMines_ = true;
-
         int flyingCount = 0;
         int floatingCount = 0;
         int triggeredCount = 0;
@@ -446,6 +686,55 @@ void BossTestScene::DrawImGui(GameApp& app) {
             }
             ImGui::TreePop();
         }
+        ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNodeEx("Shockwave", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Show Shockwave Range", &showShockwaveRange_);
+            ImGui::DragFloat3("Position Offset##Shockwave", &shockwavePositionOffset_.x, 0.1f, -1000.0f, 1000.0f);
+            ImGui::DragFloat3("Area Scale##Shockwave", &shockwaveAreaScale_.x, 0.05f, 0.01f, 100.0f);
+            ImGui::DragFloat("Radius Start##Shockwave", &shockwaveSettings_.radiusStart, 0.1f, 0.0f, 500.0f);
+            ImGui::DragFloat("Radius Max##Shockwave", &shockwaveSettings_.radiusMax, 0.25f, 0.0f, 1000.0f);
+            ImGui::DragFloat("Expansion Speed##Shockwave", &shockwaveSettings_.expansionSpeed, 0.25f, 0.0f, 500.0f);
+            ImGui::DragFloat("Duration##Shockwave", &shockwaveSettings_.duration, 0.05f, 0.0f, 60.0f);
+
+            if (ImGui::TreeNodeEx("Rock", ImGuiTreeNodeFlags_DefaultOpen)) {
+                auto& rock = shockwaveSettings_.rock;
+                ImGui::DragInt("Spawn Count##Rock", &rock.spawnCount, 1.0f, 0, 512);
+                ImGui::DragFloat("Spawn Interval##Rock", &rock.spawnInterval, 0.01f, 0.0f, 5.0f);
+                ImGui::DragFloat("Spawn Radius Min##Rock", &rock.spawnRadiusMin, 0.1f, 0.0f, 1000.0f);
+                ImGui::DragFloat("Spawn Radius Max##Rock", &rock.spawnRadiusMax, 0.1f, 0.0f, 1000.0f);
+                ImGui::DragFloat("Spawn Height Offset##Rock", &rock.spawnHeightOffset, 0.05f, -100.0f, 100.0f);
+                ImGui::DragFloat("Scale Min##Rock", &rock.scaleMin, 0.05f, 0.01f, 100.0f);
+                ImGui::DragFloat("Scale Max##Rock", &rock.scaleMax, 0.05f, 0.01f, 100.0f);
+                ImGui::DragFloat("Launch Power Min##Rock", &rock.launchPowerMin, 0.1f, 0.0f, 500.0f);
+                ImGui::DragFloat("Launch Power Max##Rock", &rock.launchPowerMax, 0.1f, 0.0f, 500.0f);
+                ImGui::DragFloat("Horizontal Power##Rock", &rock.horizontalPower, 0.1f, 0.0f, 500.0f);
+                ImGui::DragFloat("Gravity##Rock", &rock.gravity, 0.1f, 0.0f, 100.0f);
+                ImGui::DragFloat("Drag##Rock", &rock.drag, 0.01f, 0.0f, 20.0f);
+                ImGui::DragFloat("Lifetime##Rock", &rock.lifetime, 0.1f, 0.0f, 60.0f);
+                ImGui::DragFloat("Damage##Rock", &rock.damage, 0.5f, 0.0f, 10000.0f);
+                ImGui::DragFloat("Move Speed Damage##Rock", &rock.moveSpeedDamage, 0.1f, 0.0f, 10000.0f);
+                ImGui::TreePop();
+            }
+
+            if (ImGui::TreeNodeEx("Mine Trigger", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::DragFloat("Trigger Delay Min", &shockwaveSettings_.mineTrigger.delayMin, 0.01f, 0.0f, 10.0f);
+                ImGui::DragFloat("Trigger Delay Max", &shockwaveSettings_.mineTrigger.delayMax, 0.01f, 0.0f, 10.0f);
+                ImGui::TreePop();
+            }
+            if (ImGui::Button("Trigger Shockwave")) pendingTriggerShockwave_ = true;
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Shockwave")) pendingResetShockwave_ = true;
+            ImGui::Text("Radius: %.2f / Rocks: %d / Active: %s",
+                shockwave_.GetRadius(), static_cast<int>(shockwaveRocks_.size()),
+                shockwave_.IsActive() ? "Yes" : "No");
+            ImGui::TreePop();
+        }
+        if (ImGui::Button("Save Boss Attack Settings")) SaveMineSettings_();
+        ImGui::SameLine();
+        if (ImGui::Button("Load Boss Attack Settings")) LoadMineSettings_();
+        if (!mineSettingsStatus_.empty()) ImGui::TextDisabled("%s", mineSettingsStatus_.c_str());
         ImGui::Separator();
         ImGui::TextDisabled("Other attacks will be added here later.");
     }

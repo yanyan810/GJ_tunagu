@@ -16,11 +16,15 @@ struct MineMotionSettings {
     float floatingSpeed = 1.2f;
     Vector3 rotationSpeed{ 0.15f, 0.25f, 0.1f };
     float explosionRadius = 5.0f;
+    float damage = 20.0f;
+    float moveSpeedDamage = 10.0f;
 };
 
 struct MineExplosionEvent {
     Vector3 position{};
     float radius = 0.0f;
+    float damage = 0.0f;
+    float moveSpeedDamage = 0.0f;
 };
 
 class Mine {
@@ -52,7 +56,12 @@ public:
     const Vector3& GetTargetPosition() const { return targetPosition_; }
     float GetTriggerTimeRemaining() const { return triggerTimeRemaining_; }
     float GetExplosionRadius() const { return settings_.explosionRadius; }
+    float GetDamage() const { return settings_.damage; }
+    float GetMoveSpeedDamage() const { return settings_.moveSpeedDamage; }
+    const Vector3& GetExplosionPosition() const { return explosionPosition_; }
     void SetExplosionRadius(float radius) { settings_.explosionRadius = radius; }
+    void SetDamage(float damage) { settings_.damage = damage; }
+    void SetMoveSpeedDamage(float damage) { settings_.moveSpeedDamage = damage; }
     static const char* StateName(State state);
 
 private:
@@ -76,6 +85,7 @@ private:
     float triggerTimeRemaining_ = 0.0f;
     float triggerFuseDuration_ = 0.0f;
     bool explosionEventPending_ = false;
+    Vector3 explosionPosition_{};
     std::unique_ptr<Object3d> explosionVisual_;
     float explosionVisualTime_ = 0.0f;
     float explosionVisualDuration_ = 0.45f;

@@ -1,0 +1,50 @@
+{
+    "mine": {
+        "explosion": {
+            "chainReactionFuseTime": 0.3499999940395355,
+            "damage": 20.0,
+            "explosionRadius": 5.0,
+            "moveSpeedDamage": 10.0,
+            "normalFuseTime": 0.800000011920929,
+            "triggerAllFuseJitter": 0.15000000596046448
+        }
+    },
+    "shockwave": {
+        "areaScale": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "duration": 2.0,
+        "expansionSpeed": 18.0,
+        "mineTrigger": {
+            "delayMax": 0.800000011920929,
+            "delayMin": 0.20000000298023224
+        },
+        "positionOffset": [
+            0.0,
+            -2.8499999046325684,
+            0.0
+        ],
+        "radiusMax": 30.0,
+        "radiusStart": 1.0,
+        "rock": {
+            "damage": 10.0,
+            "drag": 0.20000000298023224,
+            "gravity": 9.800000190734863,
+            "horizontalPower": 3.0,
+            "launchPowerMax": 12.0,
+            "launchPowerMin": 5.0,
+            "lifetime": 4.0,
+            "moveSpeedDamage": 2.0,
+            "scaleMax": 1.5,
+            "scaleMin": 0.4000000059604645,
+            "spawnCount": 20,
+            "spawnHeightOffset": 0.20000000298023224,
+            "spawnInterval": 0.05000000074505806,
+            "spawnRadiusMax": 28.0,
+            "spawnRadiusMin": 2.0
+        }
+    },
+    "version": 1
+}
