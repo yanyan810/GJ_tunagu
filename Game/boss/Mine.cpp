@@ -134,8 +134,10 @@ bool Mine::TriggerExplosion(float delay) {
 
 bool Mine::ConsumeExplosionEvent(MineExplosionEvent& event) {
     if (!explosionEventPending_) return false;
-    event.position = visualPosition_;
+    event.position = explosionPosition_;
     event.radius = std::max(0.0f, settings_.explosionRadius);
+    event.damage = std::max(0.0f, settings_.damage);
+    event.moveSpeedDamage = std::max(0.0f, settings_.moveSpeedDamage);
     explosionEventPending_ = false;
     return true;
 }
@@ -184,6 +186,7 @@ void Mine::UpdateTriggered_(float dt) {
 void Mine::EnterExploded_() {
     if (state_ == State::Exploded) return;
     state_ = State::Exploded;
+    explosionPosition_ = visualPosition_;
     explosionEventPending_ = true;
     explosionVisualActive_ = true;
     explosionVisualTime_ = 0.0f;
