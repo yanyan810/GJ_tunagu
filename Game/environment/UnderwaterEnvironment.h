@@ -1,7 +1,10 @@
 #pragma once
 
 #include "Vector3.h"
+#include <cstdint>
 #include <memory>
+#include <string>
+#include <vector>
 
 class Camera;
 class DirectXCommon;
@@ -27,6 +30,10 @@ private:
     void ApplyFloorSettings_();
     void ApplyCausticsSettings_();
     const char* GetCausticsTexturePath_() const;
+    void LoadMarineSnow_();
+    void RemoveMarineSnowGroups_();
+    void EmitMarineSnow_(uint32_t count);
+    Vector3 CalculateMarineSnowEmitCenter_() const;
 
     Camera* camera_ = nullptr;
     std::unique_ptr<Object3d> floor_;
@@ -43,4 +50,14 @@ private:
     bool causticsAnimationEnabled_ = true;
     float causticsPlaybackTime_ = 0.0f;
     float causticsLoopDuration_ = 4.0f;
+
+    std::vector<std::string> marineSnowGroupNames_;
+    bool marineSnowEnabled_ = true;
+    bool marineSnowInitialEmitted_ = false;
+    float marineSnowEmitTimer_ = 0.0f;
+    float marineSnowEmitInterval_ = 0.25f;
+    int marineSnowEmitCount_ = 14;
+    uint32_t marineSnowInitialCount_ = 160;
+    float marineSnowSpawnAhead_ = 18.0f;
+    float marineSnowSpawnYOffset_ = 2.0f;
 };

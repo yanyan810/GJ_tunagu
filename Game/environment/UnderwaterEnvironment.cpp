@@ -4,6 +4,7 @@
 #include "DirectXCommon.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
+#include "ParticleManager.h"
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
@@ -15,10 +16,14 @@ namespace {
 constexpr uint32_t kCausticsFrameCount = 24;
 constexpr uint32_t kCausticsAtlasColumns = 6;
 constexpr uint32_t kCausticsAtlasRows = 4;
+constexpr char kMarineSnowFileName[] = "underwater_marine_snow.json";
+constexpr char kMarineSnowGroupPrefix[] = "UnderwaterEnvironment_";
 }
 
 UnderwaterEnvironment::UnderwaterEnvironment() = default;
-UnderwaterEnvironment::~UnderwaterEnvironment() = default;
+UnderwaterEnvironment::~UnderwaterEnvironment() {
+    RemoveMarineSnowGroups_();
+}
 
 void UnderwaterEnvironment::Initialize(
     Object3dCommon* object3dCommon, DirectXCommon* dx, Camera* camera) {
@@ -36,6 +41,8 @@ void UnderwaterEnvironment::Initialize(
     ApplyFloorSettings_();
     ApplyCausticsSettings_();
     floor_->Update(0.0f);
+
+    LoadMarineSnow_();
 }
 
 void UnderwaterEnvironment::Update(float dt) {
@@ -57,6 +64,24 @@ void UnderwaterEnvironment::Update(float dt) {
     ApplyFloorSettings_();
     ApplyCausticsSettings_();
     floor_->Update(dt);
+
+    if (!marineSnowEnabled_ || marineSnowGroupNames_.empty() || !camera_) {
+        return;
+    }
+
+    if (!marineSnowInitialEmitted_) {
+        EmitMarineSnow_(marineSnowInitialCount_);
+        marineSnowInitialEmitted_ = true;
+        marineSnowEmitTimer_ = 0.0f;
+        return;
+    }
+
+    const float safeInterval = std::max(marineSnowEmitInterval_, 0.01f);
+    marineSnowEmitTimer_ += std::max(dt, 0.0f);
+    if (marineSnowEmitTimer_ >= safeInterval) {
+        marineSnowEmitTimer_ = std::fmod(marineSnowEmitTimer_, safeInterval);
+        EmitMarineSnow_(static_cast<uint32_t>(std::max(marineSnowEmitCount_, 1)));
+    }
 }
 
 void UnderwaterEnvironment::Draw() {
@@ -84,6 +109,19 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::DragFloat("Caustics Intensity", &causticsIntensity_, 0.01f, 0.0f, 4.0f, "%.2f");
     ImGui::Checkbox("Animation Enabled", &causticsAnimationEnabled_);
     ImGui::DragFloat("Loop Duration", &causticsLoopDuration_, 0.1f, 0.1f, 20.0f, "%.1f sec");
+    ImGui::Separator();
+    ImGui::Text("Marine Snow");
+    if (ImGui::Checkbox("Marine Snow Enabled", &marineSnowEnabled_)) {
+        if (marineSnowEnabled_) {
+            LoadMarineSnow_();
+        } else {
+            RemoveMarineSnowGroups_();
+        }
+    }
+    ImGui::DragFloat("Emit Interval", &marineSnowEmitInterval_, 0.01f, 0.01f, 2.0f, "%.2f sec");
+    ImGui::DragInt("Emit Count", &marineSnowEmitCount_, 1.0f, 1, 128);
+    ImGui::DragFloat("Spawn Ahead", &marineSnowSpawnAhead_, 0.25f, 0.0f, 100.0f, "%.1f");
+    ImGui::DragFloat("Spawn Y Offset", &marineSnowSpawnYOffset_, 0.25f, -50.0f, 50.0f, "%.1f");
     ImGui::End();
 #endif
 }
@@ -114,4 +152,59 @@ const char* UnderwaterEnvironment::GetCausticsTexturePath_() const {
     return causticsPreset_ == CausticsPreset::DeepBroad
         ? "resources/UnderwaterCausticsDeepBroadAtlas.png"
         : "resources/UnderwaterCausticsAtlas.png";
+}
+
+void UnderwaterEnvironment::LoadMarineSnow_() {
+    ParticleManager* particleManager = ParticleManager::GetInstance();
+
+    // Dedicated JSON from a previous scene entry may still be present.
+    for (const std::string& groupName :
+         particleManager->GetGroupNamesLoadedFromFile(kMarineSnowFileName)) {
+        particleManager->RemoveGroup(groupName);
+    }
+
+    particleManager->LoadAdditional(kMarineSnowFileName, kMarineSnowGroupPrefix);
+    marineSnowGroupNames_ =
+        particleManager->GetGroupNamesLoadedFromFile(kMarineSnowFileName);
+    marineSnowInitialEmitted_ = false;
+    marineSnowEmitTimer_ = 0.0f;
+}
+
+void UnderwaterEnvironment::RemoveMarineSnowGroups_() {
+    ParticleManager* particleManager = ParticleManager::GetInstance();
+    for (const std::string& groupName : marineSnowGroupNames_) {
+        particleManager->RemoveGroup(groupName);
+    }
+    marineSnowGroupNames_.clear();
+    marineSnowInitialEmitted_ = false;
+    marineSnowEmitTimer_ = 0.0f;
+}
+
+void UnderwaterEnvironment::EmitMarineSnow_(uint32_t count) {
+    ParticleManager* particleManager = ParticleManager::GetInstance();
+    const Vector3 emitCenter = CalculateMarineSnowEmitCenter_();
+    for (const std::string& groupName : marineSnowGroupNames_) {
+        particleManager->Emit(groupName, emitCenter, count);
+    }
+}
+
+Vector3 UnderwaterEnvironment::CalculateMarineSnowEmitCenter_() const {
+    if (!camera_) {
+        return {};
+    }
+
+    const Vector3 cameraPosition = camera_->GetTranslate();
+    const Vector3 cameraRotation = camera_->GetRotate();
+    const float cosPitch = std::cos(cameraRotation.x);
+    const Vector3 forward{
+        std::sin(cameraRotation.y) * cosPitch,
+        -std::sin(cameraRotation.x),
+        std::cos(cameraRotation.y) * cosPitch,
+    };
+
+    return {
+        cameraPosition.x + forward.x * marineSnowSpawnAhead_,
+        cameraPosition.y + forward.y * marineSnowSpawnAhead_ - marineSnowSpawnYOffset_,
+        cameraPosition.z + forward.z * marineSnowSpawnAhead_,
+    };
 }
