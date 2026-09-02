@@ -231,6 +231,10 @@ void GameScene::Update(GameApp& app, float dt) {
         }
     }
 
+    if (underwaterEnvironment_ && player_) {
+        underwaterEnvironment_->SetPlayerSnapshot(
+            player_->GetPosition(), player_->GetYaw(), player_->GetPitch());
+    }
     if (underwaterEnvironment_) underwaterEnvironment_->Update(dt);
     if (camera_) ParticleManager::GetInstance()->Update(dt, *camera_);
 
