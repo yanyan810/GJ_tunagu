@@ -8,6 +8,7 @@
 #include "DirectXCommon.h"
 #include "Object3d.h"
 #include "Debris.h"
+#include "ParticleManager.h"
 #include "environment/UnderwaterEnvironment.h"
 #ifdef USE_IMGUI
 #include "imgui.h"
@@ -231,13 +232,14 @@ void GameScene::Update(GameApp& app, float dt) {
     }
 
     if (underwaterEnvironment_) underwaterEnvironment_->Update(dt);
+    if (camera_) ParticleManager::GetInstance()->Update(dt, *camera_);
 
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
         app.RequestQuit();
     }
 }
 
-void GameScene::Draw(GameApp& /*app*/) {
+void GameScene::Draw(GameApp& app) {
     if (underwaterEnvironment_) underwaterEnvironment_->Draw();
     if (player_) player_->Draw();
 
@@ -247,6 +249,8 @@ void GameScene::Draw(GameApp& /*app*/) {
     }
 
     for (const auto& enemy : enemies_) enemy->Draw();
+
+    ParticleManager::GetInstance()->Draw(app.Dx()->GetCommandList());
 
     // 2D UI スプライト HPバーの描画
     if (hpBarBgSprite_) hpBarBgSprite_->Draw();
