@@ -10,9 +10,28 @@ class DirectXCommon;
 class Camera;
 
 enum class DebrisType {
-    Uni,     // ウニ (サザンヌ)
-    Teapot,  // ドラム缶 (ティーポット)
-    Screw    // スクリュー (リング)
+    // 基本・ドロップ
+    Uni,           // ウニ (HP増加 + 投擲時高ダメージ)
+    Teapot,        // ドラム缶 / ティーポット
+    Screw,         // スクリュー (推進器)
+
+    // 普通に拾える海洋生物 (8種)
+    Archerfish,    // テッポウウオ (自動遠距離攻撃)
+    Pufferfish,    // ハリセンボン (投擲ダメージ高)
+    Remora,        // コバンザメ (周囲の装備・ゴミ自動回収)
+    Shell,         // 貝 (耐久力UP: HP増加 + ダメージ軽減)
+    Shrimp,        // エビ (攻撃力UP)
+    Jellyfish,     // クラゲ (攻撃速度/チャージ速度UP)
+    Halfbeak,      // サヨリ (移動速度UP)
+    Starfish,      // ヒトデ (投擲ダメージUP)
+
+    // 倒してから装備できる海洋生物 (大型・強力) (6種)
+    Marlin,        // カジキ (投擲系強化 + 投擲ダメージ超大)
+    Dolphin,       // イルカ (移動速度大幅UP)
+    Orca,          // シャチ (攻撃力大幅UP + 防御)
+    Crab,          // カニ (HP大幅UP + 近距離ガード)
+    MantisShrimp,  // シャコ (衝撃波攻撃)
+    Shark          // サメ (自動追尾歯攻撃)
 };
 
 enum class DebrisState {
@@ -57,6 +76,9 @@ public:
     // アタッチ状態に移行
     void Attach(const Vector3& localOffset, const Vector3& localRot);
 
+    // Setter
+    void SetPosition(const Vector3& pos) { pos_ = pos; }
+
     // Getter
     DebrisState GetState() const { return state_; }
     DebrisType GetType() const { return type_; }
@@ -65,6 +87,15 @@ public:
     float GetWeight() const { return weight_; }
     float GetThrust() const { return thrust_; }
     float GetAtk() const { return atk_; }
+    
+    // バフ・効果Getter
+    float GetHpBuff() const { return hpBuff_; }
+    float GetSpeedBuff() const { return speedBuff_; }
+    float GetAtkBuff() const { return atkBuff_; }
+    float GetChargeSpeedBuff() const { return chargeSpeedBuff_; }
+    float GetDefenseBuff() const { return defenseBuff_; }
+    float GetThrowAtkBuff() const { return throwAtkBuff_; }
+    const std::string& GetName() const { return name_; }
 
 private:
     std::unique_ptr<Object3d> model_;
@@ -80,10 +111,19 @@ private:
     Vector3 localOffset_ = { 0.0f, 0.0f, 0.0f };
     Vector3 localRot_ = { 0.0f, 0.0f, 0.0f };
 
-    // 物理パラメータ
+    // 物理・ステータスパラメータ
+    std::string name_ = "Debris";
     float weight_ = 1.0f;
     float thrust_ = 0.0f;
-    float atk_ = 0.0f;
+    float atk_ = 10.0f;
+
+    // 能力バフパラメータ
+    float hpBuff_ = 0.0f;
+    float speedBuff_ = 0.0f;       // 移動速度加算
+    float atkBuff_ = 0.0f;         // 攻撃力倍率加算 (0.3 = +30%)
+    float chargeSpeedBuff_ = 0.0f; // チャージ速度倍率加算
+    float defenseBuff_ = 0.0f;     // ダメージ軽減率 (0.2 = 20%減)
+    float throwAtkBuff_ = 0.0f;    // 投擲ダメージ倍率加算
 
     // フワフワ挙動用
     float floatTimer_ = 0.0f;

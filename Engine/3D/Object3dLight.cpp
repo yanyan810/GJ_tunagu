@@ -1,4 +1,4 @@
-﻿#include "Object3dLight.h"
+#include "Object3dLight.h"
 
 void Object3dLight::Initialize(DirectXCommon* dx) {
 	dx_ = dx;
@@ -8,8 +8,8 @@ void Object3dLight::Initialize(DirectXCommon* dx) {
 	directionalLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
 	// 初期化
 	directionalLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f }; // ライトの色
-	directionalLightData_->direction = { 0.0f, -1.0f, 0.0f };
-	directionalLightData_->intensity = 0.0f; // ライトの強度
+	directionalLightData_->direction = { 0.3f, -0.8f, 0.5f }; // 光の向き
+	directionalLightData_->intensity = 1.0f; // ライトの強度
 
 	// ポイントライト
 	pointLightResource_ = dx_->CreateBufferResource(sizeof(PointLight));

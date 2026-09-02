@@ -33,8 +33,14 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     model_->Initialize(objCommon, dx);
     model_->SetCamera(camera_);
     model_->SetModel("tuna/tuna.obj");
+    model_->SetTexture("tuna/tuna+fish+3d+model_basecolor.jpg");
     model_->SetScale({ 1.0f, 1.0f, 1.0f });
     
+    // HPの初期化
+    maxHp_ = 100.0f;
+    hp_ = maxHp_;
+    isOverweight_ = false;
+
     // 初期座標と向き
     pos_ = { 0.0f, 0.0f, 0.0f };
     yaw_ = 0.0f;
@@ -43,6 +49,8 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     model_->SetTranslate(pos_);
     model_->SetRotate({ pitch_, yaw_ + kModelRotateYawOffset, kModelRotateRollOffset });
     model_->SetEnableLighting(1); // ライティング有効
+    model_->SetIntensity(1.0f);   // ライティング強度
+    model_->SetDirection({ 0.3f, -0.8f, 0.5f }); // 光の向き
 
     // アタッチリストのクリア
     attachedDebris_.clear();
@@ -93,25 +101,66 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
 void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<Debris>>& debrisList) {
     if (!model_ || !model_->GetModel()) return;
 
-    // 1. 装備（ゴミ）の重さと推進力を集計して運動性能を再計算 (擬似物理)
+    // 1. 装備（海洋生物 / ゴミ）の能力・バフを集計
     float totalWeight = 0.0f;
     float totalThrust = 0.0f;
+    float extraMaxHp = 0.0f;
+
+    atkBuff_ = 0.0f;
+    speedBuff_ = 0.0f;
+    chargeSpeedBuff_ = 0.0f;
+    defenseBuff_ = 0.0f;
+    hasRemora_ = false;
+
     for (const auto& debris : attachedDebris_) {
         totalWeight += debris->GetWeight();
         totalThrust += debris->GetThrust();
+        extraMaxHp += debris->GetHpBuff();
+        atkBuff_ += debris->GetAtkBuff();
+        speedBuff_ += debris->GetSpeedBuff();
+        chargeSpeedBuff_ += debris->GetChargeSpeedBuff();
+        defenseBuff_ += debris->GetDefenseBuff();
+
+        if (debris->GetType() == DebrisType::Remora) {
+            hasRemora_ = true;
+        }
     }
 
-    // 重いゴミを付けると動きが重くなり、スクリュー（推進器）を付けると速くなる
+    // 最大HPバフのリアルタイム更新
+    maxHp_ = 100.0f + extraMaxHp;
+    hp_ = (std::min)(hp_, maxHp_);
+
+    // コバンザメのアビリティ: ① HP持続自動回復 (+2.0/s) & ② ゴミ重量50%カット
+    if (hasRemora_) {
+        Heal(2.0f * dt);
+        totalWeight *= 0.5f; // 重さを半減して減速しづらくする
+    }
+
+    // 移動性能の計算 (スピードバフ: サヨリ/イルカ/シャチ等)
     float baseForwardLimit = 15.0f;
     float baseBackwardLimit = -6.0f;
-    maxForwardSpeed_ = (baseForwardLimit + totalThrust) / (1.0f + totalWeight * 0.12f);
-    maxBackwardSpeed_ = baseBackwardLimit / (1.0f + totalWeight * 0.12f);
+    float weightFactor = 1.0f + totalWeight * 0.10f + static_cast<float>(attachedDebris_.size()) * 0.08f;
+    
+    float speedMultiplier = 1.0f + speedBuff_;
+    float calculatedSpeed = ((baseForwardLimit + totalThrust) * speedMultiplier) / weightFactor;
+    maxForwardSpeed_ = (std::max)(3.0f, calculatedSpeed);
+    maxBackwardSpeed_ = (baseBackwardLimit * speedMultiplier) / weightFactor;
+
+    // ゴミが100個以上アタッチされているか、または速度が6.0m/s以下に落ちたら過重状態（HP減少）
+    const float kOverweightSpeedThreshold = 6.0f;
+    const size_t kOverweightCountThreshold = 100;
+    const float kOverweightDamagePerSec = 8.0f;
+
+    isOverweight_ = (attachedDebris_.size() >= kOverweightCountThreshold || maxForwardSpeed_ <= kOverweightSpeedThreshold);
+    if (isOverweight_) {
+        TakeDamage(kOverweightDamagePerSec * dt);
+    }
 
     // 2. キー入力による回転・移動操作
     float rotateSpeedYaw = 1.8f;   // 旋回速度 (rad/s)
     
-    // 重いほど旋回速度も低下する
-    rotateSpeedYaw /= (1.0f + totalWeight * 0.08f);
+    // 重いほど旋回速度も低下（最低 0.4rad/s 保証）
+    rotateSpeedYaw = std::max(0.4f, rotateSpeedYaw / (1.0f + totalWeight * 0.10f));
 
     if (input.IsKeyPressed(DIK_A) || input.IsKeyPressed(DIK_LEFT)) {
         yaw_ -= rotateSpeedYaw * dt;
@@ -164,7 +213,7 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     }
 
     if (isCharging_) {
-        chargeTimer_ += dt;
+        chargeTimer_ += dt * (1.0f + chargeSpeedBuff_);
         int maxDebris = static_cast<int>(attachedDebris_.size());
         if (maxDebris > 0) {
             // 0.5秒ごとに投げる個数を増やす
@@ -205,7 +254,9 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
                     float ry = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
                     float rz = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
 
-                    float baseSpeed = 24.0f;
+                    // 投射初速をすさまじい勢い（65.0m/s ～ チャージ長押しで最高 90.0m/s）に超強化
+                    float chargeBonus = (std::min)(25.0f, chargeTimer_ * 15.0f);
+                    float baseSpeed = 65.0f + chargeBonus;
                     Vector3 velocity = {
                         (forward.x + rx) * baseSpeed,
                         (forward.y + ry) * baseSpeed,
