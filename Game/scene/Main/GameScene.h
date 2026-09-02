@@ -1,5 +1,6 @@
 #pragma once
 #include "IScene.h"
+#include "Sprite.h"
 #include <memory>
 #include <vector>
 
@@ -24,4 +25,8 @@ private:
     std::unique_ptr<Player> player_;
     std::vector<std::unique_ptr<Enemy>> enemies_;
     std::vector<std::unique_ptr<Debris>> debrisList_;
+
+    // 2D UI スプライトで構築する画面左上 HPバー
+    std::unique_ptr<Sprite> hpBarBgSprite_;
+    std::unique_ptr<Sprite> hpBarFillSprite_;
 };
