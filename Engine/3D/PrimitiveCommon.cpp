@@ -29,7 +29,13 @@ void PrimitiveCommon::CreateRootSignature() {
     rangeMask.BaseShaderRegister = 3; // t3
     rangeMask.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER params[10]{};
+    D3D12_DESCRIPTOR_RANGE rangeCaustics{};
+    rangeCaustics.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    rangeCaustics.NumDescriptors = 1;
+    rangeCaustics.BaseShaderRegister = 4; // t4
+    rangeCaustics.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    D3D12_ROOT_PARAMETER params[12]{};
 
 
     // b0 material
@@ -84,6 +90,15 @@ void PrimitiveCommon::CreateRootSignature() {
     params[9].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     params[9].DescriptorTable.NumDescriptorRanges = 1;
     params[9].DescriptorTable.pDescriptorRanges = &rangeMask;
+
+    params[10].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[10].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[10].Descriptor.ShaderRegister = 6;
+
+    params[11].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[11].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[11].DescriptorTable.NumDescriptorRanges = 1;
+    params[11].DescriptorTable.pDescriptorRanges = &rangeCaustics;
 
     D3D12_STATIC_SAMPLER_DESC samp{};
     samp.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;

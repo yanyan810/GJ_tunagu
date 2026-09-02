@@ -57,6 +57,23 @@ public:
 		float pad3[2];
 	};
 
+	struct CausticsParams {
+		float enableCaustics;
+		float causticsScale;
+		float causticsIntensity;
+		float causticsAnimationEnabled;
+
+		Vector3 causticsColor;
+		float causticsPlaybackTime;
+
+		float causticsLoopDuration;
+		float causticsFrameCount;
+		float causticsAtlasColumns;
+		float causticsAtlasRows;
+	};
+	static_assert(sizeof(CausticsParams) == 48);
+	static_assert(sizeof(CausticsParams) % 16 == 0);
+
 public:
 
 	void Initialize(Object3dCommon* object3dCommon, DirectXCommon* dx);
@@ -148,6 +165,12 @@ public:
 	void ClearTextureOverride() { texturePath_.clear(); useOverrideTexture_ = false; }
 	const std::string& GetTexturePath() const { return texturePath_; }
 
+	void SetCausticsTexture(const std::string& path);
+	void SetCausticsSettings(bool enabled, float scale, float intensity, const Vector3& color);
+	void SetCausticsAnimationSettings(
+		bool enabled, float playbackTime, float loopDuration,
+		uint32_t frameCount, uint32_t atlasColumns, uint32_t atlasRows);
+
 	Model* GetModel() const { return model_; }
 
 	void SetIsVisible(bool visible) { isVisible_ = visible; }
@@ -206,6 +229,7 @@ public:
 
 private:
 	void EnsureInstanceMaterial_();
+	void BindCaustics_(ID3D12GraphicsCommandList* commandList) const;
 
 	bool useEnvironmentMap_ = false;
 	std::string environmentTexturePath_;
@@ -234,6 +258,8 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> effectParamResource_;
 	EffectParam* effectParamData_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> causticsParamResource_;
+	CausticsParams* causticsParamData_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> instanceMaterialResource_;
 	Model::Material* instanceMaterialData_ = nullptr;
 	bool instanceMaterialInitializedFromModel_ = false;
@@ -253,6 +279,7 @@ private:
 
 	std::string texturePath_ = "";
 	bool useOverrideTexture_ = false;
+	std::string causticsTexturePath_;
 	
 	Object3dCommon::BlendMode blendMode_ = Object3dCommon::BlendMode::kBlendModeNormal;
 	PrimitiveCommon* primitiveCommon_ = nullptr;

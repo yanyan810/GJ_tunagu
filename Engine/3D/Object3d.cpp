@@ -120,6 +120,21 @@ void Object3d::Initialize(Object3dCommon* object3dCommon, DirectXCommon* dx, Srv
 		effectParamData_->enableRandom = enableRandom_ ? 1.0f : 0.0f;
 		effectParamData_->randomTime = randomTime_;
 	}
+
+	causticsParamResource_ = dx_->CreateBufferResource(sizeof(CausticsParams));
+	causticsParamResource_->Map(0, nullptr, reinterpret_cast<void**>(&causticsParamData_));
+	if (causticsParamData_) {
+		causticsParamData_->enableCaustics = 0.0f;
+		causticsParamData_->causticsScale = 0.035f;
+		causticsParamData_->causticsIntensity = 0.25f;
+		causticsParamData_->causticsAnimationEnabled = 1.0f;
+		causticsParamData_->causticsColor = { 0.75f, 0.92f, 1.0f };
+		causticsParamData_->causticsPlaybackTime = 0.0f;
+		causticsParamData_->causticsLoopDuration = 4.0f;
+		causticsParamData_->causticsFrameCount = 24.0f;
+		causticsParamData_->causticsAtlasColumns = 6.0f;
+		causticsParamData_->causticsAtlasRows = 4.0f;
+	}
 	
 	if (!maskTexturePath_.empty()) {
 		TextureManager::GetInstance()->LoadTexture(maskTexturePath_);
@@ -312,6 +327,10 @@ void Object3d::Draw()
 	};
 	cmd->SetDescriptorHeaps(_countof(heaps), heaps);
 
+	auto BindCaustics = [&]() {
+		BindCaustics_(cmd);
+	};
+
 	// ------------------------------------------------------------
 	// ------------------------------------------------------------
 	auto BindEnvironmentMapIfNeeded = [&]() {
@@ -401,6 +420,7 @@ void Object3d::Draw()
 		};
 
 		SetNormalPipelineState();
+		BindCaustics();
 
 		// Transform (Root 1)
 		cmd->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceModel->GetGPUVirtualAddress());
@@ -422,6 +442,7 @@ void Object3d::Draw()
 				cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 				model_->DrawSkinnedCompute(cmd, animator_->GetSkinCluster(), overrideTexture);
 				SetNormalPipelineState();
+				BindCaustics();
 			}
 			
 			if (!maskTexturePath_.empty()) {
@@ -453,6 +474,7 @@ void Object3d::Draw()
 			};
 
 			SetNormalPipelineState();
+			BindCaustics();
 
 			cmd->SetGraphicsRootConstantBufferView(3, light_->GetDirectionalLightResource()->GetGPUVirtualAddress());
 			cmd->SetGraphicsRootConstantBufferView(4, cameraResource_->GetGPUVirtualAddress());
@@ -522,6 +544,7 @@ void Object3d::Draw()
 					cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 					model_->DrawOneMesh(cmd, inst.meshIndex, 2, overrideTexture);
 					SetNormalPipelineState();
+					BindCaustics();
 				}
 				
 				if (!maskTexturePath_.empty()) {
@@ -560,6 +583,7 @@ void Object3d::Draw()
 		};
 
 		SetNormalPipelineState();
+		BindCaustics();
 
 		// light/camera CBV
 		cmd->SetGraphicsRootConstantBufferView(3, light_->GetDirectionalLightResource()->GetGPUVirtualAddress());
@@ -626,6 +650,7 @@ void Object3d::Draw()
 					cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 					model_->DrawOneMesh(cmd, inst.meshIndex, 2, overrideTexture);
 					SetNormalPipelineState();
+					BindCaustics();
 				}
 
 				model_->DrawOneMesh(cmd, inst.meshIndex, 2, overrideTexture);
@@ -656,6 +681,7 @@ void Object3d::Draw()
 						cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 						model_->Draw(cmd, 1, &handle);
 						SetNormalPipelineState();
+						BindCaustics();
 					}
 					
 					model_->Draw(cmd, 1, &handle);
@@ -665,6 +691,7 @@ void Object3d::Draw()
 						cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 						model_->Draw(cmd);
 						SetNormalPipelineState();
+						BindCaustics();
 					}
 
 					model_->Draw(cmd);
@@ -718,6 +745,7 @@ void Object3d::DrawWithOverrideSrv(const D3D12_GPU_DESCRIPTOR_HANDLE& srv)
 			object3dCommon->SetGraphicsPipelineState(blendMode_);
 		}
 	}
+	BindCaustics_(cmd);
 
 	cmd->SetGraphicsRootConstantBufferView(3, light_->GetDirectionalLightResource()->GetGPUVirtualAddress());
 	cmd->SetGraphicsRootConstantBufferView(4, cameraResource_->GetGPUVirtualAddress());
@@ -762,6 +790,56 @@ void Object3d::SetTexture(const std::string& path)
 	texturePath_ = path;
 	TextureManager::GetInstance()->LoadTexture(path);
 	useOverrideTexture_ = true;
+}
+
+void Object3d::SetCausticsTexture(const std::string& path)
+{
+	causticsTexturePath_ = path;
+	if (!path.empty()) {
+		TextureManager::GetInstance()->LoadTextureLinearNoMips(path);
+	}
+}
+
+void Object3d::SetCausticsSettings(bool enabled, float scale, float intensity, const Vector3& color)
+{
+	if (!causticsParamData_) {
+		return;
+	}
+	causticsParamData_->enableCaustics = enabled ? 1.0f : 0.0f;
+	causticsParamData_->causticsScale = scale;
+	causticsParamData_->causticsIntensity = intensity;
+	causticsParamData_->causticsColor = color;
+}
+
+void Object3d::SetCausticsAnimationSettings(
+	bool enabled, float playbackTime, float loopDuration,
+	uint32_t frameCount, uint32_t atlasColumns, uint32_t atlasRows)
+{
+	if (!causticsParamData_) {
+		return;
+	}
+	causticsParamData_->causticsAnimationEnabled = enabled ? 1.0f : 0.0f;
+	causticsParamData_->causticsPlaybackTime = playbackTime;
+	causticsParamData_->causticsLoopDuration = loopDuration;
+	causticsParamData_->causticsFrameCount = static_cast<float>(frameCount);
+	causticsParamData_->causticsAtlasColumns = static_cast<float>(atlasColumns);
+	causticsParamData_->causticsAtlasRows = static_cast<float>(atlasRows);
+}
+
+void Object3d::BindCaustics_(ID3D12GraphicsCommandList* commandList) const
+{
+	if (!commandList || !causticsParamResource_) {
+		return;
+	}
+	commandList->SetGraphicsRootConstantBufferView(
+		10, causticsParamResource_->GetGPUVirtualAddress());
+
+	const auto* textures = TextureManager::GetInstance();
+	const D3D12_GPU_DESCRIPTOR_HANDLE handle =
+		!causticsTexturePath_.empty() && textures->HasTexture(causticsTexturePath_)
+		? textures->GetSrvHandleGPU(causticsTexturePath_)
+		: textures->GetBlackSrvHandleGPU();
+	commandList->SetGraphicsRootDescriptorTable(11, handle);
 }
 
 void Object3d::SetModel(const std::string& filePath) {
