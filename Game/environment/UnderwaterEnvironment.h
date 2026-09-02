@@ -28,6 +28,7 @@ private:
     void ApplyCausticsSettings_();
     const char* GetCausticsTexturePath_() const;
 
+    Camera* camera_ = nullptr;
     std::unique_ptr<Object3d> floor_;
 
     float floorHeight_ = -22.0f;
