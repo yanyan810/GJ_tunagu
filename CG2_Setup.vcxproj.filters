@@ -587,6 +587,9 @@
     <FxCompile Include="resources\shaders\LuminanceOutlineMask.PS.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
+    <FxCompile Include="resources\shaders\DepthFog.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
     <FxCompile Include="resources\shaders\GaussianBlurX.PS.hlsl" />
     <FxCompile Include="resources\shaders\Vignette.PS.hlsl" />
     <FxCompile Include="resources\shaders\RadialBlur.PS.hlsl" />

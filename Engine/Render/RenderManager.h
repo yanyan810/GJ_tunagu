@@ -26,6 +26,7 @@ enum class PostEffectMode {
     OutlineBloom,
     LuminanceBasedOutline,
     LuminanceOutlineMask,
+    DepthFog,
 
     Count
 };
@@ -182,6 +183,32 @@ private:
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> randomCB_;
     RandomParameter* randomCBData_ = nullptr;
+
+    struct DepthFogParameter {
+        Vector3 color;
+        float enabled;
+
+        float startDistance;
+        float endDistance;
+        float density;
+        float maxOpacity;
+
+        float nearClip;
+        float farClip;
+        float backgroundOpacity;
+        float _pad;
+    };
+    static_assert(sizeof(DepthFogParameter) == 48);
+    static_assert(sizeof(DepthFogParameter) % 16 == 0);
+    Microsoft::WRL::ComPtr<ID3D12Resource> depthFogCB_;
+    DepthFogParameter* depthFogCBData_ = nullptr;
+
+    Vector3 depthFogColor_ = { 0.04f, 0.18f, 0.22f };
+    float depthFogStartDistance_ = 25.0f;
+    float depthFogEndDistance_ = 120.0f;
+    float depthFogDensity_ = 0.010f;
+    float depthFogMaxOpacity_ = 0.72f;
+    float depthFogBackgroundOpacity_ = 1.0f;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomCB_;
     BloomParameter* bloomCBData_ = nullptr;

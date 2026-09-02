@@ -27,6 +27,7 @@ static const char* kEffectNames[] = {
     "Outline Bloom",
     "Luminance Based Outline",
     "Luminance Outline Mask (Internal)",
+    "Depth Fog",
 };
 
 static const wchar_t* kEffectPSPaths[] = {
@@ -44,6 +45,7 @@ static const wchar_t* kEffectPSPaths[] = {
     L"resources/shaders/OutlineBloom.PS.hlsl",
     L"resources/shaders/LuminanceBasedOutline.PS.hlsl",
     L"resources/shaders/LuminanceOutlineMask.PS.hlsl",
+    L"resources/shaders/DepthFog.PS.hlsl",
 };
 
 void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
@@ -188,6 +190,19 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
     randomCB_ = dx_->CreateBufferResource((sizeof(RandomParameter) + 0xff) & ~0xff);
     randomCB_->Map(0, nullptr, reinterpret_cast<void**>(&randomCBData_));
     randomCBData_->time = 0.0f;
+
+    depthFogCB_ = dx_->CreateBufferResource((sizeof(DepthFogParameter) + 0xff) & ~0xff);
+    depthFogCB_->Map(0, nullptr, reinterpret_cast<void**>(&depthFogCBData_));
+    depthFogCBData_->color = depthFogColor_;
+    depthFogCBData_->enabled = 1.0f;
+    depthFogCBData_->startDistance = depthFogStartDistance_;
+    depthFogCBData_->endDistance = depthFogEndDistance_;
+    depthFogCBData_->density = depthFogDensity_;
+    depthFogCBData_->maxOpacity = depthFogMaxOpacity_;
+    depthFogCBData_->nearClip = 0.1f;
+    depthFogCBData_->farClip = 1000.0f;
+    depthFogCBData_->backgroundOpacity = depthFogBackgroundOpacity_;
+    depthFogCBData_->_pad = 0.0f;
 
     bloomCB_ = dx_->CreateBufferResource((sizeof(BloomParameter) + 0xff) & ~0xff);
     bloomCB_->Map(0, nullptr, reinterpret_cast<void**>(&bloomCBData_));
@@ -436,7 +451,7 @@ void RenderManager::CreateCopyImageRootSignature()
     range1.BaseShaderRegister = 1; // t1
     range1.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParams[8]{};
+    D3D12_ROOT_PARAMETER rootParams[9]{};
     // [0]: SRV (t0) Color
     rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -484,6 +499,12 @@ void RenderManager::CreateCopyImageRootSignature()
     rootParams[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParams[7].Descriptor.ShaderRegister = 5;
     rootParams[7].Descriptor.RegisterSpace = 0;
+
+    // [8]: CBV (b6) Depth Fog. Appended to preserve all existing indices.
+    rootParams[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParams[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParams[8].Descriptor.ShaderRegister = 6;
+    rootParams[8].Descriptor.RegisterSpace = 0;
 
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -585,6 +606,8 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
         }
 #endif
         cmd->SetGraphicsRootConstantBufferView(6, randomCB_->GetGPUVirtualAddress());
+    } else if (mode == PostEffectMode::DepthFog) {
+        cmd->SetGraphicsRootConstantBufferView(8, depthFogCB_->GetGPUVirtualAddress());
     }
 
     cmd->DrawInstanced(3, 1, 0, 0);
@@ -1147,10 +1170,37 @@ void RenderManager::DrawImGui()
     }
 
     ImGui::Separator();
+    if (ImGui::CollapsingHeader("Depth Fog Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        bool depthFogEnabled = enabledEffects_[static_cast<int>(PostEffectMode::DepthFog)];
+        if (ImGui::Checkbox("Enable Depth Fog", &depthFogEnabled)) {
+            SetEffectEnabled(PostEffectMode::DepthFog, depthFogEnabled);
+        }
+        if (ImGui::ColorEdit3("Fog Color", &depthFogColor_.x)) {
+            depthFogCBData_->color = depthFogColor_;
+        }
+        if (ImGui::DragFloat("Start Distance", &depthFogStartDistance_, 1.0f, 0.0f, 1000.0f, "%.1f")) {
+            depthFogCBData_->startDistance = depthFogStartDistance_;
+        }
+        if (ImGui::DragFloat("End Distance", &depthFogEndDistance_, 1.0f, 0.0f, 2000.0f, "%.1f")) {
+            depthFogCBData_->endDistance = depthFogEndDistance_;
+        }
+        if (ImGui::DragFloat("Density", &depthFogDensity_, 0.001f, 0.0f, 0.1f, "%.3f")) {
+            depthFogCBData_->density = depthFogDensity_;
+        }
+        if (ImGui::SliderFloat("Max Opacity", &depthFogMaxOpacity_, 0.0f, 1.0f)) {
+            depthFogCBData_->maxOpacity = depthFogMaxOpacity_;
+        }
+        if (ImGui::SliderFloat("Background Opacity", &depthFogBackgroundOpacity_, 0.0f, 1.0f)) {
+            depthFogCBData_->backgroundOpacity = depthFogBackgroundOpacity_;
+        }
+    }
+
+    ImGui::Separator();
     for (int i = 1; i < kEffectCount; ++i) {
         if (i == static_cast<int>(PostEffectMode::GaussianBlurX) ||
             i == static_cast<int>(PostEffectMode::GaussianBlurY) ||
-            i == static_cast<int>(PostEffectMode::LuminanceOutlineMask)) {
+            i == static_cast<int>(PostEffectMode::LuminanceOutlineMask) ||
+            i == static_cast<int>(PostEffectMode::DepthFog)) {
             continue;
         }
         bool enabled = enabledEffects_[i];
