@@ -71,6 +71,9 @@
     <Filter Include="Game\Enemy">
       <UniqueIdentifier>{a1b2c3d4-0002-0001-0001-000000000004}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Game\Environment">
+      <UniqueIdentifier>{a1b2c3d4-0002-0001-0001-000000000009}</UniqueIdentifier>
+    </Filter>
     <Filter Include="externals">
       <UniqueIdentifier>{a1b2c3d4-0003-0001-0001-000000000001}</UniqueIdentifier>
     </Filter>
@@ -171,6 +174,9 @@
     <!-- Game\Scene: ゲームシーン -->
     <ClCompile Include="Game\scene\Main\GameScene.cpp">
       <Filter>Game\Scene\Main</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp">
+      <Filter>Game\Environment</Filter>
     </ClCompile>
     <!-- Game\Player: プレイヤー -->
     <ClCompile Include="Game\player\Player.cpp">
@@ -377,6 +383,9 @@
     <!-- Game\Scene -->
     <ClInclude Include="Game\scene\Main\GameScene.h">
       <Filter>Game\Scene\Main</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\environment\UnderwaterEnvironment.h">
+      <Filter>Game\Environment</Filter>
     </ClInclude>
     <!-- Game\Player -->
     <ClInclude Include="Game\player\Player.h">
