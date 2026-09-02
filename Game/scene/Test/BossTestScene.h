@@ -6,6 +6,7 @@
 #include "boss/Mine.h"
 #include "boss/Shockwave.h"
 #include "boss/ShockwaveRock.h"
+#include "boss/AnchorAttack.h"
 #include <memory>
 #include <random>
 #include <string>
@@ -48,6 +49,9 @@ private:
     void TriggerShockwave_();
     void ResetShockwave_();
     void UpdateShockwave_(GameApp& app, float dt);
+    void TriggerAnchor_();
+    void ResetAnchor_();
+    void UpdateAnchor_(GameApp& app, float dt);
 
     std::unique_ptr<Camera> camera_;
     std::unique_ptr<DebugCamera> debugCamera_;
@@ -56,6 +60,13 @@ private:
     std::vector<std::unique_ptr<Object3d>> distanceMarkers_;
     std::unique_ptr<Object3d> boss_;
     std::unique_ptr<Object3d> shockwaveVisual_;
+    std::unique_ptr<Object3d> anchorObject_;
+    std::unique_ptr<Object3d> anchorWarningRing_;
+    std::unique_ptr<Object3d> anchorCollisionDebug_;
+    std::vector<std::unique_ptr<Object3d>> anchorOrbitDebug_;
+    std::unique_ptr<Object3d> anchorPositionDebug_;
+    std::vector<std::unique_ptr<Object3d>> anchorChainLinks_;
+    size_t anchorChainVisibleCount_ = 0;
 
     struct MinePointDebugObjects {
         std::unique_ptr<Object3d> origin;
@@ -70,6 +81,9 @@ private:
     Vector3 shockwavePositionOffset_{ 0.0f, -2.85f, 0.0f };
     Vector3 shockwaveAreaScale_{ 1.0f, 1.0f, 1.0f };
     Shockwave shockwave_{};
+    AnchorAttackSettings anchorSettings_{};
+    Vector3 anchorCenterOffset_{};
+    AnchorAttack anchorAttack_{};
     std::vector<std::unique_ptr<ShockwaveRock>> shockwaveRocks_;
     std::unordered_set<const Mine*> shockwaveAffectedMines_;
     std::vector<MineEmissionSample> pendingMineEmissions_;
@@ -92,6 +106,11 @@ private:
     bool pendingTriggerShockwave_ = false;
     bool pendingResetShockwave_ = false;
     bool showShockwaveRange_ = true;
+    bool pendingTriggerAnchor_ = false;
+    bool pendingResetAnchor_ = false;
+    bool showAnchorCollision_ = true;
+    bool showAnchorOrbitRange_ = true;
+    bool showAnchorPosition_ = true;
 
     Vector3 bossPosition_{ 0.0f, 3.0f, 25.0f };
     Vector3 bossRotation_{ 0.0f, 0.0f, 0.0f };

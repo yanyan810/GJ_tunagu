@@ -9,6 +9,40 @@
             "triggerAllFuseJitter": 0.15000000596046448
         }
     },
+    "anchor": {
+        "centerOffset": [0.0, 0.0, 0.0],
+        "overallScale": 1.0,
+        "modelScale": [1.2, 1.2, 1.2],
+        "radius": 15.0,
+        "predictionLineWidth": 1.0,
+        "spawnLocalPosition": [0.0, 8.0, 0.0],
+        "dropDuration": 0.7,
+        "waitTime": 0.4,
+        "pullUpDuration": 0.8,
+        "startAngularSpeed": 0.5,
+        "angularAcceleration": 1.2,
+        "maxAngularSpeed": 5.0,
+        "rotationDirection": 1,
+        "verticalAmplitude": 0.5,
+        "verticalFrequency": 2.0,
+        "duration": 6.0,
+        "selfRotationSpeed": 2.0,
+        "collisionRadius": 1.5,
+        "damage": 20.0,
+        "moveSpeedDamage": 5.0,
+        "warningRing": {
+            "previewTime": 0.8,
+            "thickness": 0.5,
+            "pulseSpeed": 3.0,
+            "pulseAmount": 0.2
+        },
+        "chain": {
+            "spacing": 0.8,
+            "scale": [0.5, 0.5, 0.5],
+            "alternateRotationDegrees": 90.0,
+            "maxLinks": 64
+        }
+    },
     "shockwave": {
         "areaScale": [
             1.0,

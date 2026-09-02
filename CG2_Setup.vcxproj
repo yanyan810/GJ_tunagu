@@ -199,6 +199,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\Mine.cpp" />
     <ClCompile Include="Game\boss\Shockwave.cpp" />
     <ClCompile Include="Game\boss\ShockwaveRock.cpp" />
+    <ClCompile Include="Game\boss\AnchorAttack.cpp" />
     <ClCompile Include="Engine\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="Engine\Core\CrashHandler.cpp" />
     <ClCompile Include="Engine\Audio\AudioSystem.cpp" />
@@ -482,6 +483,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\boss\Mine.h" />
     <ClInclude Include="Game\boss\Shockwave.h" />
     <ClInclude Include="Game\boss\ShockwaveRock.h" />
+    <ClInclude Include="Game\boss\AnchorAttack.h" />
     <ClInclude Include="Engine\Core\D3DResourceLeakChecker.h" />
     <ClInclude Include="Engine\Core\CrashHandler.h" />
     <ClInclude Include="Engine\Audio\AudioSystem.h" />
