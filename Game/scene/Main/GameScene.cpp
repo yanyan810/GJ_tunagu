@@ -8,6 +8,7 @@
 #include "DirectXCommon.h"
 #include "Object3d.h"
 #include "Debris.h"
+#include "environment/UnderwaterEnvironment.h"
 #ifdef USE_IMGUI
 #include "imgui.h"
 #endif
@@ -27,6 +28,9 @@ void GameScene::OnEnter(GameApp& app) {
     camera_->SetTranslate({ 0.0f, 4.0f, -12.0f });
     camera_->SetRotate({ 0.15f, 0.0f, 0.0f });
     app.ObjCom()->SetDefaultCamera(camera_.get());
+
+    underwaterEnvironment_ = std::make_unique<UnderwaterEnvironment>();
+    underwaterEnvironment_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
 
     player_ = std::make_unique<Player>();
     player_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
@@ -88,6 +92,7 @@ void GameScene::OnExit(GameApp& /*app*/) {
     debrisList_.clear();
     enemies_.clear();
     player_.reset();
+    underwaterEnvironment_.reset();
     camera_.reset();
 }
 
@@ -225,12 +230,15 @@ void GameScene::Update(GameApp& app, float dt) {
         }
     }
 
+    if (underwaterEnvironment_) underwaterEnvironment_->Update(dt);
+
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
         app.RequestQuit();
     }
 }
 
 void GameScene::Draw(GameApp& /*app*/) {
+    if (underwaterEnvironment_) underwaterEnvironment_->Draw();
     if (player_) player_->Draw();
 
     // 漂うゴミの描画
@@ -280,5 +288,6 @@ void GameScene::DrawImGui(GameApp& /*app*/) {
     ImGui::Text("Press Esc to quit.");
     ImGui::Text("Press F2 to open Boss Test Scene.");
     ImGui::End();
+    if (underwaterEnvironment_) underwaterEnvironment_->DrawImGui();
 #endif
 }

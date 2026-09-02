@@ -316,6 +316,8 @@ void GameApp::Draw() {
     render_->EndOffscreen();
 
 #ifdef USE_IMGUI
+    const uint32_t sceneTextureSrvIndex = render_->RenderPostEffectsForSceneTexture();
+
     render_->BeginPreview();
     sceneMgr_->DrawPreview(*this);
     render_->EndPreview();
@@ -336,7 +338,7 @@ void GameApp::Draw() {
 
 #ifdef USE_IMGUI
     if (imgui_) {
-        imgui_->SetSceneTexture(render_->RenderPostEffectsForSceneTexture());
+        imgui_->SetSceneTexture(sceneTextureSrvIndex);
         if (render_->BeginSceneTextureOverlay()) {
             sceneMgr_->DrawOverlay2D(*this);
             render_->EndSceneTextureOverlay();

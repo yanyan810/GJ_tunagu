@@ -38,7 +38,13 @@ void SkinningCommon::CreateRootSignature()
     rangeMask.BaseShaderRegister = 3; // t3
     rangeMask.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER params[11]{};
+    D3D12_DESCRIPTOR_RANGE rangeCaustics{};
+    rangeCaustics.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    rangeCaustics.NumDescriptors = 1;
+    rangeCaustics.BaseShaderRegister = 4; // t4
+    rangeCaustics.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    D3D12_ROOT_PARAMETER params[13]{};
 
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -87,6 +93,16 @@ void SkinningCommon::CreateRootSignature()
     params[10].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     params[10].DescriptorTable.NumDescriptorRanges = 1;
     params[10].DescriptorTable.pDescriptorRanges = &rangeMask;
+
+    // Keep all existing indices stable; caustics bindings are appended.
+    params[11].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[11].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[11].Descriptor.ShaderRegister = 6; // b6
+
+    params[12].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[12].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[12].DescriptorTable.NumDescriptorRanges = 1;
+    params[12].DescriptorTable.pDescriptorRanges = &rangeCaustics;
 
     D3D12_STATIC_SAMPLER_DESC samp{};
     samp.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
