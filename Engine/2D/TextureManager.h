@@ -15,12 +15,14 @@ public:
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
     void LoadTexture(const std::string& filePath);
+    void LoadTextureLinearNoMips(const std::string& filePath);
 
     // ★スライド通り：SRVインデックス取得
     uint32_t GetSrvIndex(const std::string& filePath) const;
 
     // GPUハンドル取得（filePath → srvIndex → handle）
     D3D12_GPU_DESCRIPTOR_HANDLE GetSrvHandleGPU(const std::string& filePath) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE GetBlackSrvHandleGPU() const;
 
     // メタデータ取得
     const DirectX::TexMetadata& GetMetaData(const std::string& filePath) const;
@@ -55,6 +57,7 @@ private:
 
     // 空文字のときに使う白テクスチャのキー
     static constexpr const char* kWhiteKey = "__white__";
+    static constexpr const char* kBlackKey = "__black_linear__";
 
     const TextureData& GetDataByPathOrWhite_(const std::string& filePath) const;
     TextureData& GetDataByPathOrWhite_(const std::string& filePath);

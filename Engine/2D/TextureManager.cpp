@@ -64,6 +64,41 @@ void TextureManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
             1
         );
     }
+
+    // Caustics is additive light data, so its fallback must be linear black.
+    // Keeping this descriptor valid avoids accidental white emission when the
+    // effect is disabled or no atlas has been selected.
+    {
+        DirectX::ScratchImage blackImg{};
+        HRESULT hr = blackImg.Initialize2D(
+            DXGI_FORMAT_R8G8B8A8_UNORM,
+            1, 1, 1, 1
+        );
+        assert(SUCCEEDED(hr));
+
+        auto* img = blackImg.GetImage(0, 0, 0);
+        assert(img && img->pixels && img->rowPitch >= 4);
+        img->pixels[0] = 0;
+        img->pixels[1] = 0;
+        img->pixels[2] = 0;
+        img->pixels[3] = 255;
+
+        TextureData& tex = textureDatas_[kBlackKey];
+        tex.metadata = blackImg.GetMetadata();
+        tex.resource = dx_->CreateTextureResource(tex.metadata);
+        dx_->UploadTextureData(tex.resource, blackImg);
+
+        tex.srvIndex = srvManager_->Allocate();
+        tex.srvHandleCPU = srvManager_->GetCPUDescriptionHandle(tex.srvIndex);
+        tex.srvHandleGPU = srvManager_->GetGPUDescriptionHandle(tex.srvIndex);
+
+        srvManager_->CreateSRVTexture2D(
+            tex.srvIndex,
+            tex.resource.Get(),
+            tex.metadata.format,
+            1
+        );
+    }
 }
 
 void TextureManager::LoadTexture(const std::string& filePath)
@@ -173,6 +208,62 @@ void TextureManager::LoadTexture(const std::string& filePath)
     }
 }
 
+void TextureManager::LoadTextureLinearNoMips(const std::string& filePath)
+{
+    if (filePath.empty() || textureDatas_.contains(filePath)) {
+        return;
+    }
+
+    std::string resolvedPath = filePath;
+    std::filesystem::path resolvedPathW(ConvertString(resolvedPath));
+    if (!std::filesystem::exists(resolvedPathW)) {
+        resolvedPath = "resources/" + filePath;
+        resolvedPathW = std::filesystem::path(ConvertString(resolvedPath));
+        if (!std::filesystem::exists(resolvedPathW)) {
+            DebugPrintA("[Texture] linear texture not found: " + filePath + " (tried " + resolvedPath + ")");
+            return;
+        }
+    }
+
+    DirectX::ScratchImage image{};
+    const std::wstring filePathW = resolvedPathW.wstring();
+    HRESULT hr = S_OK;
+
+    std::string extension = ConvertString(resolvedPathW.extension().wstring());
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    if (extension == ".dds") {
+        hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image);
+    }
+    else if (extension == ".tga") {
+        hr = DirectX::LoadFromTGAFile(filePathW.c_str(), nullptr, image);
+    }
+    else {
+        hr = DirectX::LoadFromWICFile(
+            filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_LINEAR, nullptr, image);
+    }
+    assert(SUCCEEDED(hr));
+    if (FAILED(hr)) {
+        return;
+    }
+
+    TextureData& tex = textureDatas_[filePath];
+    tex.metadata = image.GetMetadata();
+    tex.resource = dx_->CreateTextureResource(tex.metadata);
+    dx_->UploadTextureData(tex.resource, image);
+
+    tex.srvIndex = srvManager_->Allocate();
+    tex.srvHandleCPU = srvManager_->GetCPUDescriptionHandle(tex.srvIndex);
+    tex.srvHandleGPU = srvManager_->GetGPUDescriptionHandle(tex.srvIndex);
+    srvManager_->CreateSRVTexture2D(
+        tex.srvIndex,
+        tex.resource.Get(),
+        tex.metadata.format,
+        1
+    );
+}
+
 
 // TextureManager.cpp
 bool TextureManager::HasTexture(const std::string& key) const {
@@ -255,6 +346,11 @@ uint32_t TextureManager::GetSrvIndex(const std::string& filePath) const
 D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(const std::string& filePath) const
 {
     return GetDataByPathOrWhite_(filePath).srvHandleGPU;
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetBlackSrvHandleGPU() const
+{
+    return textureDatas_.at(kBlackKey).srvHandleGPU;
 }
 
 const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath) const

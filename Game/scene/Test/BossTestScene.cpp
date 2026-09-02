@@ -11,9 +11,11 @@
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cmath>
+
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+
 #ifdef USE_IMGUI
 #include "imgui.h"
 #endif
@@ -191,6 +193,12 @@ void BossTestScene::CreateTestField_(GameApp& app) {
     floor_ = CreateObject(app, camera_.get(), "plane.obj",
         { 0.0f, 0.0f, 25.0f }, { 0.0f, 0.0f, 0.0f }, { 100.0f, 1.0f, 100.0f });
     floor_->SetMaterialColor({ 0.12f, 0.20f, 0.24f, 1.0f });
+	appliedCausticsPreset_ = causticsPreset_;
+	floor_->SetCausticsTexture(
+		causticsPreset_ == CausticsPreset::DeepBroad
+		? "resources/UnderwaterCausticsDeepBroadAtlas.png"
+		: "resources/UnderwaterCausticsAtlas.png");
+	ApplyCausticsSettings_();
 
     originMarker_ = CreateObject(app, camera_.get(), "axis.obj",
         { 0.0f, 0.05f, 0.0f }, {}, { 5.0f, 5.0f, 5.0f });
@@ -205,6 +213,25 @@ void BossTestScene::CreateTestField_(GameApp& app) {
             distanceMarkers_.push_back(std::move(marker));
         }
     }
+}
+
+void BossTestScene::ApplyCausticsSettings_() {
+	if (!floor_) {
+		return;
+	}
+	if (causticsPreset_ != appliedCausticsPreset_) {
+		appliedCausticsPreset_ = causticsPreset_;
+		floor_->SetCausticsTexture(
+			causticsPreset_ == CausticsPreset::DeepBroad
+			? "resources/UnderwaterCausticsDeepBroadAtlas.png"
+			: "resources/UnderwaterCausticsAtlas.png");
+	}
+	floor_->SetCausticsSettings(
+		causticsEnabled_, causticsScale_, causticsIntensity_,
+		{ 0.75f, 0.92f, 1.0f });
+	floor_->SetCausticsAnimationSettings(
+		causticsAnimationEnabled_, causticsPlaybackTime_,
+		causticsLoopDuration_, 24, 6, 4);
 }
 
 void BossTestScene::CreateTemporaryBoss_(GameApp& app) {
@@ -874,6 +901,12 @@ void BossTestScene::Update(GameApp& app, float dt) {
     }
 
     ApplyBossTransform_();
+	if (causticsAnimationEnabled_ && causticsLoopDuration_ > 0.0f) {
+		causticsPlaybackTime_ = std::fmod(
+			causticsPlaybackTime_ + std::max(dt, 0.0f),
+			causticsLoopDuration_);
+	}
+	ApplyCausticsSettings_();
     UpdateMineDebugObjects_();
     UpdateMineLaunchQueue_(app, dt);
     UpdateShockwave_(app, dt);
@@ -1138,6 +1171,19 @@ void BossTestScene::DrawImGui(GameApp& app) {
             pendingResetTestObjects_ = true;
         }
     }
+	if (ImGui::CollapsingHeader("Underwater / Caustics", ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::Checkbox("Enable", &causticsEnabled_);
+		int preset = causticsPreset_ == CausticsPreset::DeepBroad ? 1 : 0;
+		if (ImGui::Combo("Preset", &preset, "Shallow / Fine\0Deep / Broad\0")) {
+			causticsPreset_ = preset == 1
+				? CausticsPreset::DeepBroad
+				: CausticsPreset::ShallowFine;
+		}
+		ImGui::DragFloat("Scale", &causticsScale_, 0.001f, 0.001f, 0.2f, "%.3f");
+		ImGui::DragFloat("Intensity", &causticsIntensity_, 0.01f, 0.0f, 4.0f, "%.2f");
+		ImGui::Checkbox("Animation Enabled", &causticsAnimationEnabled_);
+		ImGui::DragFloat("Loop Duration", &causticsLoopDuration_, 0.1f, 0.1f, 20.0f, "%.1f sec");
+	}
     ImGui::End();
 #else
     (void)app;
