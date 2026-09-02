@@ -22,10 +22,12 @@ UnderwaterEnvironment::~UnderwaterEnvironment() = default;
 
 void UnderwaterEnvironment::Initialize(
     Object3dCommon* object3dCommon, DirectXCommon* dx, Camera* camera) {
+    camera_ = camera;
     floor_ = std::make_unique<Object3d>();
     floor_->Initialize(object3dCommon, dx);
     floor_->SetCamera(camera);
     floor_->SetModel("plane.obj");
+    floor_->SetTexture("resources/white1x1.png");
     floor_->SetEnableLighting(0);
     floor_->SetMaterialColor({ 0.10f, 0.18f, 0.20f, 1.0f });
 
@@ -87,7 +89,8 @@ void UnderwaterEnvironment::DrawImGui() {
 }
 
 void UnderwaterEnvironment::ApplyFloorSettings_() {
-    floor_->SetTranslate({ 0.0f, floorHeight_, 0.0f });
+    const Vector3 cameraPosition = camera_ ? camera_->GetTranslate() : Vector3{};
+    floor_->SetTranslate({ cameraPosition.x, floorHeight_, cameraPosition.z });
     const float safeScale = std::max(floorScale_, 1.0f);
     floor_->SetScale({ safeScale, 1.0f, safeScale });
 }
