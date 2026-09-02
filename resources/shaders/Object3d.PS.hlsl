@@ -72,12 +72,29 @@ struct EffectParam {
     float2 pad2;
 };
 
+struct CausticsParams
+{
+    float enableCaustics;
+    float causticsScale;
+    float causticsIntensity;
+    float causticsAnimationEnabled;
+
+    float3 causticsColor;
+    float causticsPlaybackTime;
+
+    float causticsLoopDuration;
+    float causticsFrameCount;
+    float causticsAtlasColumns;
+    float causticsAtlasRows;
+};
+
 // =====================
 // Resources
 // =====================
 Texture2D gTexture : register(t1);
 Texture2D gEnvTexture : register(t2);
 Texture2D gMaskTexture : register(t3);
+Texture2D gCausticsMap : register(t4);
 SamplerState gSampler : register(s0);
 
 ConstantBuffer<Material> gMaterial : register(b0);
@@ -86,6 +103,7 @@ ConstantBuffer<Camera> gCamera : register(b2);
 ConstantBuffer<PointLight> gPointLight : register(b3);
 ConstantBuffer<SpotLight> gSpotLight : register(b4);
 ConstantBuffer<EffectParam> gEffect : register(b5);
+ConstantBuffer<CausticsParams> gCaustics : register(b6);
 
 // =====================
 // Pixel Shader
@@ -101,6 +119,60 @@ float rand2dTo1d(float2 value, float2 dotDir = float2(12.9898, 78.233)) {
     float random = dot(smallValue, dotDir);
     random = frac(sin(random) * 143758.5453);
     return random;
+}
+
+float SampleCausticsAtlasFrame(float2 worldSpaceUV, uint frameIndex)
+{
+    uint atlasColumns = max((uint)round(gCaustics.causticsAtlasColumns), 1u);
+    uint atlasRows = max((uint)round(gCaustics.causticsAtlasRows), 1u);
+    uint atlasCellCount = atlasColumns * atlasRows;
+    uint safeFrameIndex = min(frameIndex, atlasCellCount - 1u);
+    uint frameColumn = safeFrameIndex % atlasColumns;
+    uint frameRow = safeFrameIndex / atlasColumns;
+
+    float2 frameUVSize = 1.0f / float2(atlasColumns, atlasRows);
+    float2 localFrameUV = frac(worldSpaceUV);
+    float2 atlasUV = (float2(frameColumn, frameRow) + localFrameUV) * frameUVSize;
+    return gCausticsMap.Sample(gSampler, atlasUV).r;
+}
+
+float SampleAnimatedCaustics(float2 worldSpaceUV)
+{
+    uint atlasColumns = max((uint)round(gCaustics.causticsAtlasColumns), 1u);
+    uint atlasRows = max((uint)round(gCaustics.causticsAtlasRows), 1u);
+    uint atlasCellCount = atlasColumns * atlasRows;
+    uint frameCount = clamp(
+        (uint)round(gCaustics.causticsFrameCount), 1u, atlasCellCount);
+
+    if (gCaustics.causticsAnimationEnabled < 0.5f || frameCount <= 1u)
+    {
+        return SampleCausticsAtlasFrame(worldSpaceUV, 0u);
+    }
+
+    float loopDuration = max(gCaustics.causticsLoopDuration, 0.0001f);
+    float normalizedTime = frac(max(gCaustics.causticsPlaybackTime, 0.0f) / loopDuration);
+    float framePosition = normalizedTime * (float)frameCount;
+    uint currentFrameIndex = min((uint)floor(framePosition), frameCount - 1u);
+    uint nextFrameIndex = (currentFrameIndex + 1u) % frameCount;
+    float frameBlend = frac(framePosition);
+
+    float currentSample = SampleCausticsAtlasFrame(worldSpaceUV, currentFrameIndex);
+    float nextSample = SampleCausticsAtlasFrame(worldSpaceUV, nextFrameIndex);
+    return lerp(currentSample, nextSample, frameBlend);
+}
+
+float3 EvaluateWorldSpaceCaustics(VertexShaderOutput input)
+{
+    if (gCaustics.enableCaustics < 0.5f)
+    {
+        return 0.0f;
+    }
+
+    float2 worldSpaceUV = input.worldPosition.xz * gCaustics.causticsScale;
+    float causticsMask = SampleAnimatedCaustics(worldSpaceUV);
+    return max(gCaustics.causticsColor, 0.0f)
+        * max(gCaustics.causticsIntensity, 0.0f)
+        * causticsMask;
 }
 
 PixelShaderOutput main(VertexShaderOutput input)
@@ -125,6 +197,7 @@ PixelShaderOutput main(VertexShaderOutput input)
 
     if (gMaterial.enableLighting == 0) {
         output.color.rgb += edgeFactor * gEffect.dissolveEdgeColor.rgb;
+        output.color.rgb += EvaluateWorldSpaceCaustics(input);
         return output;
     }
 
@@ -252,6 +325,8 @@ PixelShaderOutput main(VertexShaderOutput input)
         float random = rand2dTo1d(input.texcoord * gEffect.randomTime);
         output.color.rgb *= random;
     }
+
+    output.color.rgb += EvaluateWorldSpaceCaustics(input);
 
     output.color.a = gMaterial.color.a * tex.a;
     return output;

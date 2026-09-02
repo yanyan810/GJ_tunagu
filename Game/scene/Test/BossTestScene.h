@@ -38,6 +38,7 @@ private:
     void UpdateMineLaunchQueue_(GameApp& app, float dt);
     void ProcessMineExplosions_();
     void TriggerAllMines_();
+	void ApplyCausticsSettings_();
 
     std::unique_ptr<Camera> camera_;
     std::unique_ptr<DebugCamera> debugCamera_;
@@ -71,6 +72,19 @@ private:
     bool pendingResetTestObjects_ = false;
     bool pendingTriggerAllMines_ = false;
     bool pendingTriggerFirstMine_ = false;
+
+	enum class CausticsPreset {
+		ShallowFine,
+		DeepBroad,
+	};
+	CausticsPreset causticsPreset_ = CausticsPreset::DeepBroad;
+	CausticsPreset appliedCausticsPreset_ = CausticsPreset::DeepBroad;
+	bool causticsEnabled_ = true;
+	bool causticsAnimationEnabled_ = true;
+	float causticsScale_ = 0.035f;
+	float causticsIntensity_ = 0.25f;
+	float causticsLoopDuration_ = 4.0f;
+	float causticsPlaybackTime_ = 0.0f;
 
     Vector3 bossPosition_{ 0.0f, 3.0f, 25.0f };
     Vector3 bossRotation_{ 0.0f, 0.0f, 0.0f };
