@@ -46,7 +46,6 @@ void UnderwaterEnvironment::Initialize(
     floor_->SetModel("plane.obj");
     floor_->SetTexture("resources/white1x1.png");
     floor_->SetEnableLighting(0);
-    floor_->SetMaterialColor({ 0.10f, 0.18f, 0.20f, 1.0f });
 
     appliedCausticsPreset_ = causticsPreset_;
     floor_->SetCausticsTexture(GetCausticsTexturePath_());
@@ -118,6 +117,14 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::Begin("Underwater Environment");
     ImGui::DragFloat("Floor Height", &floorHeight_, 0.25f, -200.0f, 50.0f, "%.1f");
     ImGui::DragFloat("Floor Scale", &floorScale_, 1.0f, 1.0f, 500.0f, "%.0f");
+    ImGui::ColorEdit4("Floor Color", &floorColor_.x);
+    if (ImGui::Button("Sand Warm")) {
+        floorColor_ = { 0.58f, 0.49f, 0.34f, 1.0f };
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Deep Teal")) {
+        floorColor_ = { 0.10f, 0.18f, 0.20f, 1.0f };
+    }
     ImGui::Separator();
     ImGui::Checkbox("Caustics Enable", &causticsEnabled_);
 
@@ -169,6 +176,7 @@ void UnderwaterEnvironment::ApplyFloorSettings_() {
     floor_->SetTranslate({ cameraPosition.x, floorHeight_, cameraPosition.z });
     const float safeScale = std::max(floorScale_, 1.0f);
     floor_->SetScale({ safeScale, 1.0f, safeScale });
+    floor_->SetMaterialColor(floorColor_);
 }
 
 void UnderwaterEnvironment::ApplyCausticsSettings_() {

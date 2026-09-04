@@ -45,6 +45,7 @@ private:
 
     float floorHeight_ = -22.0f;
     float floorScale_ = 150.0f;
+    Vector4 floorColor_{ 0.58f, 0.49f, 0.34f, 1.0f };
 
     bool causticsEnabled_ = true;
     CausticsPreset causticsPreset_ = CausticsPreset::DeepBroad;
