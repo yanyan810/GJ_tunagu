@@ -5,6 +5,7 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
+#include "WaterSurfaceRenderer.h"
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
@@ -53,6 +54,11 @@ void UnderwaterEnvironment::Initialize(
     ApplyCausticsSettings_();
     floor_->Update(0.0f);
 
+    waterSurface_ = std::make_unique<WaterSurfaceRenderer>();
+    waterSurface_->Initialize(dx, camera);
+    ApplyWaterSurfaceSettings_();
+    waterSurface_->Update(0.0f);
+
     LoadMarineSnow_();
     LoadPlayerWake_();
 }
@@ -85,6 +91,11 @@ void UnderwaterEnvironment::Update(float dt) {
     ApplyCausticsSettings_();
     floor_->Update(dt);
 
+    if (waterSurface_) {
+        ApplyWaterSurfaceSettings_();
+        waterSurface_->Update(dt);
+    }
+
     UpdatePlayerWake_(dt);
 
     if (!marineSnowEnabled_ || marineSnowGroupNames_.empty() || !camera_) {
@@ -109,6 +120,18 @@ void UnderwaterEnvironment::Update(float dt) {
 void UnderwaterEnvironment::Draw() {
     if (floor_) {
         floor_->Draw();
+    }
+}
+
+void UnderwaterEnvironment::DrawWaterDepth() {
+    if (waterSurface_) {
+        waterSurface_->DrawDepth();
+    }
+}
+
+void UnderwaterEnvironment::DrawWaterSurface() {
+    if (waterSurface_) {
+        waterSurface_->DrawColor();
     }
 }
 
@@ -142,6 +165,19 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::DragFloat("Caustics Intensity", &causticsIntensity_, 0.01f, 0.0f, 4.0f, "%.2f");
     ImGui::Checkbox("Animation Enabled", &causticsAnimationEnabled_);
     ImGui::DragFloat("Loop Duration", &causticsLoopDuration_, 0.1f, 0.1f, 20.0f, "%.1f sec");
+    ImGui::Separator();
+    ImGui::Text("Water Surface (From Below)");
+    ImGui::Checkbox("Water Surface Enabled", &waterSurfaceEnabled_);
+    ImGui::DragFloat("Water Level Y", &waterLevelY_, 0.25f, -50.0f, 200.0f, "%.1f");
+    ImGui::ColorEdit4("Water Surface Tint", &waterSurfaceTint_.x);
+    ImGui::DragFloat("Water Normal Scale A", &waterNormalScaleA_, 0.001f, 0.001f, 0.20f, "%.3f");
+    ImGui::DragFloat("Water Normal Scale B", &waterNormalScaleB_, 0.001f, 0.001f, 0.20f, "%.3f");
+    ImGui::DragFloat2("Water Normal Speed A", &waterNormalSpeedA_.x, 0.001f, -0.10f, 0.10f, "%.3f");
+    ImGui::DragFloat2("Water Normal Speed B", &waterNormalSpeedB_.x, 0.001f, -0.10f, 0.10f, "%.3f");
+    ImGui::DragFloat("Water Normal Strength", &waterNormalStrength_, 0.01f, 0.0f, 2.0f, "%.2f");
+    ImGui::DragFloat("Water Fresnel Strength", &waterFresnelStrength_, 0.01f, 0.0f, 2.0f, "%.2f");
+    ImGui::DragFloat("Water Fresnel Power", &waterFresnelPower_, 0.1f, 0.1f, 16.0f, "%.1f");
+    ImGui::DragFloat("Water Reflection Strength", &waterReflectionStrength_, 0.01f, 0.0f, 1.0f, "%.2f");
     ImGui::Separator();
     ImGui::Text("Marine Snow");
     if (ImGui::Checkbox("Marine Snow Enabled", &marineSnowEnabled_)) {
@@ -197,6 +233,18 @@ void UnderwaterEnvironment::ApplyCausticsSettings_() {
         kCausticsFrameCount,
         kCausticsAtlasColumns,
         kCausticsAtlasRows);
+}
+
+void UnderwaterEnvironment::ApplyWaterSurfaceSettings_() {
+    waterSurface_->SetEnabled(waterSurfaceEnabled_);
+    waterSurface_->SetWaterLevel(waterLevelY_);
+    waterSurface_->SetSurfaceTint(waterSurfaceTint_);
+    waterSurface_->SetNormalSettings(
+        waterNormalScaleA_, waterNormalScaleB_,
+        waterNormalSpeedA_, waterNormalSpeedB_, waterNormalStrength_);
+    waterSurface_->SetFresnelSettings(
+        waterFresnelStrength_, waterFresnelPower_);
+    waterSurface_->SetReflectionStrength(waterReflectionStrength_);
 }
 
 const char* UnderwaterEnvironment::GetCausticsTexturePath_() const {

@@ -264,6 +264,79 @@ void TextureManager::LoadTextureLinearNoMips(const std::string& filePath)
     );
 }
 
+void TextureManager::LoadTextureLinear(const std::string& filePath)
+{
+    if (filePath.empty() || textureDatas_.contains(filePath)) {
+        return;
+    }
+
+    std::string resolvedPath = filePath;
+    std::filesystem::path resolvedPathW(ConvertString(resolvedPath));
+    if (!std::filesystem::exists(resolvedPathW)) {
+        resolvedPath = "resources/" + filePath;
+        resolvedPathW = std::filesystem::path(ConvertString(resolvedPath));
+        if (!std::filesystem::exists(resolvedPathW)) {
+            DebugPrintA("[Texture] linear texture not found: " + filePath + " (tried " + resolvedPath + ")");
+            return;
+        }
+    }
+
+    DirectX::ScratchImage image{};
+    const std::wstring filePathW = resolvedPathW.wstring();
+    HRESULT hr = S_OK;
+
+    std::string extension = ConvertString(resolvedPathW.extension().wstring());
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    if (extension == ".dds") {
+        hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image);
+    }
+    else if (extension == ".tga") {
+        hr = DirectX::LoadFromTGAFile(filePathW.c_str(), nullptr, image);
+    }
+    else {
+        hr = DirectX::LoadFromWICFile(
+            filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_LINEAR, nullptr, image);
+    }
+    assert(SUCCEEDED(hr));
+    if (FAILED(hr)) {
+        return;
+    }
+
+    DirectX::ScratchImage mipImages{};
+    if (DirectX::IsCompressed(image.GetMetadata().format)) {
+        mipImages = std::move(image);
+    }
+    else {
+        hr = DirectX::GenerateMipMaps(
+            image.GetImages(), image.GetImageCount(), image.GetMetadata(),
+            DirectX::TEX_FILTER_DEFAULT, 0, mipImages);
+        if (FAILED(hr)) {
+            mipImages = std::move(image);
+        }
+    }
+
+    TextureData& tex = textureDatas_[filePath];
+    tex.metadata = mipImages.GetMetadata();
+    tex.resource = dx_->CreateTextureResource(tex.metadata);
+    dx_->UploadTextureData(tex.resource, mipImages);
+
+    tex.srvIndex = srvManager_->Allocate();
+    tex.srvHandleCPU = srvManager_->GetCPUDescriptionHandle(tex.srvIndex);
+    tex.srvHandleGPU = srvManager_->GetGPUDescriptionHandle(tex.srvIndex);
+    if (tex.metadata.IsCubemap()) {
+        srvManager_->CreateSRVTextureCube(
+            tex.srvIndex, tex.resource.Get(), tex.metadata.format,
+            static_cast<UINT>(tex.metadata.mipLevels));
+    }
+    else {
+        srvManager_->CreateSRVTexture2D(
+            tex.srvIndex, tex.resource.Get(), tex.metadata.format,
+            static_cast<UINT>(tex.metadata.mipLevels));
+    }
+}
+
 
 // TextureManager.cpp
 bool TextureManager::HasTexture(const std::string& key) const {

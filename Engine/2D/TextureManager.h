@@ -15,6 +15,7 @@ public:
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
     void LoadTexture(const std::string& filePath);
+    void LoadTextureLinear(const std::string& filePath);
     void LoadTextureLinearNoMips(const std::string& filePath);
 
     // ★スライド通り：SRVインデックス取得

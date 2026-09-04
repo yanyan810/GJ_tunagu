@@ -162,6 +162,9 @@
     <ClCompile Include="Engine\Render\OffscreenPass.cpp">
       <Filter>Engine\Render</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Render\WaterSurfaceRenderer.cpp">
+      <Filter>Engine\Render</Filter>
+    </ClCompile>
     <!-- Engine\Level: レベルローダー -->
     <!-- Engine\math: 数学ライブラリ -->
     <ClCompile Include="Engine\math\Matrix4x4.cpp">
@@ -357,6 +360,9 @@
       <Filter>Engine\Render</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Render\OffscreenPass.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\WaterSurfaceRenderer.h">
       <Filter>Engine\Render</Filter>
     </ClInclude>
     <!-- Engine\Level -->
@@ -595,6 +601,15 @@
     <FxCompile Include="resources\shaders\RadialBlur.PS.hlsl" />
     <FxCompile Include="resources\shaders\Dissolve.PS.hlsl" />
     <FxCompile Include="resources\shaders\Random.PS.hlsl" />
+    <FxCompile Include="resources\shaders\WaterSurface.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\WaterSurface.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\WaterSurfaceDepth.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <!-- ===== hlsli (インクルード) ===== -->
   <ItemGroup>
