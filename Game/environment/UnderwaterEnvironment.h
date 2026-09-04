@@ -111,6 +111,7 @@ private:
     float lightShaftSourceVisibility_ = 0.0f;
     float lightShaftUnderwaterFactor_ = 0.0f;
     float lightShaftEffectiveActiveFactor_ = 0.0f;
+    int lightShaftDebugMode_ = 0;
 
     std::vector<std::string> marineSnowGroupNames_;
     bool marineSnowEnabled_ = true;
