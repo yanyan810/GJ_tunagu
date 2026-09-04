@@ -125,6 +125,9 @@ void UnderwaterEnvironment::DrawImGui() {
     if (ImGui::Button("Deep Teal")) {
         floorColor_ = { 0.10f, 0.18f, 0.20f, 1.0f };
     }
+    ImGui::Checkbox("Sand Variation Enabled", &sandVariationEnabled_);
+    ImGui::DragFloat("Sand Variation Scale", &sandVariationScale_, 0.001f, 0.005f, 0.080f, "%.3f");
+    ImGui::DragFloat("Sand Variation Strength", &sandVariationStrength_, 0.005f, 0.0f, 0.20f, "%.3f");
     ImGui::Separator();
     ImGui::Checkbox("Caustics Enable", &causticsEnabled_);
 
@@ -177,6 +180,8 @@ void UnderwaterEnvironment::ApplyFloorSettings_() {
     const float safeScale = std::max(floorScale_, 1.0f);
     floor_->SetScale({ safeScale, 1.0f, safeScale });
     floor_->SetMaterialColor(floorColor_);
+    floor_->SetWorldColorVariationSettings(
+        sandVariationEnabled_, sandVariationScale_, sandVariationStrength_);
 }
 
 void UnderwaterEnvironment::ApplyCausticsSettings_() {
