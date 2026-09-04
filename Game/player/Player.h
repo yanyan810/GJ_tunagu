@@ -23,6 +23,7 @@ public:
     const Vector3& GetPosition() const { return pos_; }
     float GetYaw() const { return yaw_; }
     float GetPitch() const { return pitch_; }
+    float GetCameraPitch() const { return cameraPitch_; }
     Matrix4x4 GetWorldMatrix() const;
 
     // HP関連
@@ -56,8 +57,9 @@ private:
     // 移動用パラメータ
     Vector3 pos_ = { 0.0f, 0.0f, 0.0f };
     Vector3 vel_ = { 0.0f, 0.0f, 0.0f };
-    float yaw_ = 0.0f;    // 左右旋回
-    float pitch_ = 0.0f;  // 上下向き
+    float yaw_ = 0.0f;          // 左右旋回
+    float pitch_ = 0.0f;        // マグロモデルの上下向き (±0.45radクランプ)
+    float cameraPitch_ = 0.0f;  // カメラ見上げ用視点ピッチ (±1.4rad 80度まで可能)
 
     float maxForwardSpeed_ = 15.0f;
     float maxBackwardSpeed_ = -6.0f;
