@@ -333,6 +333,7 @@ void BossTestScene::ApplyCausticsSettings_() {
 void BossTestScene::CreateTemporaryBoss_(GameApp& app) {
     boss_ = CreateObject(app, camera_.get(), "Boss_Ship/sip.gltf",
         bossPosition_, bossRotation_, bossScale_);
+    boss_->SetMaterialColor({ 1.0f, 1.0f, 1.0f, 1.0f });
     ApplyBossTransform_();
 }
 
