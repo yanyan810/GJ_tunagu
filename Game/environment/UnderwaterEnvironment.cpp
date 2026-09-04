@@ -43,7 +43,7 @@ void UnderwaterEnvironment::Initialize(
     floor_ = std::make_unique<Object3d>();
     floor_->Initialize(object3dCommon, dx);
     floor_->SetCamera(camera);
-    floor_->SetModel("plane.obj");
+    floor_->SetModel("sand_floor.obj");
     floor_->SetTexture("resources/white1x1.png");
     floor_->SetEnableLighting(0);
 
