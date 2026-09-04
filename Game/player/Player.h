@@ -22,9 +22,11 @@ public:
 
     // カメラの追従やアタッチの計算に必要なgetter
     const Vector3& GetPosition() const { return pos_; }
+    Vector3 GetTailPosition() const;
     float GetYaw() const { return yaw_; }
     float GetPitch() const { return pitch_; }
     float GetCameraPitch() const { return cameraPitch_; }
+    float GetCameraYaw() const { return cameraYaw_; }
     Matrix4x4 GetWorldMatrix() const;
 
     // マウス感度関連
@@ -52,19 +54,30 @@ public:
     float GetDefenseBuff() const { return defenseBuff_; }
     bool HasRemora() const { return hasRemora_; }
 
+    // エイムアシスト用ターゲット位置設定
+    void SetTargetPos(const Vector3& targetPos, bool hasTarget) {
+        targetPos_ = targetPos;
+        hasTarget_ = hasTarget;
+    }
+
     // ゴミオブジェクトとの衝突判定とアタッチ処理
     void CheckDebrisCollision(std::vector<std::unique_ptr<Debris>>& debrisList);
 
 private:
     std::unique_ptr<Object3d> model_;
     Camera* camera_ = nullptr;
+    Vector3 targetPos_ = { 0.0f, 0.0f, 0.0f };
+    bool hasTarget_ = false;
 
     // 移動用パラメータ
     Vector3 pos_ = { 0.0f, 0.0f, 0.0f };
     Vector3 vel_ = { 0.0f, 0.0f, 0.0f };
     float yaw_ = 0.0f;          // 左右旋回
-    float pitch_ = 0.0f;        // マグロモデルの上下向き (±0.45radクランプ)
-    float cameraPitch_ = 0.0f;  // カメラ見上げ用視点ピッチ (±1.4rad 80度まで可能)
+    float pitch_ = 0.0f;        // マグロモデルの上下向き
+    float roll_ = 0.0f;         // 旋回時の体の傾き (Roll/Bank)
+    float cameraYaw_ = 0.0f;    // TPSカメラ旋回ヨー角
+    float cameraPitch_ = 0.0f;  // TPSカメラ視点ピッチ角
+    float prevCameraYaw_ = 0.0f; // 前フレームのカメラYaw角
     float mouseSensitivity_ = 0.0003f; // マウス感度 (デフォルト: 0.0003f)
 
     float maxForwardSpeed_ = 15.0f;

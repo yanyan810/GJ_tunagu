@@ -58,7 +58,7 @@ void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam
     netModel_->SetModel("ring.obj");
     netModel_->SetScale({ 2.0f, 0.2f, 2.0f });
 
-    pos_ = { 0.0f, 18.0f, 0.0f }; // 水面高さ
+    pos_ = { 0.0f, 35.0f, 0.0f }; // 高い上空・水上高度
     hp_ = maxHp_;
     isDead_ = false;
     bullets_.clear();
@@ -73,9 +73,9 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
     float targetX = playerPos.x + std::cos(moveAngle_) * orbitRadius_;
     float targetZ = playerPos.z + std::sin(moveAngle_) * orbitRadius_;
     
-    // 水面高さ Y=18.0f に保持
+    // 高い高度 Y=35.0f に保持
     pos_.x += (targetX - pos_.x) * 2.0f * dt;
-    pos_.y = 18.0f;
+    pos_.y = 35.0f;
     pos_.z += (targetZ - pos_.z) * 2.0f * dt;
 
     // プレイヤーの方向を向く
@@ -153,11 +153,11 @@ void Enemy::FireBullet(const Vector3& playerPos) {
 
 void Enemy::CastNet(const Vector3& playerPos) {
     BossNet n;
-    // プレイヤー頭上の水面付近から網を落とす
-    n.pos = { playerPos.x, 17.0f, playerPos.z };
+    // 高い位置のボス船からプレイヤーに向けて網を落下させる
+    n.pos = { playerPos.x, pos_.y - 3.0f, playerPos.z };
     n.radius = 2.5f;
-    n.maxRadius = 10.0f;
-    n.fallSpeed = 7.0f;
+    n.maxRadius = 12.0f;
+    n.fallSpeed = 9.0f;
     n.lifeTimer = 0.0f;
     n.isDead = false;
     nets_.push_back(n);
@@ -177,8 +177,14 @@ bool Enemy::CheckCollisionWithDebris(Debris* debris) {
     if (debris->GetState() != DebrisState::Thrown) return false;
 
     Vector3 dPos = debris->GetPosition();
-    float hitRadius = radius_ + 1.5f;
-    if (DistanceSq(pos_, dPos) <= hitRadius * hitRadius) {
+    // XZ距離とY差分による立体ヒット判定
+    float dx = pos_.x - dPos.x;
+    float dy = pos_.y - dPos.y;
+    float dz = pos_.z - dPos.z;
+    float distXZSq = dx * dx + dz * dz;
+
+    float hitRadius = radius_ + 3.5f;
+    if (distXZSq <= hitRadius * hitRadius && std::abs(dy) <= 8.5f) {
         // ヒット！ボスのHPを減らす
         float baseAtk = debris->GetAtk();
         float throwBuff = debris->GetThrowAtkBuff();

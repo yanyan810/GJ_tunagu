@@ -172,6 +172,9 @@ void Object3d::EnsureInstanceMaterial_()
 }
 
 Matrix4x4 Object3d::CalculateWorldMatrix() const {
+	if (useWorldMatrixOverride_) {
+		return worldMatrixOverride_;
+	}
 	if (isBillboard_ && camera_) {
 		Matrix4x4 s = Matrix4x4::Scale(transform.scale);
 		Matrix4x4 r_local = Matrix4x4::RotateXYZ(transform.rotate.x, transform.rotate.y, transform.rotate.z);

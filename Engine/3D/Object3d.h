@@ -101,6 +101,14 @@ public:
 	const Vector3& GetTranslate() const { return transform.translate; }
 	const Matrix4x4& GetWorldMatrix() const { return transformationMatrixDataModel->World; }
 
+	void SetWorldMatrixOverride(const Matrix4x4& worldMat) {
+		useWorldMatrixOverride_ = true;
+		worldMatrixOverride_ = worldMat;
+	}
+	void ClearWorldMatrixOverride() {
+		useWorldMatrixOverride_ = false;
+	}
+
 	void SetLightColor(const Vector4& color) { light_->SetDirectionalLightColor(color); }
 	void SetDirection(const Vector3& direction) { light_->SetDirectionalLightDirection(direction); }
 	void SetIntensity(float intensity) { light_->SetDirectionalLightIntensity(intensity); }
@@ -390,6 +398,9 @@ private:
 
 	bool useVideo_ = false;
 	VideoPlayerMF* video_ = nullptr;
+
+	bool useWorldMatrixOverride_ = false;
+	Matrix4x4 worldMatrixOverride_ = Matrix4x4::MakeIdentity4x4();
 
 };
 
