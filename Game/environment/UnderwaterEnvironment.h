@@ -41,6 +41,7 @@ private:
     void ApplyCausticsSettings_();
     void ApplyBackgroundSettings_();
     void ApplyWaterSurfaceSettings_();
+    void ApplyLightShaftSettings_();
     const char* GetCausticsTexturePath_() const;
     void LoadMarineSnow_();
     void RemoveMarineSnowGroups_();
@@ -93,6 +94,17 @@ private:
     float waterFresnelStrength_ = 0.75f;
     float waterFresnelPower_ = 5.0f;
     float waterReflectionStrength_ = 0.20f;
+
+    bool lightShaftEnabled_ = true;
+    Vector3 lightShaftDirection_{ 0.15f, 1.0f, 0.10f };
+    Vector3 lightShaftColor_{ 0.78f, 0.94f, 1.0f };
+    int lightShaftNumSamples_ = 48;
+    float lightShaftDensity_ = 0.85f;
+    float lightShaftDecay_ = 0.96f;
+    float lightShaftWeight_ = 0.030f;
+    float lightShaftExposure_ = 0.35f;
+    float lightShaftSourceRadius_ = 0.85f;
+    float lightShaftOcclusionDepthRange_ = 120.0f;
 
     std::vector<std::string> marineSnowGroupNames_;
     bool marineSnowEnabled_ = true;

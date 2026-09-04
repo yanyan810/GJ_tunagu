@@ -7,6 +7,7 @@
 #include <d3d12.h>
 
 #include "OffscreenPass.h"
+#include "LightShaftParameters.h"
 #include "UnderwaterBackgroundParameters.h"
 
 class DirectXCommon;
@@ -28,6 +29,7 @@ enum class PostEffectMode {
     LuminanceBasedOutline,
     LuminanceOutlineMask,
     DepthFog,
+    LightShaft,
 
     Count
 };
@@ -78,6 +80,7 @@ public:
     void SetParticleLayerOutlineBloomColor(const Vector4& color) { particleLayerOutlineBloomColor_ = color; }
     void SetUnderwaterBackgroundParameters(
         const UnderwaterBackgroundParameters& parameters);
+    void SetLightShaftParameters(const LightShaftParameters& parameters);
 
     uint32_t GetOffscreenSrvIndex() const;
     uint32_t GetPreviewSrvIndex() const;
@@ -220,6 +223,10 @@ private:
     Vector3 depthFogExtinctionDistanceRGB_{ 80.0f, 160.0f, 320.0f };
     bool underwaterMediumEnabled_ = true;
     UnderwaterBackgroundParameters underwaterBackgroundParameters_{};
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> lightShaftCB_;
+    LightShaftParameters* lightShaftCBData_ = nullptr;
+    LightShaftParameters lightShaftParameters_{};
 
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomCB_;
     BloomParameter* bloomCBData_ = nullptr;
