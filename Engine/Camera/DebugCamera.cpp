@@ -33,21 +33,19 @@ void DebugCamera::Update(float dt) {
     if (input_->IsKeyPressed(DIK_UP)) { pitchAngle_ -= 0.6f * dt; }
     if (input_->IsKeyPressed(DIK_DOWN)) { pitchAngle_ += 0.6f * dt; }
 
-    // matRot_ を角度から更新（Yaw → Pitch の順）
-    matRot_ = Matrix4x4::Multiply(
-        Matrix4x4::RotateX(pitchAngle_),
-        Matrix4x4::RotateY(yawAngle_)
-    );
+    // Use exactly the same Euler convention as Camera::Update(). RotateY()
+    // has the opposite Y sign from RotateXYZ() in this engine, which made
+    // movement disagree with the direction shown on screen.
+    matRot_ = Matrix4x4::RotateXYZ(pitchAngle_, yawAngle_, 0.0f);
 
-    // ローカル移動ベクトル
+    // Camera-relative horizontal/forward movement. Vertical movement is
+    // handled separately in world Y so looking up/down never tilts Q/E.
     Vector3 localMove = { 0.0f, 0.0f, 0.0f };
     const float frameMove = moveSpeed_ * dt;
     if (input_->IsKeyPressed(DIK_W)) { localMove.z += frameMove; }
     if (input_->IsKeyPressed(DIK_S)) { localMove.z -= frameMove; }
     if (input_->IsKeyPressed(DIK_D)) { localMove.x += frameMove; }
     if (input_->IsKeyPressed(DIK_A)) { localMove.x -= frameMove; }
-    if (input_->IsKeyPressed(DIK_SPACE)) { localMove.y += frameMove; }
-    if (input_->IsKeyPressed(DIK_LSHIFT) || input_->IsKeyPressed(DIK_RSHIFT)) { localMove.y -= frameMove; }
 
     // ローカル → ワールド変換
     Vector3 rotatedMove = {
@@ -59,6 +57,8 @@ void DebugCamera::Update(float dt) {
     translation_.x += rotatedMove.x;
     translation_.y += rotatedMove.y;
     translation_.z += rotatedMove.z;
+    if (input_->IsKeyPressed(DIK_E)) { translation_.y += frameMove; }
+    if (input_->IsKeyPressed(DIK_Q)) { translation_.y -= frameMove; }
 
     // ビュー行列更新
     Matrix4x4 translateMatrix = Matrix4x4::Translation(translation_);

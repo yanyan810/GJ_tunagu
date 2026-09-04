@@ -28,6 +28,28 @@ constexpr int kAnchorPredictionRingCount = 9;
 constexpr int kAnchorChainHardLimit = 256;
 constexpr float kDegreesToRadians = 0.01745329251994329577f;
 
+struct AnchorCollisionBoxTemplate {
+    Vector3 localCenter;
+    Vector3 halfSize;
+    Vector3 localRotation;
+};
+
+const AnchorCollisionBoxTemplate kAnchorCollisionBoxes[] = {
+    { { 0.0f, 3.35f, 0.17f }, { 0.62f, 4.55f, 0.80f }, {} },
+    { { -2.85f, 0.45f, 0.17f }, { 2.65f, 0.62f, 0.80f }, { 0.0f, 0.0f, -0.48f } },
+    { {  2.85f, 0.45f, 0.17f }, { 2.65f, 0.62f, 0.80f }, { 0.0f, 0.0f,  0.48f } },
+    { { -5.05f, 2.35f, 0.17f }, { 0.75f, 1.15f, 0.80f }, { 0.0f, 0.0f, -0.35f } },
+    { {  5.05f, 2.35f, 0.17f }, { 0.75f, 1.15f, 0.80f }, { 0.0f, 0.0f,  0.35f } }
+};
+
+Vector3 TransformPoint(const Vector3& point, const Matrix4x4& matrix) {
+    return {
+        point.x * matrix.m[0][0] + point.y * matrix.m[1][0] + point.z * matrix.m[2][0] + matrix.m[3][0],
+        point.x * matrix.m[0][1] + point.y * matrix.m[1][1] + point.z * matrix.m[2][1] + matrix.m[3][1],
+        point.x * matrix.m[0][2] + point.y * matrix.m[1][2] + point.z * matrix.m[2][2] + matrix.m[3][2]
+    };
+}
+
 float Length(const Vector3& value) {
     return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
 }
@@ -45,13 +67,23 @@ Vector3 Cross(const Vector3& a, const Vector3& b) {
     };
 }
 
-// The generated torus lies in XZ, so its local Y axis is its normal.
-// With Y rotation kept at zero, these angles map local Y onto the requested normal.
-Vector3 TorusRotationFromNormal(const Vector3& normal) {
-    const Vector3 n = Normalize(normal);
-    const float rotateX = std::asin(std::clamp(n.z, -1.0f, 1.0f));
-    const float rotateZ = std::atan2(-n.x, n.y);
-    return { rotateX, 0.0f, rotateZ };
+// The generated torus lies in XZ. Keep its elongated local Z axis along the
+// chain while local Y controls the plane normal used for alternating links.
+Vector3 TorusRotation(const Vector3& direction, const Vector3& normal) {
+    const Vector3 localZ = Normalize(direction);
+    const Vector3 localY = Normalize(normal);
+    const Vector3 localX = Normalize(Cross(localY, localZ));
+
+    const float rotateY = std::asin(std::clamp(-localX.z, -1.0f, 1.0f));
+    const float cosY = std::cos(rotateY);
+    if (std::abs(cosY) > 0.0001f) {
+        return {
+            std::atan2(localY.z, localZ.z),
+            rotateY,
+            std::atan2(localX.y, localX.x)
+        };
+    }
+    return { std::atan2(-localZ.y, localY.y), rotateY, 0.0f };
 }
 constexpr const char* kMineSettingsPath = "resources/Data/BossAttacks.json";
 
@@ -77,6 +109,14 @@ Model* GetBossTestPrimitiveModel(const char* key, bool torus) {
     const auto vertices = torus
         ? GeometryGenerator::GenerateTorusTriList(64, 16, 1.0f, 0.045f)
         : GeometryGenerator::GenerateSphereTriList(32, 16, 1.0f);
+    return ModelManager::GetInstance()->CreatePrimitiveModel(
+        key, MakeBossTestPrimitiveModelData(vertices));
+}
+
+Model* GetBossTestChainTorusModel() {
+    constexpr const char* key = "BossTest_AnchorChainTorus";
+    if (Model* model = ModelManager::GetInstance()->FindModel(key)) return model;
+    const auto vertices = GeometryGenerator::GenerateTorusTriList(48, 16, 1.0f, 0.22f);
     return ModelManager::GetInstance()->CreatePrimitiveModel(
         key, MakeBossTestPrimitiveModelData(vertices));
 }
@@ -134,22 +174,23 @@ void BossTestScene::OnEnter(GameApp& app) {
     CreateTemporaryBoss_(app);
     shockwaveVisual_ = CreateObject(app, camera_.get(), "ring.obj", {}, {}, { 1.0f, 1.0f, 1.0f });
     shockwaveVisual_->SetMaterialColor({ 0.1f, 0.8f, 1.0f, 0.8f });
-    Model* anchorSphere = GetBossTestPrimitiveModel("BossTest_AnchorSphere", false);
     Model* anchorOrbitTorus = GetBossTestPrimitiveModel("BossTest_AnchorOrbitTorus", true);
-    anchorObject_ = CreatePrimitiveObject(app, camera_.get(), anchorSphere, {}, {}, { 1.2f, 1.2f, 1.2f });
-    anchorObject_->SetMaterialColor({ 0.25f, 0.28f, 0.32f, 1.0f });
+    anchorObject_ = CreateObject(app, camera_.get(), "ancor/anchor.obj", {}, {}, { 1.0f, 1.0f, 1.0f });
     anchorWarningRing_ = CreatePrimitiveObject(app, camera_.get(), anchorOrbitTorus, {}, {}, { 1.0f, 1.0f, 1.0f });
     anchorWarningRing_->SetMaterialColor({ 1.0f, 0.18f, 0.05f, 0.85f });
-    anchorCollisionDebug_ = CreatePrimitiveObject(app, camera_.get(), anchorSphere, {}, {}, { 1.0f, 1.0f, 1.0f });
-    anchorCollisionDebug_->SetMaterialColor({ 0.15f, 1.0f, 0.3f, 0.35f });
+    anchorCollisionDebug_.reserve(std::size(kAnchorCollisionBoxes));
+    for (size_t i = 0; i < std::size(kAnchorCollisionBoxes); ++i) {
+        auto box = CreateObject(app, camera_.get(), "cube/cube.obj", {}, {}, { 1.0f, 1.0f, 1.0f });
+        box->SetMaterialColor({ 0.15f, 1.0f, 0.3f, 0.35f });
+        anchorCollisionDebug_.push_back(std::move(box));
+    }
     anchorOrbitDebug_.reserve(kAnchorPredictionRingCount);
     for (int i = 0; i < kAnchorPredictionRingCount; ++i) {
         auto ring = CreatePrimitiveObject(app, camera_.get(), anchorOrbitTorus, {}, {}, { 1.0f, 1.0f, 1.0f });
         ring->SetMaterialColor({ 0.1f, 0.75f, 1.0f, 0.65f });
         anchorOrbitDebug_.push_back(std::move(ring));
     }
-    anchorPositionDebug_ = CreatePrimitiveObject(app, camera_.get(), anchorSphere, {}, {}, { 0.6f, 0.6f, 0.6f });
-    anchorPositionDebug_->SetMaterialColor({ 1.0f, 0.85f, 0.05f, 1.0f });
+    anchorPositionDebug_ = CreateObject(app, camera_.get(), "ancor/anchor.obj", {}, {}, { 1.0f, 1.0f, 1.0f });
     mineSpawnPoints_.resize(3);
     mineSpawnPoints_[0].Settings().localPosition = { -0.8f, 0.0f, 0.0f };
     mineSpawnPoints_[0].Settings().scatterDirection = { -1.0f, 0.0f, 0.0f };
@@ -171,7 +212,7 @@ void BossTestScene::OnExit(GameApp& app) {
     boss_.reset();
     shockwaveRocks_.clear();
     shockwaveVisual_.reset();
-    anchorCollisionDebug_.reset();
+    anchorCollisionDebug_.clear();
     anchorPositionDebug_.reset();
     anchorOrbitDebug_.clear();
     anchorChainLinks_.clear();
@@ -435,6 +476,17 @@ void BossTestScene::UpdateAnchor_(GameApp& app, float dt) {
     const Vector3 anchorCenter = bossPosition_ + anchorCenterOffset_;
     if (anchorAttack_.IsRunning()) anchorAttack_.SetCenter(anchorCenter);
     anchorAttack_.Update(dt);
+    // AnchorAttack owns the complete model orientation. Do not compose the
+    // orbit angle or model offset a second time in the test scene.
+    const Vector3 anchorVisualRotation = anchorAttack_.GetSelfRotation();
+    const float anchorOverallScale = std::max(0.01f, anchorSettings_.overallScale);
+    const Vector3 anchorFinalScale{
+        std::max(0.01f, anchorSettings_.modelScale.x) * anchorOverallScale,
+        std::max(0.01f, anchorSettings_.modelScale.y) * anchorOverallScale,
+        std::max(0.01f, anchorSettings_.modelScale.z) * anchorOverallScale
+    };
+    const Matrix4x4 anchorWorld = Matrix4x4::MakeAffineMatrix(
+        anchorFinalScale, anchorVisualRotation, anchorAttack_.GetPosition());
     if (anchorWarningRing_) {
         const float pulse = anchorAttack_.GetWarningPulseScale();
         const float radius = std::max(0.0f, anchorSettings_.radius) * pulse;
@@ -449,21 +501,24 @@ void BossTestScene::UpdateAnchor_(GameApp& app, float dt) {
         anchorWarningRing_->Update(dt);
     }
     if (anchorObject_) {
-        const float overallScale = std::max(0.01f, anchorSettings_.overallScale);
         anchorObject_->SetTranslate(anchorAttack_.GetPosition());
-        anchorObject_->SetRotate(anchorAttack_.GetSelfRotation());
-        anchorObject_->SetScale({
-            std::max(0.01f, anchorSettings_.modelScale.x) * overallScale,
-            std::max(0.01f, anchorSettings_.modelScale.y) * overallScale,
-            std::max(0.01f, anchorSettings_.modelScale.z) * overallScale
-        });
+        anchorObject_->SetRotate(anchorVisualRotation);
+        anchorObject_->SetScale(anchorFinalScale);
         anchorObject_->Update(dt);
     }
-    if (anchorCollisionDebug_) {
-        const float radius = std::max(0.01f, anchorAttack_.GetCollisionRadius());
-        anchorCollisionDebug_->SetTranslate(anchorAttack_.GetPosition());
-        anchorCollisionDebug_->SetScale({ radius, radius, radius });
-        anchorCollisionDebug_->Update(dt);
+    if (!anchorCollisionDebug_.empty()) {
+        for (size_t i = 0; i < anchorCollisionDebug_.size() && i < std::size(kAnchorCollisionBoxes); ++i) {
+            const auto& source = kAnchorCollisionBoxes[i];
+            auto& box = anchorCollisionDebug_[i];
+            box->SetTranslate(TransformPoint(source.localCenter, anchorWorld));
+            box->SetRotate(anchorVisualRotation + source.localRotation);
+            box->SetScale({
+                source.halfSize.x * anchorFinalScale.x,
+                source.halfSize.y * anchorFinalScale.y,
+                source.halfSize.z * anchorFinalScale.z
+            });
+            box->Update(dt);
+        }
     }
     if (!anchorOrbitDebug_.empty()) {
         const float radius = std::max(0.0f, anchorSettings_.radius);
@@ -484,30 +539,51 @@ void BossTestScene::UpdateAnchor_(GameApp& app, float dt) {
             ? anchorAttack_.GetPosition()
             : anchorCenter + Vector3{ std::max(0.0f, anchorSettings_.radius), 0.0f, 0.0f };
         anchorPositionDebug_->SetTranslate(previewPosition);
+        anchorPositionDebug_->SetRotate(anchorSettings_.modelRotationOffset);
         anchorPositionDebug_->SetScale({
-            std::max(0.01f, anchorSettings_.modelScale.x) * overallScale * 1.05f,
-            std::max(0.01f, anchorSettings_.modelScale.y) * overallScale * 1.05f,
-            std::max(0.01f, anchorSettings_.modelScale.z) * overallScale * 1.05f
+            std::max(0.01f, anchorSettings_.modelScale.x) * overallScale,
+            std::max(0.01f, anchorSettings_.modelScale.y) * overallScale,
+            std::max(0.01f, anchorSettings_.modelScale.z) * overallScale
         });
         anchorPositionDebug_->Update(dt);
     }
 
     anchorChainVisibleCount_ = 0;
-    if (anchorAttack_.IsAnchorVisible()) {
+    const bool chainAttackVisible = anchorAttack_.IsAnchorVisible();
+    const bool chainDebugPreview = showAnchorChainPreview_ &&
+        anchorAttack_.GetState() == AnchorAttack::State::Inactive;
+    if (chainAttackVisible || chainDebugPreview) {
         const int maxLinks = std::clamp(anchorSettings_.chain.maxLinks, 0, kAnchorChainHardLimit);
-        Model* torusModel = GetBossTestPrimitiveModel("BossTest_AnchorOrbitTorus", true);
+        Model* torusModel = GetBossTestChainTorusModel();
         while (static_cast<int>(anchorChainLinks_.size()) < maxLinks) {
             auto link = CreatePrimitiveObject(app, camera_.get(), torusModel, {}, {}, { 1.0f, 1.0f, 1.0f });
             link->SetMaterialColor({ 0.42f, 0.46f, 0.52f, 1.0f });
             anchorChainLinks_.push_back(std::move(link));
         }
 
-        const Vector3 start = anchorAttack_.GetCenter() + anchorSettings_.spawnLocalPosition;
-        const Vector3 delta = anchorAttack_.GetPosition() - start;
+        const Vector3 start = chainAttackVisible
+            ? anchorAttack_.GetCenter() + anchorSettings_.spawnLocalPosition
+            : anchorCenter + anchorSettings_.spawnLocalPosition;
+        Vector3 end{};
+        if (chainAttackVisible) {
+            end = TransformPoint(anchorSettings_.chain.anchorLocalAttachPosition, anchorWorld) +
+                anchorSettings_.chain.endOffset;
+        } else {
+            const Vector3 previewAnchorPosition =
+                anchorCenter + Vector3{ std::max(0.0f, anchorSettings_.radius), 0.0f, 0.0f };
+            const Matrix4x4 previewAnchorWorld = Matrix4x4::MakeAffineMatrix(
+                anchorFinalScale, anchorSettings_.modelRotationOffset, previewAnchorPosition);
+            end = TransformPoint(anchorSettings_.chain.anchorLocalAttachPosition, previewAnchorWorld) +
+                anchorSettings_.chain.endOffset;
+        }
+        const Vector3 delta = end - start;
         const float distance = Length(delta);
         const float spacing = std::max(0.05f, anchorSettings_.chain.spacing);
         const Vector3 direction = Normalize(delta);
-        const int requiredLinks = std::min(maxLinks, static_cast<int>(distance / spacing));
+        const int uncappedRequiredLinks = distance > 0.0001f
+            ? static_cast<int>(std::ceil(distance / spacing)) + 1
+            : 0;
+        const int requiredLinks = std::min(maxLinks, uncappedRequiredLinks);
         anchorChainVisibleCount_ = static_cast<size_t>(std::max(0, requiredLinks));
 
         if (anchorChainVisibleCount_ > 0) {
@@ -521,10 +597,23 @@ void BossTestScene::UpdateAnchor_(GameApp& app, float dt) {
             const Vector3 alternateNormal = firstNormal * cosine + secondNormalBase * sine;
 
             for (size_t i = 0; i < anchorChainVisibleCount_; ++i) {
-                const float along = std::min(distance, spacing * (static_cast<float>(i) + 0.5f));
+                float fromAnchor = 0.0f;
+                if (uncappedRequiredLinks <= maxLinks) {
+                    // Keep existing links at stable spacing from the anchor.
+                    // Only the final link is clamped to the ship point, so a
+                    // new link emerges there overlapped instead of popping in
+                    // halfway along the chain.
+                    fromAnchor = std::min(distance, spacing * static_cast<float>(i));
+                } else {
+                    // If Max Links is reached, retain both endpoint contacts.
+                    const float t = anchorChainVisibleCount_ > 1
+                        ? static_cast<float>(i) / static_cast<float>(anchorChainVisibleCount_ - 1)
+                        : 1.0f;
+                    fromAnchor = distance * t;
+                }
                 auto& link = anchorChainLinks_[i];
-                link->SetTranslate(start + direction * along);
-                link->SetRotate(TorusRotationFromNormal((i % 2) == 0 ? firstNormal : alternateNormal));
+                link->SetTranslate(end - direction * fromAnchor);
+                link->SetRotate(TorusRotation(direction, (i % 2) == 0 ? firstNormal : alternateNormal));
                 link->SetScale({
                     std::max(0.01f, anchorSettings_.chain.scale.x),
                     std::max(0.01f, anchorSettings_.chain.scale.y),
@@ -654,6 +743,9 @@ bool BossTestScene::SaveMineSettings_() {
             { "centerOffset", { anchorCenterOffset_.x, anchorCenterOffset_.y, anchorCenterOffset_.z } },
             { "overallScale", anchorSettings_.overallScale },
             { "modelScale", { anchorSettings_.modelScale.x, anchorSettings_.modelScale.y, anchorSettings_.modelScale.z } },
+            { "modelRotationOffset", { anchorSettings_.modelRotationOffset.x, anchorSettings_.modelRotationOffset.y, anchorSettings_.modelRotationOffset.z } },
+            { "followOrbitRotation", anchorSettings_.followOrbitRotation },
+            { "orbitRotationMultiplier", anchorSettings_.orbitRotationMultiplier },
             { "radius", anchorSettings_.radius },
             { "predictionLineWidth", anchorSettings_.predictionLineWidth },
             { "spawnLocalPosition", { anchorSettings_.spawnLocalPosition.x, anchorSettings_.spawnLocalPosition.y, anchorSettings_.spawnLocalPosition.z } },
@@ -680,6 +772,8 @@ bool BossTestScene::SaveMineSettings_() {
             { "chain", {
                 { "spacing", anchorSettings_.chain.spacing },
                 { "scale", { anchorSettings_.chain.scale.x, anchorSettings_.chain.scale.y, anchorSettings_.chain.scale.z } },
+                { "anchorLocalAttachPosition", { anchorSettings_.chain.anchorLocalAttachPosition.x, anchorSettings_.chain.anchorLocalAttachPosition.y, anchorSettings_.chain.anchorLocalAttachPosition.z } },
+                { "endOffset", { anchorSettings_.chain.endOffset.x, anchorSettings_.chain.endOffset.y, anchorSettings_.chain.endOffset.z } },
                 { "alternateRotationDegrees", anchorSettings_.chain.alternateRotationDegrees },
                 { "maxLinks", anchorSettings_.chain.maxLinks }
             } }
@@ -817,6 +911,34 @@ bool BossTestScene::LoadMineSettings_() {
                 std::max(0.01f, chainScale[2].get<float>())
             };
         }
+        const auto chainAttachPosition = chain.value("anchorLocalAttachPosition", nlohmann::json::array());
+        if (chainAttachPosition.is_array() && chainAttachPosition.size() >= 3) {
+            anchorSettings_.chain.anchorLocalAttachPosition = {
+                chainAttachPosition[0].get<float>(),
+                chainAttachPosition[1].get<float>(),
+                chainAttachPosition[2].get<float>()
+            };
+        }
+        const auto anchorModelRotationOffset = anchor.value("modelRotationOffset", nlohmann::json::array());
+        if (anchorModelRotationOffset.is_array() && anchorModelRotationOffset.size() >= 3) {
+            anchorSettings_.modelRotationOffset = {
+                anchorModelRotationOffset[0].get<float>(),
+                anchorModelRotationOffset[1].get<float>(),
+                anchorModelRotationOffset[2].get<float>()
+            };
+        }
+        anchorSettings_.followOrbitRotation = anchor.value(
+            "followOrbitRotation", anchorSettings_.followOrbitRotation);
+        anchorSettings_.orbitRotationMultiplier = anchor.value(
+            "orbitRotationMultiplier", anchorSettings_.orbitRotationMultiplier);
+        const auto chainEndOffset = chain.value("endOffset", nlohmann::json::array());
+        if (chainEndOffset.is_array() && chainEndOffset.size() >= 3) {
+            anchorSettings_.chain.endOffset = {
+                chainEndOffset[0].get<float>(),
+                chainEndOffset[1].get<float>(),
+                chainEndOffset[2].get<float>()
+            };
+        }
         anchorSettings_.chain.alternateRotationDegrees = chain.value(
             "alternateRotationDegrees", anchorSettings_.chain.alternateRotationDegrees);
         anchorSettings_.chain.maxLinks = std::clamp(
@@ -934,15 +1056,15 @@ void BossTestScene::Draw(GameApp& /*app*/) {
     for (const auto& rock : shockwaveRocks_) rock->Draw();
     if (anchorAttack_.IsWarningVisible() && anchorWarningRing_) anchorWarningRing_->Draw();
     if (anchorAttack_.IsAnchorVisible() && anchorObject_) anchorObject_->Draw();
-    if (anchorAttack_.IsAnchorVisible()) {
-        for (size_t i = 0; i < anchorChainVisibleCount_; ++i) anchorChainLinks_[i]->Draw();
-    }
+    for (size_t i = 0; i < anchorChainVisibleCount_; ++i) anchorChainLinks_[i]->Draw();
     if (showAnchorOrbitRange_) {
         for (const auto& ring : anchorOrbitDebug_) ring->Draw();
     }
-    if (showAnchorPosition_ && anchorPositionDebug_) anchorPositionDebug_->Draw();
-    if (showAnchorCollision_ && anchorAttack_.IsAnchorVisible() && anchorCollisionDebug_) {
-        anchorCollisionDebug_->Draw();
+    if (showAnchorPosition_ && anchorAttack_.GetState() == AnchorAttack::State::Inactive && anchorPositionDebug_) {
+        anchorPositionDebug_->Draw();
+    }
+    if (showAnchorCollision_ && anchorAttack_.IsAnchorVisible()) {
+        for (const auto& box : anchorCollisionDebug_) box->Draw();
     }
 }
 
@@ -959,7 +1081,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
         const Vector3 rotation = debugCamera_ ? debugCamera_->GetRotation() : Vector3{};
         ImGui::Text("Position: %.2f, %.2f, %.2f", position.x, position.y, position.z);
         ImGui::Text("Rotation: %.2f, %.2f, %.2f", rotation.x, rotation.y, rotation.z);
-        ImGui::TextDisabled("WASD move / Space up / Shift down");
+        ImGui::TextDisabled("W/S forward/back / A/D left/right / E up / Q down");
         ImGui::TextDisabled("F1: toggle UI cursor / mouse look, F2: return to Game");
         ImGui::Text("Mouse Look: %s",
             app.GetInput() && app.GetInput()->IsCameraControlEnabled() ? "ON" : "OFF");
@@ -1109,8 +1231,12 @@ void BossTestScene::DrawImGui(GameApp& app) {
                 ImGui::DragFloat3("Center Offset##Anchor", &anchorCenterOffset_.x, 0.1f, -1000.0f, 1000.0f);
                 ImGui::DragFloat("Radius##Anchor", &anchorSettings_.radius, 0.1f, 0.0f, 500.0f);
                 ImGui::DragFloat("Prediction Line Width##Anchor", &anchorSettings_.predictionLineWidth, 0.05f, 0.0f, 100.0f);
-                ImGui::DragFloat("Overall Scale##Anchor", &anchorSettings_.overallScale, 0.05f, 0.01f, 100.0f);
+                ImGui::DragFloat("Anchor Overall Scale##Anchor", &anchorSettings_.overallScale, 0.01f, 0.01f, 20.0f);
                 ImGui::DragFloat3("Model Scale##Anchor", &anchorSettings_.modelScale.x, 0.05f, 0.01f, 100.0f);
+                ImGui::DragFloat3("Model Rotation Offset##Anchor", &anchorSettings_.modelRotationOffset.x, 0.01f, -6.283f, 6.283f);
+                ImGui::Checkbox("Follow Orbit Rotation##Anchor", &anchorSettings_.followOrbitRotation);
+                ImGui::DragFloat("Orbit Rotation Multiplier##Anchor", &anchorSettings_.orbitRotationMultiplier, 0.01f, -4.0f, 4.0f);
+                ImGui::TextDisabled("1.0 faces the tangent; model forward correction belongs in Rotation Offset Y.");
                 ImGui::DragFloat("Start Angular Speed", &anchorSettings_.startAngularSpeed, 0.05f, 0.0f, 100.0f);
                 ImGui::DragFloat("Angular Acceleration", &anchorSettings_.angularAcceleration, 0.05f, 0.0f, 100.0f);
                 ImGui::DragFloat("Max Angular Speed", &anchorSettings_.maxAngularSpeed, 0.05f, 0.0f, 100.0f);
@@ -1119,10 +1245,10 @@ void BossTestScene::DrawImGui(GameApp& app) {
                 ImGui::DragFloat("Vertical Amplitude", &anchorSettings_.verticalAmplitude, 0.05f, 0.0f, 100.0f);
                 ImGui::DragFloat("Vertical Frequency", &anchorSettings_.verticalFrequency, 0.05f, 0.0f, 100.0f);
                 ImGui::DragFloat("Duration##Anchor", &anchorSettings_.duration, 0.05f, 0.0f, 60.0f);
-                ImGui::DragFloat("Self Rotation Speed", &anchorSettings_.selfRotationSpeed, 0.05f, -100.0f, 100.0f);
+                ImGui::DragFloat("Optional Self Rotation Speed", &anchorSettings_.selfRotationSpeed, 0.05f, -100.0f, 100.0f);
                 ImGui::Checkbox("Show Orbit Range", &showAnchorOrbitRange_);
-                ImGui::Checkbox("Show Anchor Position", &showAnchorPosition_);
-                ImGui::TextDisabled("Blue: orbit range / Yellow: anchor position");
+                ImGui::Checkbox("Show Anchor Preview", &showAnchorPosition_);
+                ImGui::TextDisabled("Blue: orbit range / inactive Anchor uses its normal material");
                 ImGui::TreePop();
             }
             if (ImGui::TreeNodeEx("Warning Ring", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -1133,8 +1259,15 @@ void BossTestScene::DrawImGui(GameApp& app) {
                 ImGui::TreePop();
             }
             if (ImGui::TreeNodeEx("Chain##Anchor", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Checkbox("Show Chain Preview", &showAnchorChainPreview_);
+                ImGui::TextDisabled("Preview: Spawn Point to orbit start while Inactive.");
                 ImGui::DragFloat("Chain Spacing", &anchorSettings_.chain.spacing, 0.02f, 0.05f, 20.0f);
-                ImGui::DragFloat3("Chain Scale", &anchorSettings_.chain.scale.x, 0.02f, 0.01f, 20.0f);
+                ImGui::DragFloat3("Chain Link Scale (Width/Thickness/Length)", &anchorSettings_.chain.scale.x, 0.02f, 0.01f, 20.0f);
+                ImGui::TextDisabled("X: width / Y: thickness / Z: length");
+                ImGui::DragFloat3("Anchor Local Attach Position", &anchorSettings_.chain.anchorLocalAttachPosition.x, 0.05f, -20.0f, 20.0f);
+                ImGui::TextDisabled("Local point inside the top eye of anchor.obj.");
+                ImGui::DragFloat3("Chain End Offset", &anchorSettings_.chain.endOffset.x, 0.05f, -100.0f, 100.0f);
+                ImGui::TextDisabled("Offsets the chain endpoint from the Anchor position.");
                 ImGui::DragFloat("Alternate Rotation", &anchorSettings_.chain.alternateRotationDegrees, 1.0f, 0.0f, 180.0f);
                 ImGui::DragInt("Max Links", &anchorSettings_.chain.maxLinks, 1.0f, 0, kAnchorChainHardLimit);
                 ImGui::Text("Visible Links: %d", static_cast<int>(anchorChainVisibleCount_));
@@ -1144,8 +1277,8 @@ void BossTestScene::DrawImGui(GameApp& app) {
                 ImGui::DragFloat("Collision Radius", &anchorSettings_.collisionRadius, 0.05f, 0.01f, 100.0f);
                 ImGui::DragFloat("Damage##Anchor", &anchorSettings_.damage, 0.5f, 0.0f, 10000.0f);
                 ImGui::DragFloat("Move Speed Damage##Anchor", &anchorSettings_.moveSpeedDamage, 0.1f, 0.0f, 10000.0f);
-                ImGui::Checkbox("Show Collision Radius", &showAnchorCollision_);
-                ImGui::TextDisabled("Green object: future Anchor collision only.");
+                ImGui::Checkbox("Show Anchor Collision Boxes", &showAnchorCollision_);
+                ImGui::TextDisabled("Green boxes: shaft, arms, and hook tips.");
                 ImGui::TreePop();
             }
             if (ImGui::Button("Trigger Anchor")) pendingTriggerAnchor_ = true;
@@ -1153,8 +1286,9 @@ void BossTestScene::DrawImGui(GameApp& app) {
             if (ImGui::Button("Reset Anchor")) pendingResetAnchor_ = true;
             const Vector3 anchorPosition = anchorAttack_.GetPosition();
             ImGui::Text("State: %s / State Time: %.2f", AnchorAttack::StateName(anchorAttack_.GetState()), anchorAttack_.GetStateTime());
-            ImGui::Text("Speed: %.2f / Position: %.2f, %.2f, %.2f",
+            ImGui::Text("Speed: %.2f / Tangent Yaw: %.2f / Position: %.2f, %.2f, %.2f",
                 anchorAttack_.GetCurrentAngularSpeed(),
+                anchorAttack_.GetOrbitTangentYaw(),
                 anchorPosition.x, anchorPosition.y, anchorPosition.z);
             ImGui::TreePop();
         }
