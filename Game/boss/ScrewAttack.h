@@ -23,6 +23,11 @@ struct ScrewAttackSettings {
     float holdTime = 0.4f;
     float releasePower = 35.0f;
     float releaseSpread = 4.0f;
+    float releaseFullPowerDistance = 1.0f;
+    float releaseMinPowerDistance = 8.0f;
+    Vector3 releaseFullPowerHalfSize{ 1.0f, 1.0f, 1.0f };
+    Vector3 releaseMinPowerHalfSize{ 8.0f, 8.0f, 8.0f };
+    float releaseMinPowerMultiplier = 0.25f;
     float testGroundY = -5.0f;
 };
 
