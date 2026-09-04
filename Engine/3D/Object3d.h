@@ -55,7 +55,15 @@ public:
 		float enableRandom;
 		float randomTime;
 		float pad3[2];
+
+		// Optional world-space color variation
+		float enableWorldColorVariation;
+		float worldColorVariationScale;
+		float worldColorVariationStrength;
+		float pad4;
 	};
+	static_assert(sizeof(EffectParam) == 96);
+	static_assert(sizeof(EffectParam) % 16 == 0);
 
 	struct CausticsParams {
 		float enableCaustics;
@@ -195,6 +203,11 @@ public:
 	void SetEnableRandom(bool enable) { enableRandom_ = enable; }
 	bool GetEnableRandom() const { return enableRandom_; }
 	void SetRandomTime(float time) { randomTime_ = time; }
+	void SetWorldColorVariationSettings(bool enabled, float scale, float strength) {
+		enableWorldColorVariation_ = enabled;
+		worldColorVariationScale_ = (std::max)(scale, 0.0f);
+		worldColorVariationStrength_ = (std::max)(strength, 0.0f);
+	}
 
 	void SetMaskTexturePath(const std::string& path) { maskTexturePath_ = path; TextureManager::GetInstance()->LoadTexture(path); }
 
@@ -276,6 +289,9 @@ private:
 
 	bool enableRandom_ = false;
 	float randomTime_ = 0.0f;
+	bool enableWorldColorVariation_ = false;
+	float worldColorVariationScale_ = 0.025f;
+	float worldColorVariationStrength_ = 0.08f;
 
 	std::string texturePath_ = "";
 	bool useOverrideTexture_ = false;

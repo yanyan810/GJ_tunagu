@@ -70,6 +70,12 @@ struct EffectParam {
     float enableRandom;
     float randomTime;
     float2 pad2;
+
+    // Optional world-space color variation
+    float enableWorldColorVariation;
+    float worldColorVariationScale;
+    float worldColorVariationStrength;
+    float pad3;
 };
 
 struct CausticsParams
@@ -175,6 +181,39 @@ float3 EvaluateWorldSpaceCaustics(VertexShaderOutput input)
         * causticsMask;
 }
 
+float HashWorldColorVariationCell(float2 cell)
+{
+    return frac(sin(dot(cell, float2(127.1f, 311.7f))) * 43758.5453f);
+}
+
+float SampleWorldColorVariation(float2 worldPositionXZ)
+{
+    float2 p = worldPositionXZ * max(gEffect.worldColorVariationScale, 0.000001f);
+    float2 cell = floor(p);
+    float2 localPosition = frac(p);
+    float2 weight = localPosition * localPosition * (3.0f - 2.0f * localPosition);
+
+    float n00 = HashWorldColorVariationCell(cell);
+    float n10 = HashWorldColorVariationCell(cell + float2(1.0f, 0.0f));
+    float n01 = HashWorldColorVariationCell(cell + float2(0.0f, 1.0f));
+    float n11 = HashWorldColorVariationCell(cell + float2(1.0f, 1.0f));
+
+    float nx0 = lerp(n00, n10, weight.x);
+    float nx1 = lerp(n01, n11, weight.x);
+    return lerp(nx0, nx1, weight.y);
+}
+
+float EvaluateWorldColorVariationMultiplier(float2 worldPositionXZ)
+{
+    if (gEffect.enableWorldColorVariation < 0.5f)
+    {
+        return 1.0f;
+    }
+
+    float centeredNoise = SampleWorldColorVariation(worldPositionXZ) * 2.0f - 1.0f;
+    return max(0.0f, 1.0f + centeredNoise * max(gEffect.worldColorVariationStrength, 0.0f));
+}
+
 PixelShaderOutput main(VertexShaderOutput input)
 {
     PixelShaderOutput output;
@@ -194,6 +233,9 @@ PixelShaderOutput main(VertexShaderOutput input)
     }
 
     output.color = gMaterial.color * tex;
+    float worldColorVariationMultiplier =
+        EvaluateWorldColorVariationMultiplier(input.worldPosition.xz);
+    output.color.rgb *= worldColorVariationMultiplier;
 
     if (gMaterial.enableLighting == 0) {
         output.color.rgb += edgeFactor * gEffect.dissolveEdgeColor.rgb;
@@ -221,7 +263,8 @@ PixelShaderOutput main(VertexShaderOutput input)
     float3 diffuseD =
         gMaterial.color.rgb * tex.rgb *
         gDirectionalLight.color.rgb *
-        diffD * gDirectionalLight.intensity;
+        diffD * gDirectionalLight.intensity *
+        worldColorVariationMultiplier;
 
     float3 Hd = normalize(Ld + V);
     float specD = pow(saturate(dot(N, Hd)), max(gMaterial.shininess, 1.0f));
@@ -244,7 +287,8 @@ PixelShaderOutput main(VertexShaderOutput input)
 
     float3 pointCol = gPointLight.color.rgb * gPointLight.intensity * attenP;
 
-    float3 diffuseP = gMaterial.color.rgb * tex.rgb * pointCol * diffP;
+    float3 diffuseP = gMaterial.color.rgb * tex.rgb * pointCol * diffP *
+        worldColorVariationMultiplier;
 
     float3 Hp = normalize(Lp + V);
     float specP = pow(saturate(dot(N, Hp)), max(gMaterial.shininess, 1.0f));
@@ -281,7 +325,8 @@ PixelShaderOutput main(VertexShaderOutput input)
         attenS *
         falloff;
 
-    float3 diffuseS = gMaterial.color.rgb * tex.rgb * spotCol * diffS;
+    float3 diffuseS = gMaterial.color.rgb * tex.rgb * spotCol * diffS *
+        worldColorVariationMultiplier;
 
     float3 Hs = normalize(Ls + V);
     float specS = pow(saturate(dot(N, Hs)), max(gMaterial.shininess, 1.0f));
