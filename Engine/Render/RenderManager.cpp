@@ -202,7 +202,8 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
     depthFogCBData_->nearClip = 0.1f;
     depthFogCBData_->farClip = 1000.0f;
     depthFogCBData_->backgroundOpacity = depthFogBackgroundOpacity_;
-    depthFogCBData_->_pad = 0.0f;
+    depthFogCBData_->farBackgroundBlendStartRatio =
+        depthFogFarBackgroundBlendStartRatio_;
 
     bloomCB_ = dx_->CreateBufferResource((sizeof(BloomParameter) + 0xff) & ~0xff);
     bloomCB_->Map(0, nullptr, reinterpret_cast<void**>(&bloomCBData_));
@@ -1199,6 +1200,12 @@ void RenderManager::DrawImGui()
         }
         if (ImGui::SliderFloat("Background Opacity", &depthFogBackgroundOpacity_, 0.0f, 1.0f)) {
             depthFogCBData_->backgroundOpacity = depthFogBackgroundOpacity_;
+        }
+        if (ImGui::SliderFloat(
+            "Far Background Blend Start",
+            &depthFogFarBackgroundBlendStartRatio_, 0.60f, 0.98f, "%.2f")) {
+            depthFogCBData_->farBackgroundBlendStartRatio =
+                depthFogFarBackgroundBlendStartRatio_;
         }
     }
 

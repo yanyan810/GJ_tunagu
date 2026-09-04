@@ -197,7 +197,7 @@ private:
         float nearClip;
         float farClip;
         float backgroundOpacity;
-        float _pad;
+        float farBackgroundBlendStartRatio;
     };
     static_assert(sizeof(DepthFogParameter) == 48);
     static_assert(sizeof(DepthFogParameter) % 16 == 0);
@@ -210,6 +210,7 @@ private:
     float depthFogDensity_ = 0.010f;
     float depthFogMaxOpacity_ = 0.72f;
     float depthFogBackgroundOpacity_ = 1.0f;
+    float depthFogFarBackgroundBlendStartRatio_ = 0.85f;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomCB_;
     BloomParameter* bloomCBData_ = nullptr;

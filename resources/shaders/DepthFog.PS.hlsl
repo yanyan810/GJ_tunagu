@@ -17,10 +17,11 @@ struct DepthFogParameter
     float nearClip;
     float farClip;
     float backgroundOpacity;
-    float _pad;
+    float farBackgroundBlendStartRatio;
 };
 
 ConstantBuffer<DepthFogParameter> gFog : register(b6);
+static const float kBackgroundDepthThreshold = 0.99999f;
 
 float RestoreViewZ(float depth)
 {
@@ -52,7 +53,7 @@ float4 main(VertexShaderOutput input) : SV_TARGET0
 
     float3 fogColor = max(gFog.color, 0.0f);
     float depth = LoadDepth(input.position);
-    if (depth >= 0.99999f)
+    if (depth >= kBackgroundDepthThreshold)
     {
         sceneColor.rgb = lerp(
             sceneColor.rgb,
@@ -66,8 +67,21 @@ float4 main(VertexShaderOutput input) : SV_TARGET0
     float fogDistance = max(viewZ - gFog.startDistance, 0.0f);
     float linearFog = saturate(fogDistance / fogRange);
     float exponentialFog = 1.0f - exp(-fogDistance * max(gFog.density, 0.0f));
-    float fogFactor = saturate(max(linearFog, exponentialFog))
+    float baseFogFactor = saturate(max(linearFog, exponentialFog))
         * saturate(gFog.maxOpacity);
+
+    float backgroundBoundaryViewZ =
+        RestoreViewZ(kBackgroundDepthThreshold);
+    float farBlendRatio = clamp(
+        gFog.farBackgroundBlendStartRatio, 0.0f, 0.999f);
+    float requestedFarBlendStart = max(
+        gFog.endDistance, backgroundBoundaryViewZ * farBlendRatio);
+    float farBlendStart = min(
+        requestedFarBlendStart, backgroundBoundaryViewZ - 0.001f);
+    float farBlend = smoothstep(
+        farBlendStart, backgroundBoundaryViewZ, viewZ);
+    float fogFactor = lerp(
+        baseFogFactor, saturate(gFog.backgroundOpacity), farBlend);
 
     sceneColor.rgb = lerp(sceneColor.rgb, fogColor, fogFactor);
     return sceneColor;
