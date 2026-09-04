@@ -202,8 +202,10 @@ private:
         float backgroundOpacity;
         float farBackgroundBlendStartRatio;
         UnderwaterBackgroundParameters background;
+        Vector3 extinctionDistanceRGB;
+        float underwaterMediumEnabled;
     };
-    static_assert(sizeof(DepthFogParameter) == 176);
+    static_assert(sizeof(DepthFogParameter) == 192);
     static_assert(sizeof(DepthFogParameter) % 16 == 0);
     Microsoft::WRL::ComPtr<ID3D12Resource> depthFogCB_;
     DepthFogParameter* depthFogCBData_ = nullptr;
@@ -215,6 +217,8 @@ private:
     float depthFogMaxOpacity_ = 0.72f;
     float depthFogBackgroundOpacity_ = 1.0f;
     float depthFogFarBackgroundBlendStartRatio_ = 0.85f;
+    Vector3 depthFogExtinctionDistanceRGB_{ 80.0f, 160.0f, 320.0f };
+    bool underwaterMediumEnabled_ = true;
     UnderwaterBackgroundParameters underwaterBackgroundParameters_{};
 
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomCB_;

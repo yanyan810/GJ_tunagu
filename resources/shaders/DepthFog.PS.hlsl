@@ -28,6 +28,9 @@ struct DepthFogParameter
     float backgroundUpwardLift;
     float backgroundLowerBlend;
     float underwaterBackgroundEnabled;
+
+    float3 extinctionDistanceRGB;
+    float underwaterMediumEnabled;
 };
 
 ConstantBuffer<DepthFogParameter> gFog : register(b6);
@@ -105,11 +108,25 @@ float4 main(VertexShaderOutput input) : SV_TARGET0
         farBlendStart, backgroundBoundaryViewZ, viewZ);
     float3 baseFoggedColor = lerp(
         sceneColor.rgb, fogColor, baseFogFactor);
+    float3 distanceFoggedColor = baseFoggedColor;
+    if (gFog.underwaterMediumEnabled >= 0.5f)
+    {
+        float mediumDistance = max(viewZ - gFog.startDistance, 0.0f);
+        float3 safeExtinctionDistance = max(
+            gFog.extinctionDistanceRGB,
+            float3(0.001f, 0.001f, 0.001f));
+        float3 transmittance = exp(
+            -mediumDistance / safeExtinctionDistance);
+        float3 mediumBlend = (1.0f - transmittance)
+            * saturate(gFog.maxOpacity);
+        distanceFoggedColor = lerp(
+            sceneColor.rgb, farBackgroundColor, mediumBlend);
+    }
     float3 farBackgroundFoggedColor = lerp(
         sceneColor.rgb,
         farBackgroundColor,
         saturate(gFog.backgroundOpacity));
     sceneColor.rgb = lerp(
-        baseFoggedColor, farBackgroundFoggedColor, farBlend);
+        distanceFoggedColor, farBackgroundFoggedColor, farBlend);
     return sceneColor;
 }

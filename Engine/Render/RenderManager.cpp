@@ -205,6 +205,10 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
     depthFogCBData_->farBackgroundBlendStartRatio =
         depthFogFarBackgroundBlendStartRatio_;
     depthFogCBData_->background = underwaterBackgroundParameters_;
+    depthFogCBData_->extinctionDistanceRGB =
+        depthFogExtinctionDistanceRGB_;
+    depthFogCBData_->underwaterMediumEnabled =
+        underwaterMediumEnabled_ ? 1.0f : 0.0f;
 
     bloomCB_ = dx_->CreateBufferResource((sizeof(BloomParameter) + 0xff) & ~0xff);
     bloomCB_->Map(0, nullptr, reinterpret_cast<void**>(&bloomCBData_));
@@ -1216,6 +1220,35 @@ void RenderManager::DrawImGui()
             &depthFogFarBackgroundBlendStartRatio_, 0.60f, 0.98f, "%.2f")) {
             depthFogCBData_->farBackgroundBlendStartRatio =
                 depthFogFarBackgroundBlendStartRatio_;
+        }
+        if (ImGui::Checkbox(
+            "Underwater Medium Model", &underwaterMediumEnabled_)) {
+            depthFogCBData_->underwaterMediumEnabled =
+                underwaterMediumEnabled_ ? 1.0f : 0.0f;
+        }
+        if (ImGui::DragFloat3(
+            "Extinction Distance RGB",
+            &depthFogExtinctionDistanceRGB_.x,
+            1.0f, 0.0f, 1000.0f, "%.1f")) {
+            depthFogCBData_->extinctionDistanceRGB =
+                depthFogExtinctionDistanceRGB_;
+        }
+        if (ImGui::Button("Shallow Clear")) {
+            depthFogExtinctionDistanceRGB_ = { 80.0f, 160.0f, 320.0f };
+            depthFogCBData_->extinctionDistanceRGB =
+                depthFogExtinctionDistanceRGB_;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Very Clear")) {
+            depthFogExtinctionDistanceRGB_ = { 120.0f, 240.0f, 480.0f };
+            depthFogCBData_->extinctionDistanceRGB =
+                depthFogExtinctionDistanceRGB_;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Strong Test")) {
+            depthFogExtinctionDistanceRGB_ = { 45.0f, 90.0f, 180.0f };
+            depthFogCBData_->extinctionDistanceRGB =
+                depthFogExtinctionDistanceRGB_;
         }
     }
 
