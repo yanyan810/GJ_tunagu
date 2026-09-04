@@ -150,6 +150,19 @@
         "holdTime": 0.4,
         "releasePower": 35.0,
         "releaseSpread": 4.0,
+        "releaseFullPowerDistance": 1.0,
+        "releaseMinPowerDistance": 8.0,
+        "releaseFullPowerHalfSize": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "releaseMinPowerHalfSize": [
+            8.0,
+            8.0,
+            8.0
+        ],
+        "releaseMinPowerMultiplier": 0.25,
         "testGroundY": -5.0
     },
     "version": 1

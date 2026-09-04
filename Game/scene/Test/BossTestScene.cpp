@@ -121,8 +121,7 @@ Model* GetBossTestChainTorusModel() {
         key, MakeBossTestPrimitiveModelData(vertices));
 }
 
-Model* GetBossTestBoxModel() {
-    constexpr const char* key = "BossTest_DebugBox";
+Model* GetBossTestBoxModel(const char* key) {
     if (Model* model = ModelManager::GetInstance()->FindModel(key)) return model;
     const auto vertices = GeometryGenerator::GenerateBoxTriList(2.0f, 2.0f, 2.0f);
     return ModelManager::GetInstance()->CreatePrimitiveModel(
@@ -204,7 +203,7 @@ void BossTestScene::OnEnter(GameApp& app) {
     screwPositionDebug_->SetMaterialColor({ 1.0f, 0.25f, 0.8f, 1.0f });
     screwGatherPointDebug_ = CreateObject(app, camera_.get(), "cube/cube.obj", {}, {}, { 0.8f, 0.8f, 0.8f });
     screwGatherPointDebug_->SetMaterialColor({ 0.15f, 1.0f, 0.9f, 1.0f });
-    Model* screwBoxPrimitive = GetBossTestBoxModel();
+    Model* screwBoxPrimitive = GetBossTestBoxModel("BossTest_ScrewSolidBox");
     screwSuctionDebug_ = CreatePrimitiveObject(
         app, camera_.get(), screwBoxPrimitive, {}, {}, { 1.0f, 1.0f, 1.0f });
     screwSuctionDebug_->SetMaterialColor({ 1.0f, 0.9f, 0.15f, 0.08f });
@@ -214,18 +213,22 @@ void BossTestScene::OnEnter(GameApp& app) {
     screwGatherDebug_ = CreatePrimitiveObject(
         app, camera_.get(), screwBoxPrimitive, {}, {}, { 1.0f, 1.0f, 1.0f });
     screwGatherDebug_->SetMaterialColor({ 0.58f, 0.28f, 1.0f, 0.14f });
-    auto createBoxEdges = [&](std::vector<std::unique_ptr<Object3d>>& edges, const Vector4& color) {
+    auto createBoxEdges = [&](std::vector<std::unique_ptr<Object3d>>& edges,
+        const char* modelKey, const Vector4& color) {
+        Model* edgeModel = GetBossTestBoxModel(modelKey);
         edges.reserve(12);
         for (int i = 0; i < 12; ++i) {
             auto edge = CreatePrimitiveObject(
-                app, camera_.get(), screwBoxPrimitive, {}, {}, { 1.0f, 1.0f, 1.0f });
+                app, camera_.get(), edgeModel, {}, {}, { 1.0f, 1.0f, 1.0f });
             edge->SetMaterialColor(color);
             edges.push_back(std::move(edge));
         }
     };
-    createBoxEdges(screwOuterBoxEdges_, { 1.0f, 0.9f, 0.08f, 0.75f });
-    createBoxEdges(screwMiddleBoxEdges_, { 1.0f, 0.38f, 0.62f, 0.75f });
-    createBoxEdges(screwInnerBoxEdges_, { 0.58f, 0.24f, 1.0f, 0.8f });
+    createBoxEdges(screwOuterBoxEdges_, "BossTest_ScrewOuterEdges", { 1.0f, 0.9f, 0.08f, 0.75f });
+    createBoxEdges(screwMiddleBoxEdges_, "BossTest_ScrewMiddleEdges", { 1.0f, 0.38f, 0.62f, 0.75f });
+    createBoxEdges(screwInnerBoxEdges_, "BossTest_ScrewInnerEdges", { 0.58f, 0.24f, 1.0f, 0.8f });
+    createBoxEdges(screwReleaseFullDistanceEdges_, "BossTest_ScrewReleaseFullEdges", { 0.1f, 1.0f, 0.95f, 0.9f });
+    createBoxEdges(screwReleaseMinDistanceEdges_, "BossTest_ScrewReleaseMinEdges", { 1.0f, 0.32f, 0.05f, 0.9f });
     for (int i = 0; i < 6; ++i) {
         auto marker = CreateObject(app, camera_.get(), "cube/cube.obj", {}, {}, { 0.18f, 0.18f, 0.18f });
         marker->SetMaterialColor({ 1.0f, 0.35f, 0.1f, 1.0f });
@@ -266,8 +269,11 @@ void BossTestScene::OnExit(GameApp& app) {
     screwInnerBoxEdges_.clear();
     screwMiddleBoxEdges_.clear();
     screwOuterBoxEdges_.clear();
+    screwReleaseFullDistanceEdges_.clear();
+    screwReleaseMinDistanceEdges_.clear();
     screwPositionDebug_.reset();
     screwGatherPointDebug_.reset();
+    screwTestTargets_.clear();
     mines_.clear();
     pendingMineEmissions_.clear();
     minePointDebugObjects_.clear();
@@ -349,6 +355,8 @@ void BossTestScene::ResetTestObjects_() {
     ResetShockwave_();
     ResetAnchor_();
     ResetScrew_();
+    screwTestTargets_.clear();
+    screwTestTargetGroupOffset_ = {};
 }
 
 void BossTestScene::AddMineSpawnPoint_(GameApp& app) {
@@ -524,6 +532,7 @@ void BossTestScene::ResetAnchor_() {
 
 void BossTestScene::TriggerScrew_() {
     screwGatheredMines_.clear();
+    for (auto& target : screwTestTargets_) target->gathered = false;
     screwAttack_.Trigger(bossPosition_, bossRotation_, screwSettings_);
 }
 
@@ -531,6 +540,113 @@ void BossTestScene::ResetScrew_() {
     screwAttack_.Reset();
     screwGatheredMines_.clear();
     screwReleasedMines_.clear();
+    for (auto& target : screwTestTargets_) target->gathered = false;
+}
+
+void BossTestScene::AddScrewTestTarget_(GameApp& app, int typeValue) {
+    auto target = std::make_unique<ScrewTestTarget>();
+    target->type = static_cast<ScrewTestTarget::Type>(std::clamp(typeValue, 0, 2));
+    const Matrix4x4 bossMatrix = Matrix4x4::MakeAffineMatrix(
+        { 1.0f, 1.0f, 1.0f }, bossRotation_, bossPosition_);
+    const Vector3 base = screwAttack_.IsRunning()
+        ? screwAttack_.GetGatherPoint()
+        : TransformPoint(screwSettings_.localPosition +
+            screwSettings_.gatherPointLocalOffset, bossMatrix);
+    target->position = base + Vector3{
+        (static_cast<float>(screwTestTargets_.size() % 5) - 2.0f) * 2.5f, 1.5f, 0.0f }
+        + screwTestTargetGroupOffset_;
+    const bool dummy = target->type == ScrewTestTarget::Type::ReleaseDummy;
+    target->scale = dummy ? Vector3{ 1.0f, 1.0f, 1.0f }
+        : (target->type == ScrewTestTarget::Type::PlayerProxy
+            ? Vector3{ 1.8f, 1.8f, 1.8f } : Vector3{ 1.1f, 1.1f, 1.1f });
+    target->object = CreateObject(app, camera_.get(),
+        dummy ? "cube/cube.obj" : "tuna/tuna.obj", target->position,
+        { 0.0f, -1.5707963f, 0.0f }, target->scale);
+    if (dummy) target->object->SetMaterialColor({ 0.15f, 1.0f, 0.35f, 1.0f });
+    else target->object->SetTexture("tuna/tuna+fish+3d+model_basecolor.jpg");
+    screwTestTargets_.push_back(std::move(target));
+}
+
+float BossTestScene::CalculateReleaseMultiplier_(const Vector3& position) const {
+    const Matrix4x4 bossMatrix = Matrix4x4::MakeAffineMatrix(
+        { 1.0f, 1.0f, 1.0f }, bossRotation_, bossPosition_);
+    const Vector3 gatherPoint = screwAttack_.IsRunning()
+        ? screwAttack_.GetGatherPoint()
+        : TransformPoint(screwSettings_.localPosition +
+            screwSettings_.gatherPointLocalOffset, bossMatrix);
+    const Vector3 delta = position - gatherPoint;
+    const Vector3 fullSize{
+        std::max(0.0f, screwSettings_.releaseFullPowerHalfSize.x),
+        std::max(0.0f, screwSettings_.releaseFullPowerHalfSize.y),
+        std::max(0.0f, screwSettings_.releaseFullPowerHalfSize.z) };
+    const Vector3 minSize{
+        std::max(fullSize.x + 0.001f, screwSettings_.releaseMinPowerHalfSize.x),
+        std::max(fullSize.y + 0.001f, screwSettings_.releaseMinPowerHalfSize.y),
+        std::max(fullSize.z + 0.001f, screwSettings_.releaseMinPowerHalfSize.z) };
+    const Vector3 absolute{ std::abs(delta.x), std::abs(delta.y), std::abs(delta.z) };
+    const float ratio = std::clamp(std::max({
+        (absolute.x - fullSize.x) / (minSize.x - fullSize.x),
+        (absolute.y - fullSize.y) / (minSize.y - fullSize.y),
+        (absolute.z - fullSize.z) / (minSize.z - fullSize.z) }), 0.0f, 1.0f);
+    const float minimum = std::clamp(screwSettings_.releaseMinPowerMultiplier, 0.0f, 1.0f);
+    return 1.0f + (minimum - 1.0f) * ratio;
+}
+
+void BossTestScene::ReleaseScrewTargets_(bool gatheredOnly) {
+    std::uniform_real_distribution<float> spread(
+        -std::max(0.0f, screwSettings_.releaseSpread),
+         std::max(0.0f, screwSettings_.releaseSpread));
+    const Matrix4x4 bossMatrix = Matrix4x4::MakeAffineMatrix(
+        { 1.0f, 1.0f, 1.0f }, bossRotation_, bossPosition_);
+    const Vector3 gatherPoint = screwAttack_.IsRunning()
+        ? screwAttack_.GetGatherPoint()
+        : TransformPoint(screwSettings_.localPosition +
+            screwSettings_.gatherPointLocalOffset, bossMatrix);
+    const auto insideReleaseBox = [&](const Vector3& position) {
+        const Vector3 delta = position - gatherPoint;
+        return std::abs(delta.x) <= screwSettings_.releaseMinPowerHalfSize.x &&
+            std::abs(delta.y) <= screwSettings_.releaseMinPowerHalfSize.y &&
+            std::abs(delta.z) <= screwSettings_.releaseMinPowerHalfSize.z;
+    };
+    for (auto& mine : mines_) {
+        if (mine->GetState() == Mine::State::Exploded) continue;
+        const bool selected = gatheredOnly ? screwGatheredMines_.contains(mine.get())
+            : insideReleaseBox(mine->GetPosition());
+        if (!selected) continue;
+        const float power = CalculateReleaseMultiplier_(mine->GetPosition());
+        mine->AddForce({ spread(random_) * power,
+            -std::max(0.0f, screwSettings_.releasePower) * power,
+            spread(random_) * power });
+        screwReleasedMines_.insert(mine.get());
+    }
+    for (auto& target : screwTestTargets_) {
+        const bool selected = gatheredOnly ? target->gathered : insideReleaseBox(target->position);
+        if (!selected) continue;
+        const float power = CalculateReleaseMultiplier_(target->position);
+        target->velocity += Vector3{ spread(random_) * power,
+            -std::max(0.0f, screwSettings_.releasePower) * power,
+            spread(random_) * power };
+        target->gathered = false;
+        target->released = true;
+    }
+    screwGatheredMines_.clear();
+}
+
+void BossTestScene::UpdateScrewTestTargets_(float dt) {
+    for (auto& target : screwTestTargets_) {
+        target->position += target->velocity * dt;
+        target->velocity *= std::exp(-0.35f * std::max(0.0f, dt));
+        if (target->released && target->position.y <= screwSettings_.testGroundY) {
+            target->position.y = screwSettings_.testGroundY;
+            target->velocity = {};
+            target->released = false;
+        }
+        if (target->object) {
+            target->object->SetTranslate(target->position);
+            target->object->SetScale(target->scale);
+            target->object->Update(dt);
+        }
+    }
 }
 
 void BossTestScene::UpdateScrew_(float dt) {
@@ -548,24 +664,19 @@ void BossTestScene::UpdateScrew_(float dt) {
                     mine->GetPosition(), mine->GetVelocity()) * dt);
             }
         }
+        for (auto& target : screwTestTargets_) {
+            if (screwAttack_.GetState() == ScrewAttack::State::Suction &&
+                screwAttack_.IsWithinSuctionRange(target->position)) {
+                target->gathered = true;
+            }
+            if (target->gathered) {
+                target->velocity += screwAttack_.CalculateGatherForce(
+                    target->position, target->velocity) * dt;
+            }
+        }
     }
 
-    if (screwAttack_.ConsumeRelease()) {
-        std::uniform_real_distribution<float> spread(
-            -std::max(0.0f, screwSettings_.releaseSpread),
-             std::max(0.0f, screwSettings_.releaseSpread));
-        for (auto& mine : mines_) {
-            if (!screwGatheredMines_.contains(mine.get()) ||
-                mine->GetState() == Mine::State::Exploded) continue;
-            mine->AddForce({
-                spread(random_),
-                -std::max(0.0f, screwSettings_.releasePower),
-                spread(random_)
-            });
-            screwReleasedMines_.insert(mine.get());
-        }
-        screwGatheredMines_.clear();
-    }
+    if (screwAttack_.ConsumeRelease()) ReleaseScrewTargets_(true);
 
     // BossTestScene-only ground test. The visible underwater plane is the
     // collision height, and only mines released by ScrewAttack participate.
@@ -616,7 +727,7 @@ void BossTestScene::UpdateScrewDebug_(float dt) {
         screwGatherPointDebug_->Update(dt);
     }
     auto updateBoxEdges = [&](std::vector<std::unique_ptr<Object3d>>& edges,
-        const Vector3& center, const Vector3& requestedHalfSize) {
+        const Vector3& center, const Vector3& requestedHalfSize, float thicknessScale) {
         if (edges.size() < 12) return;
         const Vector3 halfSize{
             std::max(0.01f, requestedHalfSize.x),
@@ -624,7 +735,7 @@ void BossTestScene::UpdateScrewDebug_(float dt) {
             std::max(0.01f, requestedHalfSize.z)
         };
         const float maxExtent = std::max({ halfSize.x, halfSize.y, halfSize.z });
-        const float thickness = std::clamp(maxExtent * 0.012f, 0.08f, 0.3f);
+        const float thickness = std::clamp(maxExtent * thicknessScale, 0.08f, 0.5f);
         size_t index = 0;
         for (float y : { -halfSize.y, halfSize.y }) {
             for (float z : { -halfSize.z, halfSize.z }) {
@@ -648,9 +759,13 @@ void BossTestScene::UpdateScrewDebug_(float dt) {
             }
         }
     };
-    updateBoxEdges(screwOuterBoxEdges_, outerCenter, screwSettings_.outerRangeHalfSize);
-    updateBoxEdges(screwMiddleBoxEdges_, middleCenter, screwSettings_.middleRangeHalfSize);
-    updateBoxEdges(screwInnerBoxEdges_, innerCenter, screwSettings_.innerRangeHalfSize);
+    updateBoxEdges(screwOuterBoxEdges_, outerCenter, screwSettings_.outerRangeHalfSize, 0.012f);
+    updateBoxEdges(screwMiddleBoxEdges_, middleCenter, screwSettings_.middleRangeHalfSize, 0.012f);
+    updateBoxEdges(screwInnerBoxEdges_, innerCenter, screwSettings_.innerRangeHalfSize, 0.012f);
+    updateBoxEdges(screwReleaseFullDistanceEdges_, gatherPoint,
+        screwSettings_.releaseFullPowerHalfSize, 0.035f);
+    updateBoxEdges(screwReleaseMinDistanceEdges_, gatherPoint,
+        screwSettings_.releaseMinPowerHalfSize, 0.025f);
     for (size_t i = 0; i < screwReleaseDirectionDebug_.size(); ++i) {
         screwReleaseDirectionDebug_[i]->SetTranslate(
             gatherPoint + Vector3{ 0.0f, -1.25f * static_cast<float>(i + 1), 0.0f });
@@ -997,6 +1112,19 @@ bool BossTestScene::SaveMineSettings_() {
             { "holdTime", screwSettings_.holdTime },
             { "releasePower", screwSettings_.releasePower },
             { "releaseSpread", screwSettings_.releaseSpread },
+            { "releaseFullPowerDistance", screwSettings_.releaseFullPowerDistance },
+            { "releaseMinPowerDistance", screwSettings_.releaseMinPowerDistance },
+            { "releaseFullPowerHalfSize", {
+                screwSettings_.releaseFullPowerHalfSize.x,
+                screwSettings_.releaseFullPowerHalfSize.y,
+                screwSettings_.releaseFullPowerHalfSize.z
+            } },
+            { "releaseMinPowerHalfSize", {
+                screwSettings_.releaseMinPowerHalfSize.x,
+                screwSettings_.releaseMinPowerHalfSize.y,
+                screwSettings_.releaseMinPowerHalfSize.z
+            } },
+            { "releaseMinPowerMultiplier", screwSettings_.releaseMinPowerMultiplier },
             { "testGroundY", screwSettings_.testGroundY }
         };
         std::ofstream output(path, std::ios::trunc);
@@ -1218,6 +1346,29 @@ bool BossTestScene::LoadMineSettings_() {
         screwSettings_.holdTime = std::max(0.0f, screw.value("holdTime", screwSettings_.holdTime));
         screwSettings_.releasePower = std::max(0.0f, screw.value("releasePower", screwSettings_.releasePower));
         screwSettings_.releaseSpread = std::max(0.0f, screw.value("releaseSpread", screwSettings_.releaseSpread));
+        screwSettings_.releaseFullPowerDistance = std::max(
+            0.0f, screw.value("releaseFullPowerDistance", screwSettings_.releaseFullPowerDistance));
+        screwSettings_.releaseMinPowerDistance = std::max(
+            screwSettings_.releaseFullPowerDistance + 0.001f,
+            screw.value("releaseMinPowerDistance", screwSettings_.releaseMinPowerDistance));
+        auto loadReleaseHalfSize = [&](const char* key, Vector3& destination, float fallback) {
+            const auto value = screw.value(key, nlohmann::json::array());
+            if (value.is_array() && value.size() >= 3) {
+                destination = {
+                    std::max(0.01f, value[0].get<float>()),
+                    std::max(0.01f, value[1].get<float>()),
+                    std::max(0.01f, value[2].get<float>())
+                };
+            } else {
+                destination = { fallback, fallback, fallback };
+            }
+        };
+        loadReleaseHalfSize("releaseFullPowerHalfSize",
+            screwSettings_.releaseFullPowerHalfSize, screwSettings_.releaseFullPowerDistance);
+        loadReleaseHalfSize("releaseMinPowerHalfSize",
+            screwSettings_.releaseMinPowerHalfSize, screwSettings_.releaseMinPowerDistance);
+        screwSettings_.releaseMinPowerMultiplier = std::clamp(
+            screw.value("releaseMinPowerMultiplier", screwSettings_.releaseMinPowerMultiplier), 0.0f, 1.0f);
         screwSettings_.testGroundY = screw.value("testGroundY", screwSettings_.testGroundY);
         ApplyExplosionSettingsToMines_();
         mineSettingsStatus_ = "Loaded: " + path.generic_string();
@@ -1301,6 +1452,19 @@ void BossTestScene::Update(GameApp& app, float dt) {
         ResetScrew_();
         pendingResetScrew_ = false;
     }
+    if (pendingReleaseOnly_) {
+        ReleaseScrewTargets_(false);
+        pendingReleaseOnly_ = false;
+    }
+    if (pendingAddScrewTargetType_ >= 0) {
+        AddScrewTestTarget_(app, pendingAddScrewTargetType_);
+        pendingAddScrewTargetType_ = -1;
+    }
+    if (pendingClearScrewTargets_) {
+        screwTestTargets_.clear();
+        screwTestTargetGroupOffset_ = {};
+        pendingClearScrewTargets_ = false;
+    }
     if (input && input->IsKeyTrigger(DIK_ESCAPE)) {
         app.RequestQuit();
         return;
@@ -1325,6 +1489,7 @@ void BossTestScene::Update(GameApp& app, float dt) {
     UpdateShockwave_(app, dt);
     UpdateAnchor_(app, dt);
     UpdateScrew_(dt);
+    UpdateScrewTestTargets_(dt);
     UpdateScrewDebug_(dt);
     if (floor_) {
         floor_->SetTranslate({ 0.0f, screwSettings_.testGroundY, 25.0f });
@@ -1348,6 +1513,9 @@ void BossTestScene::Draw(GameApp& /*app*/) {
         for (const auto& object : debug.rangeEdges) object->Draw();
     }
     for (const auto& mine : mines_) mine->Draw();
+    for (const auto& target : screwTestTargets_) {
+        if (target->object) target->object->Draw();
+    }
     if (showShockwaveRange_ && shockwaveVisual_) shockwaveVisual_->Draw();
     for (const auto& rock : shockwaveRocks_) rock->Draw();
     if (anchorAttack_.IsWarningVisible() && anchorWarningRing_) anchorWarningRing_->Draw();
@@ -1366,6 +1534,8 @@ void BossTestScene::Draw(GameApp& /*app*/) {
         for (const auto& edge : screwOuterBoxEdges_) edge->Draw();
         for (const auto& edge : screwMiddleBoxEdges_) edge->Draw();
         for (const auto& edge : screwInnerBoxEdges_) edge->Draw();
+        for (const auto& edge : screwReleaseFullDistanceEdges_) edge->Draw();
+        for (const auto& edge : screwReleaseMinDistanceEdges_) edge->Draw();
         if (screwPositionDebug_) screwPositionDebug_->Draw();
         if (screwGatherPointDebug_) screwGatherPointDebug_->Draw();
         for (const auto& marker : screwReleaseDirectionDebug_) marker->Draw();
@@ -1374,9 +1544,43 @@ void BossTestScene::Draw(GameApp& /*app*/) {
 
 void BossTestScene::DrawImGui(GameApp& app) {
 #ifdef USE_IMGUI
+    ImGui::SetNextWindowSizeConstraints(ImVec2(430.0f, 300.0f), ImVec2(1000.0f, 2000.0f));
     ImGui::Begin("Boss Test Scene");
 
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SeparatorText("View Presets");
+        ImGui::DragFloat("View Distance", &cameraPresetDistance_, 1.0f, 5.0f, 1000.0f);
+        const float viewDistance = std::max(5.0f, cameraPresetDistance_);
+        const Vector3 focus = bossPosition_;
+        if (ImGui::Button("Top")) {
+            debugCamera_->SetPosition(focus + Vector3{ 0.0f, viewDistance, 0.0f });
+            debugCamera_->SetRotation({ 1.5707963f, 0.0f, 0.0f });
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Bottom")) {
+            debugCamera_->SetPosition(focus + Vector3{ 0.0f, -viewDistance, 0.0f });
+            debugCamera_->SetRotation({ -1.5707963f, 0.0f, 0.0f });
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Front")) {
+            debugCamera_->SetPosition(focus + Vector3{ 0.0f, 0.0f, -viewDistance });
+            debugCamera_->SetRotation({ 0.0f, 0.0f, 0.0f });
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Back")) {
+            debugCamera_->SetPosition(focus + Vector3{ 0.0f, 0.0f, viewDistance });
+            debugCamera_->SetRotation({ 0.0f, 3.1415927f, 0.0f });
+        }
+        if (ImGui::Button("Left")) {
+            debugCamera_->SetPosition(focus + Vector3{ -viewDistance, 0.0f, 0.0f });
+            debugCamera_->SetRotation({ 0.0f, 1.5707963f, 0.0f });
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Right")) {
+            debugCamera_->SetPosition(focus + Vector3{ viewDistance, 0.0f, 0.0f });
+            debugCamera_->SetRotation({ 0.0f, -1.5707963f, 0.0f });
+        }
+        ImGui::SeparatorText("Movement");
         float speed = debugCamera_ ? debugCamera_->GetMoveSpeed() : 0.0f;
         if (ImGui::DragFloat("Move Speed", &speed, 0.5f, 0.5f, 200.0f) && debugCamera_) {
             debugCamera_->SetMoveSpeed(speed);
@@ -1621,10 +1825,56 @@ void BossTestScene::DrawImGui(GameApp& app) {
             ImGui::DragFloat("Hold Time##Screw", &screwSettings_.holdTime, 0.02f, 0.0f, 20.0f);
             ImGui::DragFloat("Release Power##Screw", &screwSettings_.releasePower, 0.1f, 0.0f, 500.0f);
             ImGui::DragFloat("Release Spread##Screw", &screwSettings_.releaseSpread, 0.1f, 0.0f, 100.0f);
+            ImGui::SeparatorText("Release Distance Falloff");
+            ImGui::DragFloat3("Full Power Half Size XYZ##Screw", &screwSettings_.releaseFullPowerHalfSize.x, 0.1f, 0.01f, 500.0f);
+            ImGui::DragFloat3("Min Power Half Size XYZ##Screw", &screwSettings_.releaseMinPowerHalfSize.x, 0.1f, 0.01f, 500.0f);
+            ImGui::DragFloat("Release Min Power Multiplier##Screw", &screwSettings_.releaseMinPowerMultiplier, 0.01f, 0.0f, 1.0f);
+            ImGui::TextDisabled("Near gather point: full power / Far away: reduced power.");
+            ImGui::TextDisabled("Cyan box: full-power distance / Orange box: minimum-power distance.");
             ImGui::DragFloat("Sea Ground Y##Screw", &screwSettings_.testGroundY, 0.1f, -500.0f, 500.0f);
             if (ImGui::Button("Trigger Screw")) pendingTriggerScrew_ = true;
             ImGui::SameLine();
             if (ImGui::Button("Reset Screw")) pendingResetScrew_ = true;
+            ImGui::SameLine();
+            if (ImGui::Button("Trigger Release Only")) pendingReleaseOnly_ = true;
+            ImGui::SeparatorText("Suction / Release Test Targets");
+            if (ImGui::Button("Add Release Dummy")) pendingAddScrewTargetType_ = 0;
+            ImGui::SameLine();
+            if (ImGui::Button("Add Player Proxy")) pendingAddScrewTargetType_ = 1;
+            ImGui::SameLine();
+            if (ImGui::Button("Add Marine Proxy")) pendingAddScrewTargetType_ = 2;
+            if (ImGui::Button("Clear Test Targets")) pendingClearScrewTargets_ = true;
+            ImGui::TextDisabled("Player/Marine proxies receive force only; gameplay Player is unchanged.");
+            ImGui::SeparatorText("Group Transform");
+            const Vector3 previousGroupOffset = screwTestTargetGroupOffset_;
+            if (ImGui::DragFloat3("Group Position Offset##ScrewTargets",
+                &screwTestTargetGroupOffset_.x, 0.1f, -1000.0f, 1000.0f)) {
+                const Vector3 movement = screwTestTargetGroupOffset_ - previousGroupOffset;
+                for (auto& target : screwTestTargets_) target->position += movement;
+            }
+            if (ImGui::Button("Reset Group Offset")) {
+                const Vector3 movement = screwTestTargetGroupOffset_ * -1.0f;
+                for (auto& target : screwTestTargets_) target->position += movement;
+                screwTestTargetGroupOffset_ = {};
+            }
+            if (ImGui::TreeNode("Test Target Details")) {
+                for (size_t i = 0; i < screwTestTargets_.size(); ++i) {
+                    auto& target = screwTestTargets_[i];
+                    const char* typeName = target->type == ScrewTestTarget::Type::ReleaseDummy
+                        ? "Release Dummy" : (target->type == ScrewTestTarget::Type::PlayerProxy
+                            ? "Player Proxy" : "Marine Proxy");
+                    ImGui::PushID(static_cast<int>(i));
+                    if (ImGui::TreeNode(typeName)) {
+                        ImGui::DragFloat3("Individual Position", &target->position.x, 0.1f, -1000.0f, 1000.0f);
+                        ImGui::DragFloat3("Scale", &target->scale.x, 0.05f, 0.01f, 100.0f);
+                        ImGui::Text("Velocity: %.2f, %.2f, %.2f", target->velocity.x, target->velocity.y, target->velocity.z);
+                        ImGui::Text("Gathered: %s / Released: %s", target->gathered ? "Yes" : "No", target->released ? "Yes" : "No");
+                        ImGui::TreePop();
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::TreePop();
+            }
             ImGui::Text("State: %s / State Time: %.2f / Gathered Mines: %d",
                 ScrewAttack::StateName(screwAttack_.GetState()),
                 screwAttack_.GetStateTime(), static_cast<int>(screwGatheredMines_.size()));

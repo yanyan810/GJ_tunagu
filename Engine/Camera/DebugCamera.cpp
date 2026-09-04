@@ -25,7 +25,7 @@ void DebugCamera::Update(float dt) {
     }
 
     // ピッチを ±85度に制限
-    const float maxPitch = 1.5f; // ≒85度
+    const float maxPitch = 1.5707963f; // 90 degrees for exact top/bottom presets
     if (pitchAngle_ > maxPitch) pitchAngle_ = maxPitch;
     if (pitchAngle_ < -maxPitch) pitchAngle_ = -maxPitch;
 

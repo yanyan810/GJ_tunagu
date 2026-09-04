@@ -184,6 +184,7 @@ void ImGuiManagaer::BuildDefaultDockLayout_(ImGuiID dockspaceId)
     ImGui::DockBuilderDockWindow("Hierarchy", leftNode);
     ImGui::DockBuilderDockWindow("PlayerAttack Editor", leftNode);
     ImGui::DockBuilderDockWindow("Fighter Basic Tuning", leftNode);
+    ImGui::DockBuilderDockWindow("Boss Test Scene", leftNode);
     ImGui::DockBuilderDockWindow("Inspector", rightNode);
     ImGui::DockBuilderDockWindow("Fighter Advanced Tuning", rightNode);
     ImGui::DockBuilderDockWindow("Scene", mainNode);

@@ -58,6 +58,10 @@ private:
     void ResetScrew_();
     void UpdateScrew_(float dt);
     void UpdateScrewDebug_(float dt);
+    void AddScrewTestTarget_(GameApp& app, int type);
+    void UpdateScrewTestTargets_(float dt);
+    void ReleaseScrewTargets_(bool gatheredOnly);
+    float CalculateReleaseMultiplier_(const Vector3& position) const;
 
 	void ApplyCausticsSettings_();
 
@@ -84,7 +88,22 @@ private:
     std::vector<std::unique_ptr<Object3d>> screwOuterBoxEdges_;
     std::vector<std::unique_ptr<Object3d>> screwMiddleBoxEdges_;
     std::vector<std::unique_ptr<Object3d>> screwInnerBoxEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwReleaseFullDistanceEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwReleaseMinDistanceEdges_;
     std::vector<std::unique_ptr<Object3d>> screwReleaseDirectionDebug_;
+
+    struct ScrewTestTarget {
+        enum class Type { ReleaseDummy, PlayerProxy, MarineProxy };
+        Type type = Type::ReleaseDummy;
+        std::unique_ptr<Object3d> object;
+        Vector3 position{};
+        Vector3 velocity{};
+        Vector3 scale{ 1.0f, 1.0f, 1.0f };
+        bool gathered = false;
+        bool released = false;
+    };
+    std::vector<std::unique_ptr<ScrewTestTarget>> screwTestTargets_;
+    Vector3 screwTestTargetGroupOffset_{};
 
     struct MinePointDebugObjects {
         std::unique_ptr<Object3d> origin;
@@ -132,6 +151,9 @@ private:
     bool pendingResetAnchor_ = false;
     bool pendingTriggerScrew_ = false;
     bool pendingResetScrew_ = false;
+    bool pendingReleaseOnly_ = false;
+    int pendingAddScrewTargetType_ = -1;
+    bool pendingClearScrewTargets_ = false;
     bool showScrewDebug_ = true;
     bool showAnchorCollision_ = true;
     bool showAnchorOrbitRange_ = true;
@@ -154,4 +176,5 @@ private:
     Vector3 bossPosition_{ 0.0f, 3.0f, 25.0f };
     Vector3 bossRotation_{ 0.0f, 0.0f, 0.0f };
     Vector3 bossScale_{ 12.0f, 3.0f, 24.0f };
+    float cameraPresetDistance_ = 80.0f;
 };
