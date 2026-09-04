@@ -7,6 +7,7 @@
 #include "boss/Shockwave.h"
 #include "boss/ShockwaveRock.h"
 #include "boss/AnchorAttack.h"
+#include "boss/ScrewAttack.h"
 #include <memory>
 #include <random>
 #include <string>
@@ -53,6 +54,14 @@ private:
     void TriggerAnchor_();
     void ResetAnchor_();
     void UpdateAnchor_(GameApp& app, float dt);
+    void TriggerScrew_();
+    void ResetScrew_();
+    void UpdateScrew_(float dt);
+    void UpdateScrewDebug_(float dt);
+    void AddScrewTestTarget_(GameApp& app, int type);
+    void UpdateScrewTestTargets_(float dt);
+    void ReleaseScrewTargets_(bool gatheredOnly);
+    float CalculateReleaseMultiplier_(const Vector3& position) const;
 
 	void ApplyCausticsSettings_();
 
@@ -71,6 +80,30 @@ private:
     std::unique_ptr<Object3d> anchorPositionDebug_;
     std::vector<std::unique_ptr<Object3d>> anchorChainLinks_;
     size_t anchorChainVisibleCount_ = 0;
+    std::unique_ptr<Object3d> screwPositionDebug_;
+    std::unique_ptr<Object3d> screwGatherPointDebug_;
+    std::unique_ptr<Object3d> screwSuctionDebug_;
+    std::unique_ptr<Object3d> screwMiddleDebug_;
+    std::unique_ptr<Object3d> screwGatherDebug_;
+    std::vector<std::unique_ptr<Object3d>> screwOuterBoxEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwMiddleBoxEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwInnerBoxEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwReleaseFullDistanceEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwReleaseMinDistanceEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwReleaseDirectionDebug_;
+
+    struct ScrewTestTarget {
+        enum class Type { ReleaseDummy, PlayerProxy, MarineProxy };
+        Type type = Type::ReleaseDummy;
+        std::unique_ptr<Object3d> object;
+        Vector3 position{};
+        Vector3 velocity{};
+        Vector3 scale{ 1.0f, 1.0f, 1.0f };
+        bool gathered = false;
+        bool released = false;
+    };
+    std::vector<std::unique_ptr<ScrewTestTarget>> screwTestTargets_;
+    Vector3 screwTestTargetGroupOffset_{};
 
     struct MinePointDebugObjects {
         std::unique_ptr<Object3d> origin;
@@ -88,6 +121,10 @@ private:
     AnchorAttackSettings anchorSettings_{};
     Vector3 anchorCenterOffset_{};
     AnchorAttack anchorAttack_{};
+    ScrewAttackSettings screwSettings_{};
+    ScrewAttack screwAttack_{};
+    std::unordered_set<Mine*> screwGatheredMines_;
+    std::unordered_set<Mine*> screwReleasedMines_;
     std::vector<std::unique_ptr<ShockwaveRock>> shockwaveRocks_;
     std::unordered_set<const Mine*> shockwaveAffectedMines_;
     std::vector<MineEmissionSample> pendingMineEmissions_;
@@ -112,6 +149,12 @@ private:
     bool showShockwaveRange_ = true;
     bool pendingTriggerAnchor_ = false;
     bool pendingResetAnchor_ = false;
+    bool pendingTriggerScrew_ = false;
+    bool pendingResetScrew_ = false;
+    bool pendingReleaseOnly_ = false;
+    int pendingAddScrewTargetType_ = -1;
+    bool pendingClearScrewTargets_ = false;
+    bool showScrewDebug_ = true;
     bool showAnchorCollision_ = true;
     bool showAnchorOrbitRange_ = true;
     bool showAnchorPosition_ = true;
@@ -133,4 +176,5 @@ private:
     Vector3 bossPosition_{ 0.0f, 3.0f, 25.0f };
     Vector3 bossRotation_{ 0.0f, 0.0f, 0.0f };
     Vector3 bossScale_{ 12.0f, 3.0f, 24.0f };
+    float cameraPresetDistance_ = 80.0f;
 };

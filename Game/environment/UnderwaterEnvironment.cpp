@@ -5,6 +5,9 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
+#include "RenderManager.h"
+#include "UnderwaterBackgroundRenderer.h"
+#include "WaterSurfaceRenderer.h"
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
@@ -38,8 +41,15 @@ UnderwaterEnvironment::~UnderwaterEnvironment() {
 }
 
 void UnderwaterEnvironment::Initialize(
-    Object3dCommon* object3dCommon, DirectXCommon* dx, Camera* camera) {
+    Object3dCommon* object3dCommon, DirectXCommon* dx,
+    Camera* camera, RenderManager* renderManager) {
     camera_ = camera;
+    renderManager_ = renderManager;
+
+    background_ = std::make_unique<UnderwaterBackgroundRenderer>();
+    background_->Initialize(dx);
+    ApplyBackgroundSettings_();
+
     floor_ = std::make_unique<Object3d>();
     floor_->Initialize(object3dCommon, dx);
     floor_->SetCamera(camera);
@@ -53,8 +63,22 @@ void UnderwaterEnvironment::Initialize(
     ApplyCausticsSettings_();
     floor_->Update(0.0f);
 
+    waterSurface_ = std::make_unique<WaterSurfaceRenderer>();
+    waterSurface_->Initialize(dx, camera);
+    ApplyWaterSurfaceSettings_();
+    waterSurface_->Update(0.0f);
+
     LoadMarineSnow_();
     LoadPlayerWake_();
+}
+
+void UnderwaterEnvironment::Shutdown() {
+    if (renderManager_) {
+        UnderwaterBackgroundParameters disabledParameters{};
+        disabledParameters.enabled = 0.0f;
+        renderManager_->SetUnderwaterBackgroundParameters(disabledParameters);
+        renderManager_ = nullptr;
+    }
 }
 
 void UnderwaterEnvironment::SetPlayerSnapshot(
@@ -66,6 +90,8 @@ void UnderwaterEnvironment::SetPlayerSnapshot(
 }
 
 void UnderwaterEnvironment::Update(float dt) {
+    ApplyBackgroundSettings_();
+
     if (!floor_) {
         return;
     }
@@ -84,6 +110,11 @@ void UnderwaterEnvironment::Update(float dt) {
     ApplyFloorSettings_();
     ApplyCausticsSettings_();
     floor_->Update(dt);
+
+    if (waterSurface_) {
+        ApplyWaterSurfaceSettings_();
+        waterSurface_->Update(dt);
+    }
 
     UpdatePlayerWake_(dt);
 
@@ -106,15 +137,48 @@ void UnderwaterEnvironment::Update(float dt) {
     }
 }
 
+void UnderwaterEnvironment::DrawBackground() {
+    if (background_) {
+        background_->Draw();
+    }
+}
+
 void UnderwaterEnvironment::Draw() {
     if (floor_) {
         floor_->Draw();
     }
 }
 
+void UnderwaterEnvironment::DrawWaterDepth() {
+    if (waterSurface_) {
+        waterSurface_->DrawDepth();
+    }
+}
+
+void UnderwaterEnvironment::DrawWaterSurface() {
+    if (waterSurface_) {
+        waterSurface_->DrawColor();
+    }
+}
+
 void UnderwaterEnvironment::DrawImGui() {
 #ifdef USE_IMGUI
     ImGui::Begin("Underwater Environment");
+    ImGui::Text("Underwater Background");
+    ImGui::Checkbox("Underwater Background Enabled", &backgroundEnabled_);
+    ImGui::ColorEdit3("Background Surface Color", &backgroundSurfaceColor_.x);
+    ImGui::ColorEdit3("Background Horizon Color", &backgroundHorizonColor_.x);
+    ImGui::ColorEdit3("Background Lower Color", &backgroundLowerColor_.x);
+    ImGui::DragFloat(
+        "Background Horizon Softness",
+        &backgroundHorizonSoftness_, 0.01f, 0.05f, 1.0f, "%.2f");
+    ImGui::DragFloat(
+        "Background Upward Lift",
+        &backgroundUpwardLift_, 0.01f, 0.0f, 1.0f, "%.2f");
+    ImGui::DragFloat(
+        "Background Lower Blend",
+        &backgroundLowerBlend_, 0.01f, 0.0f, 1.0f, "%.2f");
+    ImGui::Separator();
     ImGui::DragFloat("Floor Height", &floorHeight_, 0.25f, -200.0f, 50.0f, "%.1f");
     ImGui::DragFloat("Floor Scale", &floorScale_, 1.0f, 1.0f, 500.0f, "%.0f");
     ImGui::ColorEdit4("Floor Color", &floorColor_.x);
@@ -142,6 +206,19 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::DragFloat("Caustics Intensity", &causticsIntensity_, 0.01f, 0.0f, 4.0f, "%.2f");
     ImGui::Checkbox("Animation Enabled", &causticsAnimationEnabled_);
     ImGui::DragFloat("Loop Duration", &causticsLoopDuration_, 0.1f, 0.1f, 20.0f, "%.1f sec");
+    ImGui::Separator();
+    ImGui::Text("Water Surface (From Below)");
+    ImGui::Checkbox("Water Surface Enabled", &waterSurfaceEnabled_);
+    ImGui::DragFloat("Water Level Y", &waterLevelY_, 0.25f, -50.0f, 200.0f, "%.1f");
+    ImGui::ColorEdit4("Water Surface Tint", &waterSurfaceTint_.x);
+    ImGui::DragFloat("Water Normal Scale A", &waterNormalScaleA_, 0.001f, 0.001f, 0.20f, "%.3f");
+    ImGui::DragFloat("Water Normal Scale B", &waterNormalScaleB_, 0.001f, 0.001f, 0.20f, "%.3f");
+    ImGui::DragFloat2("Water Normal Speed A", &waterNormalSpeedA_.x, 0.001f, -0.10f, 0.10f, "%.3f");
+    ImGui::DragFloat2("Water Normal Speed B", &waterNormalSpeedB_.x, 0.001f, -0.10f, 0.10f, "%.3f");
+    ImGui::DragFloat("Water Normal Strength", &waterNormalStrength_, 0.01f, 0.0f, 2.0f, "%.2f");
+    ImGui::DragFloat("Water Fresnel Strength", &waterFresnelStrength_, 0.01f, 0.0f, 2.0f, "%.2f");
+    ImGui::DragFloat("Water Fresnel Power", &waterFresnelPower_, 0.1f, 0.1f, 16.0f, "%.1f");
+    ImGui::DragFloat("Water Reflection Strength", &waterReflectionStrength_, 0.01f, 0.0f, 1.0f, "%.2f");
     ImGui::Separator();
     ImGui::Text("Marine Snow");
     if (ImGui::Checkbox("Marine Snow Enabled", &marineSnowEnabled_)) {
@@ -197,6 +274,42 @@ void UnderwaterEnvironment::ApplyCausticsSettings_() {
         kCausticsFrameCount,
         kCausticsAtlasColumns,
         kCausticsAtlasRows);
+}
+
+void UnderwaterEnvironment::ApplyBackgroundSettings_() {
+    if (!background_ || !camera_) {
+        return;
+    }
+
+    UnderwaterBackgroundParameters parameters{};
+    parameters.inverseViewProjection =
+        Matrix4x4::Inverse(camera_->GetViewProjectionMatrix());
+    parameters.surfaceColor = backgroundSurfaceColor_;
+    parameters.horizonColor = backgroundHorizonColor_;
+    parameters.lowerColor = backgroundLowerColor_;
+    parameters.horizonSoftness =
+        std::max(backgroundHorizonSoftness_, 0.001f);
+    parameters.upwardLift = std::max(backgroundUpwardLift_, 0.0f);
+    parameters.lowerBlend =
+        std::clamp(backgroundLowerBlend_, 0.0f, 1.0f);
+    parameters.enabled = backgroundEnabled_ ? 1.0f : 0.0f;
+
+    background_->SetParameters(parameters);
+    if (renderManager_) {
+        renderManager_->SetUnderwaterBackgroundParameters(parameters);
+    }
+}
+
+void UnderwaterEnvironment::ApplyWaterSurfaceSettings_() {
+    waterSurface_->SetEnabled(waterSurfaceEnabled_);
+    waterSurface_->SetWaterLevel(waterLevelY_);
+    waterSurface_->SetSurfaceTint(waterSurfaceTint_);
+    waterSurface_->SetNormalSettings(
+        waterNormalScaleA_, waterNormalScaleB_,
+        waterNormalSpeedA_, waterNormalSpeedB_, waterNormalStrength_);
+    waterSurface_->SetFresnelSettings(
+        waterFresnelStrength_, waterFresnelPower_);
+    waterSurface_->SetReflectionStrength(waterReflectionStrength_);
 }
 
 const char* UnderwaterEnvironment::GetCausticsTexturePath_() const {

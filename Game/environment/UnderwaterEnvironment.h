@@ -10,16 +10,25 @@ class Camera;
 class DirectXCommon;
 class Object3d;
 class Object3dCommon;
+class RenderManager;
+class UnderwaterBackgroundRenderer;
+class WaterSurfaceRenderer;
 
 class UnderwaterEnvironment final {
 public:
     UnderwaterEnvironment();
     ~UnderwaterEnvironment();
 
-    void Initialize(Object3dCommon* object3dCommon, DirectXCommon* dx, Camera* camera);
+    void Initialize(
+        Object3dCommon* object3dCommon, DirectXCommon* dx,
+        Camera* camera, RenderManager* renderManager);
+    void Shutdown();
     void SetPlayerSnapshot(const Vector3& position, float yaw, float pitch);
     void Update(float dt);
+    void DrawBackground();
     void Draw();
+    void DrawWaterDepth();
+    void DrawWaterSurface();
     void DrawImGui();
 
 private:
@@ -30,6 +39,8 @@ private:
 
     void ApplyFloorSettings_();
     void ApplyCausticsSettings_();
+    void ApplyBackgroundSettings_();
+    void ApplyWaterSurfaceSettings_();
     const char* GetCausticsTexturePath_() const;
     void LoadMarineSnow_();
     void RemoveMarineSnowGroups_();
@@ -41,7 +52,18 @@ private:
     Vector3 CalculatePlayerWakeEmitPosition_(bool rightSide) const;
 
     Camera* camera_ = nullptr;
+    RenderManager* renderManager_ = nullptr;
     std::unique_ptr<Object3d> floor_;
+    std::unique_ptr<UnderwaterBackgroundRenderer> background_;
+    std::unique_ptr<WaterSurfaceRenderer> waterSurface_;
+
+    bool backgroundEnabled_ = true;
+    Vector4 backgroundSurfaceColor_{ 0.10f, 0.42f, 0.55f, 1.0f };
+    Vector4 backgroundHorizonColor_{ 0.04f, 0.18f, 0.22f, 1.0f };
+    Vector4 backgroundLowerColor_{ 0.12f, 0.25f, 0.25f, 1.0f };
+    float backgroundHorizonSoftness_ = 0.45f;
+    float backgroundUpwardLift_ = 0.12f;
+    float backgroundLowerBlend_ = 0.80f;
 
     float floorHeight_ = -22.0f;
     float floorScale_ = 150.0f;
@@ -59,6 +81,18 @@ private:
     bool causticsAnimationEnabled_ = true;
     float causticsPlaybackTime_ = 0.0f;
     float causticsLoopDuration_ = 4.0f;
+
+    bool waterSurfaceEnabled_ = true;
+    float waterLevelY_ = 28.0f;
+    Vector4 waterSurfaceTint_{ 0.16f, 0.48f, 0.58f, 0.30f };
+    float waterNormalScaleA_ = 0.030f;
+    float waterNormalScaleB_ = 0.055f;
+    Vector2 waterNormalSpeedA_{ 0.012f, 0.006f };
+    Vector2 waterNormalSpeedB_{ -0.008f, 0.011f };
+    float waterNormalStrength_ = 0.55f;
+    float waterFresnelStrength_ = 0.75f;
+    float waterFresnelPower_ = 5.0f;
+    float waterReflectionStrength_ = 0.20f;
 
     std::vector<std::string> marineSnowGroupNames_;
     bool marineSnowEnabled_ = true;

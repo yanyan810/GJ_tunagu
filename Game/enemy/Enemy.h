@@ -64,7 +64,7 @@ private:
     DirectXCommon* dx_ = nullptr;
 
     // トランスフォーム
-    Vector3 pos_ = { 0.0f, 18.0f, 0.0f }; // 水面高さ
+    Vector3 pos_ = { 0.0f, 35.0f, 0.0f }; // 高い上空・水上高度
     Vector3 rot_ = { 0.0f, 0.0f, 0.0f };
     Vector3 scale_ = { 8.0f, 3.0f, 14.0f }; // 船らしい長方形のボックス
     float radius_ = 7.0f;

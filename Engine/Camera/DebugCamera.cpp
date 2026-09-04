@@ -18,12 +18,14 @@ void DebugCamera::Update(float dt) {
     const float sensitivity = 0.002f;
 
     // マウス回転量から角度を更新
-    POINT mouseDelta = input_->GetMouseDelta();
-    yawAngle_ -= mouseDelta.x * sensitivity;
-    pitchAngle_ += mouseDelta.y * sensitivity;
+    if (mouseLookEnabled_) {
+        POINT mouseDelta = input_->GetMouseDelta();
+        yawAngle_ -= mouseDelta.x * sensitivity;
+        pitchAngle_ += mouseDelta.y * sensitivity;
+    }
 
     // ピッチを ±85度に制限
-    const float maxPitch = 1.5f; // ≒85度
+    const float maxPitch = 1.5707963f; // 90 degrees for exact top/bottom presets
     if (pitchAngle_ > maxPitch) pitchAngle_ = maxPitch;
     if (pitchAngle_ < -maxPitch) pitchAngle_ = -maxPitch;
 

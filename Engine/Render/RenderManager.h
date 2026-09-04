@@ -7,6 +7,7 @@
 #include <d3d12.h>
 
 #include "OffscreenPass.h"
+#include "UnderwaterBackgroundParameters.h"
 
 class DirectXCommon;
 class SrvManager;
@@ -75,6 +76,8 @@ public:
     void SetObjectLayerOutlineBloomColor(const Vector4& color) { objectLayerOutlineBloomColor_ = color; }
     void SetParticleLayerBloomColor(const Vector4& color) { particleLayerBloomColor_ = color; }
     void SetParticleLayerOutlineBloomColor(const Vector4& color) { particleLayerOutlineBloomColor_ = color; }
+    void SetUnderwaterBackgroundParameters(
+        const UnderwaterBackgroundParameters& parameters);
 
     uint32_t GetOffscreenSrvIndex() const;
     uint32_t GetPreviewSrvIndex() const;
@@ -197,9 +200,10 @@ private:
         float nearClip;
         float farClip;
         float backgroundOpacity;
-        float _pad;
+        float farBackgroundBlendStartRatio;
+        UnderwaterBackgroundParameters background;
     };
-    static_assert(sizeof(DepthFogParameter) == 48);
+    static_assert(sizeof(DepthFogParameter) == 176);
     static_assert(sizeof(DepthFogParameter) % 16 == 0);
     Microsoft::WRL::ComPtr<ID3D12Resource> depthFogCB_;
     DepthFogParameter* depthFogCBData_ = nullptr;
@@ -210,6 +214,8 @@ private:
     float depthFogDensity_ = 0.010f;
     float depthFogMaxOpacity_ = 0.72f;
     float depthFogBackgroundOpacity_ = 1.0f;
+    float depthFogFarBackgroundBlendStartRatio_ = 0.85f;
+    UnderwaterBackgroundParameters underwaterBackgroundParameters_{};
 
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomCB_;
     BloomParameter* bloomCBData_ = nullptr;

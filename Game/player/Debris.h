@@ -79,6 +79,10 @@ public:
     // Setter
     void SetPosition(const Vector3& pos) { pos_ = pos; }
     void SetDead(bool dead) { isDead_ = dead; }
+    void SetTargetPos(const Vector3& targetPos, bool hasTarget) {
+        targetPos_ = targetPos;
+        hasTarget_ = hasTarget;
+    }
 
     // Getter
     bool IsDead() const { return isDead_; }
@@ -98,6 +102,7 @@ public:
     float GetDefenseBuff() const { return defenseBuff_; }
     float GetThrowAtkBuff() const { return throwAtkBuff_; }
     const std::string& GetName() const { return name_; }
+    const Vector4& GetColor() const { return color_; }
 
 private:
     std::unique_ptr<Object3d> model_;
@@ -135,4 +140,11 @@ private:
     Vector3 velocity_ = { 0.0f, 0.0f, 0.0f };
     float throwTimer_ = 0.0f;
     bool isDead_ = false;
+
+    // エイムアシスト誘導用
+    Vector3 targetPos_ = { 0.0f, 0.0f, 0.0f };
+    bool hasTarget_ = false;
+
+    // 識別用表示カラー
+    Vector4 color_ = { 1.0f, 1.0f, 1.0f, 1.0f };
 };

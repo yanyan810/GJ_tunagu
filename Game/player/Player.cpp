@@ -12,7 +12,7 @@
 #endif
 
 // モデルの初期回転オフセット（進行方向に対してマグロを正面に向け、背中を上にする）
-const float kModelRotateYawOffset = -1.5707963f; // -90度
+const float kModelRotateYawOffset = 1.5707963f; // +90度
 const float kModelRotateRollOffset = 0.0f;
 
 namespace {
@@ -53,6 +53,10 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     pos_ = { 0.0f, 0.0f, 0.0f };
     yaw_ = 0.0f;
     pitch_ = 0.0f;
+    roll_ = 0.0f;
+    cameraYaw_ = 0.0f;
+    cameraPitch_ = 0.0f;
+    prevCameraYaw_ = 0.0f;
 
     model_->SetTranslate(pos_);
     model_->SetRotate({ pitch_, yaw_ + kModelRotateYawOffset, kModelRotateRollOffset });
@@ -164,11 +168,13 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
         TakeDamage(kOverweightDamagePerSec * dt);
     }
 
-    // 2. キー入力による回転・移動操作
-    // 2. キーボード & マウスによる視点・回転操作
+    // 2. キーボード & マウスによるプレイヤー・モデル視点回転操作
     float rotateSpeedYaw = 1.8f;   // 旋回速度 (rad/s)
     rotateSpeedYaw = (std::max)(0.4f, rotateSpeedYaw / (1.0f + totalWeight * 0.10f));
 
+    float prevYaw = yaw_;
+
+    // ADキーでプレイヤーモデルの向き (yaw_) を直接左右旋回
     if (input.IsKeyPressed(DIK_A) || input.IsKeyPressed(DIK_LEFT)) {
         yaw_ -= rotateSpeedYaw * dt;
     }
@@ -176,7 +182,7 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
         yaw_ += rotateSpeedYaw * dt;
     }
 
-    // マウス移動によるカメラ視点操作 (左右移動でYaw, 上下移動でPitch)
+    // マウス移動による視点操作（水平方向はプレイヤーの向き yaw_ を直接回転）
     int mouseDX = input.GetMouseDeltaX();
     int mouseDY = input.GetMouseDeltaY();
 
@@ -187,23 +193,49 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
         cameraPitch_ += static_cast<float>(mouseDY) * mouseSensitivity_;
     }
 
-    // W/Sキーによる視点上下（ピッチ）操作
+    // W/Sキーによる視点上下操作
     if (input.IsKeyPressed(DIK_W)) {
         cameraPitch_ -= 1.0f * dt;
     } else if (input.IsKeyPressed(DIK_S)) {
         cameraPitch_ += 1.0f * dt;
     }
-    // カメラの上下ピッチ角を±0.60rad(約34度)にマイルド制限し、真上・真下への過度な回転を防止
-    cameraPitch_ = std::clamp(cameraPitch_, -0.60f, 0.60f);
 
-    // マグロモデル自体のピッチ傾きは cameraPitch_ にマイルド連動
-    float targetPitch = cameraPitch_ * 0.70f;
-    pitch_ = pitch_ + (targetPitch - pitch_) * 7.0f * dt;
-    pitch_ = std::clamp(pitch_, -0.45f, 0.45f);
+    // 上下ピッチ角制限 (約±77度)
+    cameraPitch_ = std::clamp(cameraPitch_, -1.35f, 1.35f);
 
-    // 進行方向ベクトル (マウスで向けた3次元方向へマグロがダイレクトに泳ぎ進む)
-    float cosP = std::cos(cameraPitch_);
-    float sinP = std::sin(cameraPitch_);
+    // 旋回量と速度の算出 (プレイヤーYawの差分)
+    const float kPI = 3.1415926535f;
+    float deltaYaw = yaw_ - prevYaw;
+    while (deltaYaw > kPI) deltaYaw -= kPI * 2.0f;
+    while (deltaYaw < -kPI) deltaYaw += kPI * 2.0f;
+
+    float yawSpeed = (dt > 0.0001f) ? (deltaYaw / dt) : 0.0f;
+
+    // 左右旋回に伴う体の傾き (Roll/Bank) の目標値
+    // 右旋回 (yawSpeed > 0) -> 体を右に傾ける / 左旋回 (yawSpeed < 0) -> 体を左に傾ける
+    float targetRoll = std::clamp(yawSpeed * 0.28f, -0.45f, 0.45f);
+
+    // 体の傾き roll_ をターゲットへスムーズに補間
+    float rollLerpRate = (std::min)(1.0f, 10.0f * dt);
+    roll_ += (targetRoll - roll_) * rollLerpRate;
+
+    // カメラYaw角をプレイヤーのYaw角へ滑らかに追従
+    float camLerpRate = (std::min)(1.0f, 12.0f * dt);
+    float yawDiff = yaw_ - cameraYaw_;
+    while (yawDiff > kPI) yawDiff -= kPI * 2.0f;
+    while (yawDiff < -kPI) yawDiff += kPI * 2.0f;
+    cameraYaw_ += yawDiff * camLerpRate;
+
+    // ピッチ角 (上下向き) をカメラピッチへ追従
+    float rotLerpRate = (std::min)(1.0f, 18.0f * dt);
+    pitch_ += (cameraPitch_ - pitch_) * rotLerpRate;
+
+    // 1. 現時点の尾びれワールド位置 (tailPos) を取得
+    Vector3 currentTailPos = GetTailPosition();
+
+    // 進行方向ベクトル (プレイヤーの向き yaw_ と pitch_ に基づいてダイレクトに進行)
+    float cosP = std::cos(pitch_);
+    float sinP = std::sin(pitch_);
     float sinY = std::sin(yaw_);
     float cosY = std::cos(yaw_);
 
@@ -217,17 +249,49 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     vel_.y = moveDir.y * maxForwardSpeed_;
     vel_.z = moveDir.z * maxForwardSpeed_;
 
-    // 位置更新
-    pos_.x += vel_.x * dt;
-    pos_.y += vel_.y * dt;
-    pos_.z += vel_.z * dt;
+    // 前進移動による尾びれの新しいワールド位置
+    currentTailPos.x += vel_.x * dt;
+    currentTailPos.y += vel_.y * dt;
+    currentTailPos.z += vel_.z * dt;
 
-    // ボスの高さ (Y=18.0f) の上に行かないようにプレイヤーの高さ上限を14.5fに制限
-    pos_.y = std::clamp(pos_.y, -25.0f, 14.5f);
+    // ボスの高さ (Y=35.0f) の上に行かないようにプレイヤーの高さ上限を14.5fに制限
+    currentTailPos.y = std::clamp(currentTailPos.y, -25.0f, 14.5f);
 
-    // モデルの位置と回転を設定
+    // モデルの位置と回転を設定 (体の傾き Roll -> 上下 Pitch -> 左右 Yaw の順で回転行列を合成)
+    Matrix4x4 scaleMat = Matrix4x4::Scale(model_->GetScale());
+    Matrix4x4 rotOffset = Matrix4x4::RotateY(kModelRotateYawOffset);
+    Matrix4x4 rotRoll = Matrix4x4::RotateZ(-roll_);
+    Matrix4x4 rotPitch = Matrix4x4::RotateX(pitch_);
+    Matrix4x4 rotYaw = Matrix4x4::RotateY(-yaw_);
+    
+    Matrix4x4 rotModelLocal = Matrix4x4::Multiply(rotOffset, rotRoll);
+    Matrix4x4 rotPitchYaw = Matrix4x4::Multiply(rotPitch, rotYaw);
+    Matrix4x4 rotWorld = Matrix4x4::Multiply(rotModelLocal, rotPitchYaw);
+
+    // スケール・回転適用後のローカル尾びれ相対ベクトル
+    Vector3 tailLocal = { 0.0f, 0.0f, 0.0f };
+    if (spineAxis_ == 0) {
+        tailLocal.x = tailIsMin_ ? spineMin_ : spineMax_;
+    } else if (spineAxis_ == 1) {
+        tailLocal.y = tailIsMin_ ? spineMin_ : spineMax_;
+    } else {
+        tailLocal.z = tailIsMin_ ? spineMin_ : spineMax_;
+    }
+    Vector3 vTail = TransformCoord(tailLocal, Matrix4x4::Multiply(scaleMat, rotWorld));
+
+    // 尾びれの位置 currentTailPos を基準にモデル中心 pos_ を算出
+    pos_ = {
+        currentTailPos.x - vTail.x,
+        currentTailPos.y - vTail.y,
+        currentTailPos.z - vTail.z
+    };
+
+    Matrix4x4 transMat = Matrix4x4::Translation(pos_);
+    Matrix4x4 worldMat = Matrix4x4::Multiply(Matrix4x4::Multiply(scaleMat, rotWorld), transMat);
+
     model_->SetTranslate(pos_);
-    model_->SetRotate({ pitch_, yaw_ + kModelRotateYawOffset, kModelRotateRollOffset });
+    model_->SetRotate({ pitch_, -yaw_ + kModelRotateYawOffset, -roll_ });
+    model_->SetWorldMatrixOverride(worldMat);
 
     // --- ゴミ投げ（チャージ＆投射）処理 ---
     if (input.IsMouseLeftTrigger()) {
@@ -272,8 +336,21 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
                     float dirZ = std::cos(yaw_) * std::cos(pitch_);
                     Vector3 forward = { dirX, dirY, dirZ };
 
+                    // エイムアシスト: ターゲット（ボス）が存在する場合、ボス方向へ投射ベクトルを強力補正
+                    if (hasTarget_) {
+                        Vector3 toTarget = { targetPos_.x - pos_.x, targetPos_.y - pos_.y, targetPos_.z - pos_.z };
+                        float len = std::sqrt(toTarget.x * toTarget.x + toTarget.y * toTarget.y + toTarget.z * toTarget.z);
+                        if (len > 0.001f) {
+                            toTarget.x /= len; toTarget.y /= len; toTarget.z /= len;
+                            // ボス方向へ75%強力エイム補正
+                            forward.x = forward.x * 0.25f + toTarget.x * 0.75f;
+                            forward.y = forward.y * 0.25f + toTarget.y * 0.75f;
+                            forward.z = forward.z * 0.25f + toTarget.z * 0.75f;
+                        }
+                    }
+
                     // 複数投げる時は少し散らす（スプレッド）
-                    float spread = 0.18f;
+                    float spread = 0.12f;
                     float rx = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
                     float ry = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
                     float rz = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
@@ -293,6 +370,9 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
                         pos_.y + forward.y * 2.2f,
                         pos_.z + forward.z * 2.2f
                     };
+
+                    // 飛行中もボスへホーミング補正させるターゲット情報
+                    debris->SetTargetPos(targetPos_, hasTarget_);
 
                     // ゴミを飛ばす
                     debris->Throw(startPos, velocity);
@@ -372,7 +452,7 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
             pos_,
             model_->GetWorldMatrix(),
             pitch_,
-            yaw_,
+            -yaw_,
             swimPhase_,
             spineAxis_,
             swingAxis_,
@@ -422,7 +502,7 @@ void Player::CheckDebrisCollision(std::vector<std::unique_ptr<Debris>>& debrisLi
                 // アタッチ時の初期相対回転を計算 (マグロの現在の姿勢を引く)
                 Vector3 localRot = debris->GetRotate();
                 localRot.x -= pitch_;
-                localRot.y -= yaw_;
+                localRot.y -= (-yaw_);
 
                 debris->Attach(localOffset, localRot);
 
@@ -434,6 +514,22 @@ void Player::CheckDebrisCollision(std::vector<std::unique_ptr<Debris>>& debrisLi
         }
         ++it;
     }
+}
+
+Vector3 Player::GetTailPosition() const {
+    if (model_) {
+        Matrix4x4 worldMat = GetWorldMatrix();
+        Vector3 tailLocal = { 0.0f, 0.0f, 0.0f };
+        if (spineAxis_ == 0) {
+            tailLocal.x = tailIsMin_ ? spineMin_ : spineMax_;
+        } else if (spineAxis_ == 1) {
+            tailLocal.y = tailIsMin_ ? spineMin_ : spineMax_;
+        } else {
+            tailLocal.z = tailIsMin_ ? spineMin_ : spineMax_;
+        }
+        return TransformCoord(tailLocal, worldMat);
+    }
+    return pos_;
 }
 
 Matrix4x4 Player::GetWorldMatrix() const {
