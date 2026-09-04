@@ -28,6 +28,7 @@ static const char* kEffectNames[] = {
     "Luminance Based Outline",
     "Luminance Outline Mask (Internal)",
     "Depth Fog",
+    "Light Shaft",
 };
 
 static const wchar_t* kEffectPSPaths[] = {
@@ -46,6 +47,7 @@ static const wchar_t* kEffectPSPaths[] = {
     L"resources/shaders/LuminanceBasedOutline.PS.hlsl",
     L"resources/shaders/LuminanceOutlineMask.PS.hlsl",
     L"resources/shaders/DepthFog.PS.hlsl",
+    L"resources/shaders/LightShaft.PS.hlsl",
 };
 
 void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
@@ -210,6 +212,26 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
     depthFogCBData_->underwaterMediumEnabled =
         underwaterMediumEnabled_ ? 1.0f : 0.0f;
 
+    lightShaftParameters_.inverseViewProjection = Matrix4x4::MakeIdentity4x4();
+    lightShaftParameters_.lightUv = { 0.5f, 0.5f };
+    lightShaftParameters_.lightColor = { 0.78f, 0.94f, 1.0f };
+    lightShaftParameters_.density = 0.85f;
+    lightShaftParameters_.numSamples = 48;
+    lightShaftParameters_.decay = 0.96f;
+    lightShaftParameters_.weight = 0.030f;
+    lightShaftParameters_.exposure = 0.35f;
+    lightShaftParameters_.nearClip = 0.1f;
+    lightShaftParameters_.farClip = 1000.0f;
+    lightShaftParameters_.occlusionDepthRange = 120.0f;
+    lightShaftParameters_.waterSurfaceTolerance = 1.5f;
+    lightShaftParameters_.sourceRadius = 0.85f;
+    lightShaftParameters_.offscreenFadeDistance = 0.35f;
+    lightShaftCB_ = dx_->CreateBufferResource(
+        (sizeof(LightShaftParameters) + 0xff) & ~0xff);
+    lightShaftCB_->Map(
+        0, nullptr, reinterpret_cast<void**>(&lightShaftCBData_));
+    *lightShaftCBData_ = lightShaftParameters_;
+
     bloomCB_ = dx_->CreateBufferResource((sizeof(BloomParameter) + 0xff) & ~0xff);
     bloomCB_->Map(0, nullptr, reinterpret_cast<void**>(&bloomCBData_));
     bloomCBData_->color = bloomColor_;
@@ -360,6 +382,12 @@ void RenderManager::SetUnderwaterBackgroundParameters(
     }
 }
 
+void RenderManager::SetLightShaftParameters(
+    const LightShaftParameters& parameters)
+{
+    lightShaftParameters_ = parameters;
+}
+
 void RenderManager::BeginOffscreen()
 {
     assert(offscreen_);
@@ -473,7 +501,7 @@ void RenderManager::CreateCopyImageRootSignature()
     range1.BaseShaderRegister = 1; // t1
     range1.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParams[9]{};
+    D3D12_ROOT_PARAMETER rootParams[10]{};
     // [0]: SRV (t0) Color
     rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -527,6 +555,12 @@ void RenderManager::CreateCopyImageRootSignature()
     rootParams[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParams[8].Descriptor.ShaderRegister = 6;
     rootParams[8].Descriptor.RegisterSpace = 0;
+
+    // [9]: CBV (b7) Light Shaft. Appended to preserve all existing indices.
+    rootParams[9].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParams[9].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParams[9].Descriptor.ShaderRegister = 7;
+    rootParams[9].Descriptor.RegisterSpace = 0;
 
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -630,6 +664,17 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
         cmd->SetGraphicsRootConstantBufferView(6, randomCB_->GetGPUVirtualAddress());
     } else if (mode == PostEffectMode::DepthFog) {
         cmd->SetGraphicsRootConstantBufferView(8, depthFogCB_->GetGPUVirtualAddress());
+    } else if (mode == PostEffectMode::LightShaft) {
+        LightShaftParameters effectiveParameters = lightShaftParameters_;
+        const bool mediumActive =
+            enabledEffects_[static_cast<int>(PostEffectMode::DepthFog)] &&
+            underwaterMediumEnabled_;
+        if (!mediumActive) {
+            effectiveParameters.underwaterFactor = 0.0f;
+        }
+        *lightShaftCBData_ = effectiveParameters;
+        cmd->SetGraphicsRootConstantBufferView(
+            9, lightShaftCB_->GetGPUVirtualAddress());
     }
 
     cmd->DrawInstanced(3, 1, 0, 0);
@@ -1257,7 +1302,8 @@ void RenderManager::DrawImGui()
         if (i == static_cast<int>(PostEffectMode::GaussianBlurX) ||
             i == static_cast<int>(PostEffectMode::GaussianBlurY) ||
             i == static_cast<int>(PostEffectMode::LuminanceOutlineMask) ||
-            i == static_cast<int>(PostEffectMode::DepthFog)) {
+            i == static_cast<int>(PostEffectMode::DepthFog) ||
+            i == static_cast<int>(PostEffectMode::LightShaft)) {
             continue;
         }
         bool enabled = enabledEffects_[i];
