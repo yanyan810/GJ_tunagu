@@ -7,6 +7,7 @@
 #include "boss/Shockwave.h"
 #include "boss/ShockwaveRock.h"
 #include "boss/AnchorAttack.h"
+#include "boss/ScrewAttack.h"
 #include <memory>
 #include <random>
 #include <string>
@@ -53,6 +54,10 @@ private:
     void TriggerAnchor_();
     void ResetAnchor_();
     void UpdateAnchor_(GameApp& app, float dt);
+    void TriggerScrew_();
+    void ResetScrew_();
+    void UpdateScrew_(float dt);
+    void UpdateScrewDebug_(float dt);
 
 	void ApplyCausticsSettings_();
 
@@ -71,6 +76,15 @@ private:
     std::unique_ptr<Object3d> anchorPositionDebug_;
     std::vector<std::unique_ptr<Object3d>> anchorChainLinks_;
     size_t anchorChainVisibleCount_ = 0;
+    std::unique_ptr<Object3d> screwPositionDebug_;
+    std::unique_ptr<Object3d> screwGatherPointDebug_;
+    std::unique_ptr<Object3d> screwSuctionDebug_;
+    std::unique_ptr<Object3d> screwMiddleDebug_;
+    std::unique_ptr<Object3d> screwGatherDebug_;
+    std::vector<std::unique_ptr<Object3d>> screwOuterBoxEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwMiddleBoxEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwInnerBoxEdges_;
+    std::vector<std::unique_ptr<Object3d>> screwReleaseDirectionDebug_;
 
     struct MinePointDebugObjects {
         std::unique_ptr<Object3d> origin;
@@ -88,6 +102,10 @@ private:
     AnchorAttackSettings anchorSettings_{};
     Vector3 anchorCenterOffset_{};
     AnchorAttack anchorAttack_{};
+    ScrewAttackSettings screwSettings_{};
+    ScrewAttack screwAttack_{};
+    std::unordered_set<Mine*> screwGatheredMines_;
+    std::unordered_set<Mine*> screwReleasedMines_;
     std::vector<std::unique_ptr<ShockwaveRock>> shockwaveRocks_;
     std::unordered_set<const Mine*> shockwaveAffectedMines_;
     std::vector<MineEmissionSample> pendingMineEmissions_;
@@ -112,6 +130,9 @@ private:
     bool showShockwaveRange_ = true;
     bool pendingTriggerAnchor_ = false;
     bool pendingResetAnchor_ = false;
+    bool pendingTriggerScrew_ = false;
+    bool pendingResetScrew_ = false;
+    bool showScrewDebug_ = true;
     bool showAnchorCollision_ = true;
     bool showAnchorOrbitRange_ = true;
     bool showAnchorPosition_ = true;

@@ -17,6 +17,8 @@ public:
         yawAngle_ = rotation.y;
     }
     void SetMoveSpeed(float speed) { moveSpeed_ = speed; }
+    void SetMouseLookEnabled(bool enabled) { mouseLookEnabled_ = enabled; }
+    bool IsMouseLookEnabled() const { return mouseLookEnabled_; }
 
     const Matrix4x4& GetViewMatrix() const { return viewMatrix_; }
     const Vector3& GetPosition() const { return translation_; }
@@ -32,5 +34,6 @@ private:
     float pitchAngle_ = 0.0f;
     float yawAngle_ = 0.0f;
     float moveSpeed_ = 20.0f;
+    bool mouseLookEnabled_ = true;
 
 };

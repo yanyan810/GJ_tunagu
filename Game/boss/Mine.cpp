@@ -132,6 +132,10 @@ bool Mine::TriggerExplosion(float delay) {
     return true;
 }
 
+void Mine::ExplodeImmediately() {
+    if (state_ != State::Exploded) EnterExploded_();
+}
+
 bool Mine::ConsumeExplosionEvent(MineExplosionEvent& event) {
     if (!explosionEventPending_) return false;
     event.position = explosionPosition_;
