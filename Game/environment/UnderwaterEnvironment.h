@@ -10,6 +10,7 @@ class Camera;
 class DirectXCommon;
 class Object3d;
 class Object3dCommon;
+class WaterSurfaceRenderer;
 
 class UnderwaterEnvironment final {
 public:
@@ -20,6 +21,8 @@ public:
     void SetPlayerSnapshot(const Vector3& position, float yaw, float pitch);
     void Update(float dt);
     void Draw();
+    void DrawWaterDepth();
+    void DrawWaterSurface();
     void DrawImGui();
 
 private:
@@ -30,6 +33,7 @@ private:
 
     void ApplyFloorSettings_();
     void ApplyCausticsSettings_();
+    void ApplyWaterSurfaceSettings_();
     const char* GetCausticsTexturePath_() const;
     void LoadMarineSnow_();
     void RemoveMarineSnowGroups_();
@@ -42,6 +46,7 @@ private:
 
     Camera* camera_ = nullptr;
     std::unique_ptr<Object3d> floor_;
+    std::unique_ptr<WaterSurfaceRenderer> waterSurface_;
 
     float floorHeight_ = -22.0f;
     float floorScale_ = 150.0f;
@@ -59,6 +64,18 @@ private:
     bool causticsAnimationEnabled_ = true;
     float causticsPlaybackTime_ = 0.0f;
     float causticsLoopDuration_ = 4.0f;
+
+    bool waterSurfaceEnabled_ = true;
+    float waterLevelY_ = 28.0f;
+    Vector4 waterSurfaceTint_{ 0.16f, 0.48f, 0.58f, 0.30f };
+    float waterNormalScaleA_ = 0.030f;
+    float waterNormalScaleB_ = 0.055f;
+    Vector2 waterNormalSpeedA_{ 0.012f, 0.006f };
+    Vector2 waterNormalSpeedB_{ -0.008f, 0.011f };
+    float waterNormalStrength_ = 0.55f;
+    float waterFresnelStrength_ = 0.75f;
+    float waterFresnelPower_ = 5.0f;
+    float waterReflectionStrength_ = 0.20f;
 
     std::vector<std::string> marineSnowGroupNames_;
     bool marineSnowEnabled_ = true;

@@ -255,6 +255,11 @@ void GameScene::Draw(GameApp& app) {
 
     for (const auto& enemy : enemies_) enemy->Draw();
 
+    if (underwaterEnvironment_) {
+        underwaterEnvironment_->DrawWaterDepth();
+        underwaterEnvironment_->DrawWaterSurface();
+    }
+
     ParticleManager::GetInstance()->Draw(app.Dx()->GetCommandList());
 
     // 2D UI スプライト HPバーの描画
