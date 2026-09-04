@@ -86,6 +86,10 @@ void GameScene::OnEnter(GameApp& app) {
         debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), type, { x, y, z });
         debrisList_.push_back(std::move(debris));
     }
+
+    // ボス船の生成・初期化
+    bossShip_ = std::make_unique<Enemy>();
+    bossShip_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
 }
 
 void GameScene::OnExit(GameApp& /*app*/) {
@@ -93,6 +97,7 @@ void GameScene::OnExit(GameApp& /*app*/) {
     hpBarBgSprite_.reset();
     debrisList_.clear();
     enemies_.clear();
+    bossShip_.reset();
     player_.reset();
     if (underwaterEnvironment_) underwaterEnvironment_->Shutdown();
     underwaterEnvironment_.reset();
@@ -117,69 +122,68 @@ void GameScene::Update(GameApp& app, float dt) {
         }
     }
 
+    // ボス船の更新と攻撃・被弾衝突判定
+    if (bossShip_ && player_) {
+        bossShip_->Update(dt, player_->GetPosition());
+        bossShip_->CheckCollisionWithPlayer(player_.get());
+
+        // プレイヤーにエイムアシスト用ターゲット位置を連携
+        player_->SetTargetPos(bossShip_->GetPosition(), !bossShip_->IsDead());
+
+        // 投げられたゴミ/海洋生物とボス船の衝突判定
+        for (auto& debris : debrisList_) {
+            if (debris->GetState() == DebrisState::Thrown && !debris->IsDead()) {
+                if (bossShip_->CheckCollisionWithDebris(debris.get())) {
+                    debris->SetDead(true);
+                }
+            }
+        }
+    }
+
     // ゴミオブジェクトの更新（漂流 / 投射状態）
     for (auto& debris : debrisList_) {
         debris->Update(dt);
     }
     
+    // 消滅フラグが立ったゴミをリストから削除
+    debrisList_.erase(
+        std::remove_if(debrisList_.begin(), debrisList_.end(),
+            [](const std::unique_ptr<Debris>& d) { return d->IsDead(); }),
+        debrisList_.end()
+    );
+
     for (const auto& enemy : enemies_) {
         enemy->Update(dt);
     }
 
-    // カメラの追従処理
+    // カメラの追従処理 (尾びれ中心の極座標TPS追従: 視点回転を行っても常に尾びれが画面中心になり見切れない)
     if (camera_ && player_) {
-        const Vector3& playerPos = player_->GetPosition();
-        float playerYaw = player_->GetYaw();
-        float playerPitch = player_->GetPitch();
+        Vector3 targetPos = player_->GetTailPosition(); // 尾びれの位置をカメラ注視点にする
+        float camYaw = player_->GetCameraYaw();
+        float camPitch = player_->GetCameraPitch();
 
-        // マグロの尾びれ・背中側を目で追うアングルのカメラ計算
-        float rawCameraPitch = player_->GetCameraPitch();
-        float cosY = std::cos(playerYaw);
-        float sinY = std::sin(playerYaw);
-        float cosP = std::cos(rawCameraPitch);
-        float sinP = std::sin(rawCameraPitch);
+        float sinY = std::sin(camYaw);
+        float cosY = std::cos(camYaw);
+        float sinP = std::sin(camPitch);
+        float cosP = std::cos(camPitch);
 
-        // 尾びれフォーカス距離 (マグロの後方 11.5m, 高さ 3.6m)
-        float distance = 11.5f;
-        float baseHeight = 3.6f;
+        float distance = 11.5f; // 尾びれからの追従距離
 
-        Vector3 offset;
-        offset.x = -(sinY * cosP * distance);
-        offset.y = baseHeight + sinP * distance * 0.50f;
-        offset.z = -(cosY * cosP * distance);
-
-        Vector3 targetCamPos = {
-            playerPos.x + offset.x,
-            playerPos.y + offset.y,
-            playerPos.z + offset.z
+        // 尾びれからカメラへ伸びる方向ベクトル (極座標)
+        Vector3 backDir = {
+            -sinY * cosP,
+            sinP,
+            -cosY * cosP
         };
 
-        // スムーズなカメラ位置追従
-        float lerpRate = 8.0f;
-        Vector3 currentCamPos = camera_->GetTranslate();
-        Vector3 newCamPos;
-        newCamPos.x = currentCamPos.x + (targetCamPos.x - currentCamPos.x) * lerpRate * dt;
-        newCamPos.y = currentCamPos.y + (targetCamPos.y - currentCamPos.y) * lerpRate * dt;
-        newCamPos.z = currentCamPos.z + (targetCamPos.z - currentCamPos.z) * lerpRate * dt;
-        camera_->SetTranslate(newCamPos);
+        Vector3 targetCamPos = {
+            targetPos.x + backDir.x * distance,
+            targetPos.y + backDir.y * distance,
+            targetPos.z + backDir.z * distance
+        };
 
-        // 尾びれ・背中を見下ろして目で追う快適アングル (基本見下ろし角 0.22rad ＝ 約13度)
-        Vector3 currentCamRot = camera_->GetRotate();
-        float targetPitch = std::clamp(rawCameraPitch * 0.60f + 0.22f, -0.45f, 0.60f);
-        Vector3 targetCamRot = { targetPitch, playerYaw, 0.0f };
-
-        // ヨーの回転差分を最短にする処理
-        float diffYaw = targetCamRot.y - currentCamRot.y;
-        const float PI = 3.14159265f;
-        while (diffYaw < -PI) diffYaw += 2.0f * PI;
-        while (diffYaw > PI) diffYaw -= 2.0f * PI;
-
-        Vector3 newCamRot;
-        newCamRot.x = currentCamRot.x + (targetCamRot.x - currentCamRot.x) * lerpRate * dt;
-        newCamRot.y = currentCamRot.y + diffYaw * lerpRate * dt;
-        newCamRot.z = 0.0f; // ロール傾きを防止
-        camera_->SetRotate(newCamRot);
-
+        camera_->SetTranslate(targetCamPos);
+        camera_->SetRotate({ camPitch, camYaw, 0.0f });
         camera_->Update();
 
         // ----------------------------------------------------
@@ -250,6 +254,7 @@ void GameScene::Draw(GameApp& app) {
     if (underwaterEnvironment_) underwaterEnvironment_->DrawBackground();
     if (underwaterEnvironment_) underwaterEnvironment_->Draw();
     if (player_) player_->Draw();
+    if (bossShip_) bossShip_->Draw();
 
     // 漂うゴミの描画
     for (auto& debris : debrisList_) {
@@ -272,6 +277,8 @@ void GameScene::Draw(GameApp& app) {
 
 void GameScene::DrawImGui(GameApp& /*app*/) {
 #ifdef USE_IMGUI
+    if (bossShip_) bossShip_->DrawImGui();
+
     ImGui::Begin("TUNA-GU Status & Creature Buffs");
     if (player_) {
         ImGui::Text("Player HP: %.1f / %.1f", player_->GetHp(), player_->GetMaxHp());
@@ -299,6 +306,9 @@ void GameScene::DrawImGui(GameApp& /*app*/) {
         if (player_->HasRemora()) {
             ImGui::TextColored(ImVec4(0.9f, 0.4f, 1.0f, 1.0f), "  REMORA: WEIGHT -50%% & HP REGEN (+2/s)");
         }
+
+        ImGui::Separator();
+        player_->DrawImGui();
     }
     ImGui::Separator();
     ImGui::Text("Floating Creatures in World: %d", static_cast<int>(debrisList_.size()));
@@ -306,5 +316,62 @@ void GameScene::DrawImGui(GameApp& /*app*/) {
     ImGui::Text("Press F2 to open Boss Test Scene.");
     ImGui::End();
     if (underwaterEnvironment_) underwaterEnvironment_->DrawImGui();
+
+    // 全17種類の海洋生物・ゴミの識別カラー＆詳細性能ガイド
+    ImGui::Begin("Creature & Equipment Performance Guide");
+    ImGui::Text("Color & Buff Details for All 17 Items:");
+    ImGui::Separator();
+
+    struct CreatureInfo {
+        const char* name;
+        ImVec4 color;
+        const char* category;
+        const char* effect;
+    };
+
+    const CreatureInfo guideItems[] = {
+        { "ウニ",         ImVec4(0.55f, 0.15f, 0.75f, 1.0f), "基本ドロップ", "HP+30 / 投擲強撃(Dmg+50%)" },
+        { "ドラム缶",     ImVec4(0.40f, 0.40f, 0.45f, 1.0f), "基本ドロップ", "重量3.5kg / 投擲攻撃" },
+        { "スクリュー",   ImVec4(0.90f, 0.80f, 0.20f, 1.0f), "基本ドロップ", "推進力+12 / 移動強化" },
+        { "テッポウウオ", ImVec4(1.00f, 0.90f, 0.10f, 1.0f), "通常生物",     "弾丸攻撃(Atk 15)" },
+        { "ハリセンボン", ImVec4(1.00f, 0.55f, 0.10f, 1.0f), "通常生物",     "投擲超ダメージ(Atk 50, +80%)" },
+        { "コバンザメ",   ImVec4(0.90f, 0.30f, 0.90f, 1.0f), "通常生物",     "自動回収 / 移動速度+10%" },
+        { "貝",           ImVec4(0.85f, 0.65f, 0.45f, 1.0f), "通常生物",     "HP+25 / 被ダメ25%軽減(ガード)" },
+        { "エビ",         ImVec4(1.00f, 0.20f, 0.20f, 1.0f), "通常生物",     "攻撃力+30% UP" },
+        { "クラゲ",       ImVec4(0.20f, 0.90f, 1.00f, 1.0f), "通常生物",     "チャージ速度+50% UP" },
+        { "サヨリ",       ImVec4(0.10f, 1.00f, 0.60f, 1.0f), "通常生物",     "移動速度+25% UP" },
+        { "ヒトデ",       ImVec4(1.00f, 0.95f, 0.15f, 1.0f), "通常生物",     "投擲ダメージ+40% UP" },
+        { "カジキ",       ImVec4(0.10f, 0.35f, 0.95f, 1.0f), "強力生物",     "超高威力投擲(Atk 90, +100%)" },
+        { "イルカ",       ImVec4(0.30f, 0.80f, 1.00f, 1.0f), "強力生物",     "爆速移動+50% & チャージ+40%" },
+        { "シャチ",       ImVec4(0.15f, 0.15f, 0.25f, 1.0f), "強力生物",     "攻撃力+70% & 被ダメ20%軽減" },
+        { "カニ",         ImVec4(0.90f, 0.40f, 0.10f, 1.0f), "強力生物",     "HP+45 & 被ダメ35%鉄壁ガード" },
+        { "シャコ",       ImVec4(0.40f, 1.00f, 0.20f, 1.0f), "強力生物",     "衝撃波攻撃(Atk 60, +40%)" },
+        { "サメ",         ImVec4(0.85f, 0.15f, 0.15f, 1.0f), "強力生物",     "自動追尾攻撃 & 攻撃+50%/速度+20%" }
+    };
+
+    if (ImGui::BeginTable("GuideTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("名前");
+        ImGui::TableSetupColumn("識別カラー");
+        ImGui::TableSetupColumn("分類");
+        ImGui::TableSetupColumn("詳細・バフ効果");
+        ImGui::TableHeadersRow();
+
+        for (const auto& item : guideItems) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%s", item.name);
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextColored(item.color, "■ Color");
+
+            ImGui::TableSetColumnIndex(2);
+            ImGui::Text("%s", item.category);
+
+            ImGui::TableSetColumnIndex(3);
+            ImGui::TextColored(item.color, "%s", item.effect);
+        }
+        ImGui::EndTable();
+    }
+    ImGui::End();
 #endif
 }
