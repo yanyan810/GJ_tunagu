@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <d3d12.h>
 #include <wrl.h>
 #include "MathStruct.h"
@@ -29,6 +29,7 @@ public:
     ID3D12Resource* GetResource() const { return resource_.Get(); }
     uint32_t GetSrvIndex() const { return srvIndex_; }
     uint32_t GetRtvIndex() const { return rtvIndex_; }
+    void SetClearColor(const Vector4& color) { clearColor_ = color; }
 
 private:
     DirectXCommon* dx_ = nullptr;

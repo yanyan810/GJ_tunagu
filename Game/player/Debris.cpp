@@ -32,26 +32,141 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     scale_ = { 1.0f, 1.0f, 1.0f };
 
     switch (type_) {
+    // --- ドロップ・基本 ---
     case DebrisType::Uni:
-        modelPath = "suzanne.obj"; // サザンヌ (ウニの代わり)
-        weight_ = 1.0f;
-        thrust_ = 0.0f;
-        atk_ = 5.0f;
-        scale_ = { 0.8f, 0.8f, 0.8f };
+        name_ = "ウニ";
+        modelPath = "suzanne.obj";
+        weight_ = 1.2f;
+        hpBuff_ = 30.0f;          // HP +30
+        throwAtkBuff_ = 0.5f;     // 投擲ダメージ +50%
+        atk_ = 35.0f;
+        scale_ = { 1.4f, 1.4f, 1.4f };
         break;
     case DebrisType::Teapot:
-        modelPath = "teapot.obj"; // ティーポット (ドラム缶の代わり)
-        weight_ = 3.5f;           // 重い
+        name_ = "ドラム缶";
+        modelPath = "teapot.obj";
+        weight_ = 3.5f;
         thrust_ = 0.0f;
-        atk_ = 0.0f;
-        scale_ = { 0.7f, 0.7f, 0.7f };
+        atk_ = 10.0f;
+        scale_ = { 1.3f, 1.3f, 1.3f };
         break;
     case DebrisType::Screw:
-        modelPath = "ring.obj";   // リング (スクリューの代わり)
-        weight_ = 0.4f;           // 軽い
-        thrust_ = 12.0f;          // 推進力がある
-        atk_ = 0.0f;
+        name_ = "スクリュー";
+        modelPath = "ring.obj";
+        weight_ = 0.4f;
+        thrust_ = 12.0f;          // 推進力
+        scale_ = { 1.8f, 1.8f, 1.8f };
+        break;
+
+    // --- 普通に拾える海洋生物 (8種) ---
+    case DebrisType::Archerfish:
+        name_ = "テッポウウオ";
+        modelPath = "plane.obj";
+        weight_ = 0.6f;
+        atk_ = 15.0f;
+        scale_ = { 1.0f, 0.4f, 0.4f };
+        break;
+    case DebrisType::Pufferfish:
+        name_ = "ハリセンボン";
+        modelPath = "suzanne.obj";
+        weight_ = 1.0f;
+        atk_ = 50.0f;
+        throwAtkBuff_ = 0.8f;
+        scale_ = { 1.5f, 1.5f, 1.5f };
+        break;
+    case DebrisType::Remora:
+        name_ = "コバンザメ";
+        modelPath = "plane.obj";
+        weight_ = 0.5f;
+        speedBuff_ = 0.10f;
+        scale_ = { 1.1f, 0.3f, 0.35f };
+        break;
+    case DebrisType::Shell:
+        name_ = "貝";
+        modelPath = "ring.obj";
+        weight_ = 1.5f;
+        hpBuff_ = 25.0f;
+        defenseBuff_ = 0.25f;
         scale_ = { 1.1f, 1.1f, 1.1f };
+        break;
+    case DebrisType::Shrimp:
+        name_ = "エビ";
+        modelPath = "ring.obj";
+        weight_ = 0.4f;
+        atkBuff_ = 0.30f;
+        scale_ = { 0.9f, 0.9f, 0.9f };
+        break;
+    case DebrisType::Jellyfish:
+        name_ = "クラゲ";
+        modelPath = "teapot.obj";
+        weight_ = 0.3f;
+        chargeSpeedBuff_ = 0.50f;
+        scale_ = { 1.0f, 1.0f, 1.0f };
+        break;
+    case DebrisType::Halfbeak:
+        name_ = "サヨリ";
+        modelPath = "plane.obj";
+        weight_ = 0.3f;
+        speedBuff_ = 0.25f;
+        scale_ = { 1.3f, 0.3f, 0.3f };
+        break;
+    case DebrisType::Starfish:
+        name_ = "ヒトデ";
+        modelPath = "suzanne.obj";
+        weight_ = 0.5f;
+        throwAtkBuff_ = 0.40f;
+        scale_ = { 1.1f, 1.1f, 1.1f };
+        break;
+
+    // --- 倒してから装備できる強力な海洋生物 (6種) ---
+    case DebrisType::Marlin:
+        name_ = "カジキ";
+        modelPath = "plane.obj";
+        weight_ = 1.8f;
+        atk_ = 90.0f;
+        throwAtkBuff_ = 1.00f;
+        scale_ = { 2.0f, 0.5f, 0.5f };
+        break;
+    case DebrisType::Dolphin:
+        name_ = "イルカ";
+        modelPath = "suzanne.obj";
+        weight_ = 0.8f;
+        speedBuff_ = 0.50f;
+        chargeSpeedBuff_ = 0.40f;
+        scale_ = { 1.9f, 1.9f, 1.9f };
+        break;
+    case DebrisType::Orca:
+        name_ = "シャチ";
+        modelPath = "teapot.obj";
+        weight_ = 2.5f;
+        atkBuff_ = 0.70f;
+        defenseBuff_ = 0.20f;
+        scale_ = { 2.2f, 2.2f, 2.2f };
+        break;
+    case DebrisType::Crab:
+        name_ = "カニ";
+        modelPath = "ring.obj";
+        weight_ = 2.0f;
+        hpBuff_ = 45.0f;
+        defenseBuff_ = 0.35f;
+        scale_ = { 1.7f, 1.7f, 1.7f };
+        break;
+    case DebrisType::MantisShrimp:
+        name_ = "シャコ";
+        modelPath = "suzanne.obj";
+        weight_ = 1.2f;
+        atk_ = 60.0f;
+        atkBuff_ = 0.40f;
+        scale_ = { 1.5f, 1.5f, 1.5f };
+        break;
+    case DebrisType::Shark:
+        name_ = "サメ";
+        modelPath = "teapot.obj";
+        weight_ = 2.2f;
+        atk_ = 40.0f;
+        atkBuff_ = 0.50f;
+        speedBuff_ = 0.20f;
+        scale_ = { 2.4f, 2.4f, 2.4f };
         break;
     }
 
@@ -188,14 +303,14 @@ void Debris::UpdateThrown(float dt) {
     pos_.y += velocity_.y * dt;
     pos_.z += velocity_.z * dt;
 
-    // 海水の抵抗による減速
-    velocity_.x *= (1.0f - 1.2f * dt);
-    velocity_.y *= (1.0f - 1.2f * dt);
-    velocity_.z *= (1.0f - 1.2f * dt);
+    // 海水の抵抗による減速（抵抗を抑えて長距離まで超高速でまっすぐかっ飛ばす）
+    velocity_.x *= (1.0f - 0.35f * dt);
+    velocity_.y *= (1.0f - 0.35f * dt);
+    velocity_.z *= (1.0f - 0.35f * dt);
 
-    // 投げられた際の回転
-    rot_.x += 6.0f * dt;
-    rot_.y += 4.0f * dt;
+    // 投げられた際の高速回転演出
+    rot_.x += 18.0f * dt;
+    rot_.y += 12.0f * dt;
 
     throwTimer_ += dt;
     if (throwTimer_ > 2.0f) {

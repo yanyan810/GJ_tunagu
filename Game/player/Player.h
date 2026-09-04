@@ -23,7 +23,29 @@ public:
     const Vector3& GetPosition() const { return pos_; }
     float GetYaw() const { return yaw_; }
     float GetPitch() const { return pitch_; }
+    float GetCameraPitch() const { return cameraPitch_; }
     Matrix4x4 GetWorldMatrix() const;
+
+    // HP関連
+    float GetHp() const { return hp_; }
+    float GetMaxHp() const { return maxHp_; }
+    void SetHp(float hp) { hp_ = std::clamp(hp, 0.0f, maxHp_); }
+    void TakeDamage(float damage) {
+        float finalDamage = damage * (1.0f - std::clamp(defenseBuff_, 0.0f, 0.8f));
+        hp_ = std::clamp(hp_ - finalDamage, 0.0f, maxHp_);
+    }
+    void Heal(float amount) { hp_ = std::clamp(hp_ + amount, 0.0f, maxHp_); }
+    bool IsDead() const { return hp_ <= 0.0f; }
+
+    // 速度・デバッグ・アビリティ用getter
+    float GetMaxForwardSpeed() const { return maxForwardSpeed_; }
+    size_t GetAttachedDebrisCount() const { return attachedDebris_.size(); }
+    bool IsOverweight() const { return isOverweight_; }
+    float GetAtkBuff() const { return atkBuff_; }
+    float GetSpeedBuff() const { return speedBuff_; }
+    float GetChargeSpeedBuff() const { return chargeSpeedBuff_; }
+    float GetDefenseBuff() const { return defenseBuff_; }
+    bool HasRemora() const { return hasRemora_; }
 
     // ゴミオブジェクトとの衝突判定とアタッチ処理
     void CheckDebrisCollision(std::vector<std::unique_ptr<Debris>>& debrisList);
@@ -35,8 +57,9 @@ private:
     // 移動用パラメータ
     Vector3 pos_ = { 0.0f, 0.0f, 0.0f };
     Vector3 vel_ = { 0.0f, 0.0f, 0.0f };
-    float yaw_ = 0.0f;    // 左右旋回
-    float pitch_ = 0.0f;  // 上下向き
+    float yaw_ = 0.0f;          // 左右旋回
+    float pitch_ = 0.0f;        // マグロモデルの上下向き (±0.45radクランプ)
+    float cameraPitch_ = 0.0f;  // カメラ見上げ用視点ピッチ (±1.4rad 80度まで可能)
 
     float maxForwardSpeed_ = 15.0f;
     float maxBackwardSpeed_ = -6.0f;
@@ -65,4 +88,21 @@ private:
 
     // 身震い（ブルブル）モーションタイマー
     float throwMotionTimer_ = 0.0f;
+
+    // HPパラメータ
+    float maxHp_ = 100.0f;
+    float hp_ = 100.0f;
+
+    // 過重状態（速度低下）判定フラグ
+    bool isOverweight_ = false;
+
+    // 海洋生物集計バフパラメータ
+    float atkBuff_ = 0.0f;
+    float speedBuff_ = 0.0f;
+    float chargeSpeedBuff_ = 0.0f;
+    float defenseBuff_ = 0.0f;
+    bool hasRemora_ = false;
+
+    // 自動攻撃タイマー
+    float autoShootTimer_ = 0.0f;
 };

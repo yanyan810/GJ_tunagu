@@ -1,7 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include "Vector3.h"
+#include <cstdint>
 #include <memory>
+#include <string>
+#include <vector>
 
 class Camera;
 class DirectXCommon;
@@ -14,6 +17,7 @@ public:
     ~UnderwaterEnvironment();
 
     void Initialize(Object3dCommon* object3dCommon, DirectXCommon* dx, Camera* camera);
+    void SetPlayerSnapshot(const Vector3& position, float yaw, float pitch);
     void Update(float dt);
     void Draw();
     void DrawImGui();
@@ -27,12 +31,21 @@ private:
     void ApplyFloorSettings_();
     void ApplyCausticsSettings_();
     const char* GetCausticsTexturePath_() const;
+    void LoadMarineSnow_();
+    void RemoveMarineSnowGroups_();
+    void EmitMarineSnow_(uint32_t count);
+    Vector3 CalculateMarineSnowEmitCenter_() const;
+    void LoadPlayerWake_();
+    void RemovePlayerWakeGroups_();
+    void UpdatePlayerWake_(float dt);
+    Vector3 CalculatePlayerWakeEmitPosition_(bool rightSide) const;
 
     Camera* camera_ = nullptr;
     std::unique_ptr<Object3d> floor_;
 
     float floorHeight_ = -22.0f;
     float floorScale_ = 150.0f;
+    Vector4 floorColor_{ 0.58f, 0.49f, 0.34f, 1.0f };
 
     bool causticsEnabled_ = true;
     CausticsPreset causticsPreset_ = CausticsPreset::DeepBroad;
@@ -43,4 +56,34 @@ private:
     bool causticsAnimationEnabled_ = true;
     float causticsPlaybackTime_ = 0.0f;
     float causticsLoopDuration_ = 4.0f;
+
+    std::vector<std::string> marineSnowGroupNames_;
+    bool marineSnowEnabled_ = true;
+    bool marineSnowInitialEmitted_ = false;
+    float marineSnowEmitTimer_ = 0.0f;
+    float marineSnowEmitInterval_ = 0.25f;
+    int marineSnowEmitCount_ = 14;
+    uint32_t marineSnowInitialCount_ = 160;
+    float marineSnowSpawnAhead_ = 18.0f;
+    float marineSnowSpawnYOffset_ = 2.0f;
+
+    std::vector<std::string> playerWakeGroupNames_;
+    std::string playerWakeFineGroupName_;
+    std::string playerWakeBubbleGroupName_;
+    bool playerWakeEnabled_ = true;
+    bool hasPlayerSnapshot_ = false;
+    bool hasPreviousPlayerPosition_ = false;
+    bool playerWakeEmitRightSide_ = false;
+    Vector3 playerSnapshotPosition_{};
+    Vector3 previousPlayerPosition_{};
+    float playerSnapshotYaw_ = 0.0f;
+    float playerSnapshotPitch_ = 0.0f;
+    float playerWakeFineTimer_ = 0.0f;
+    float playerWakeBubbleTimer_ = 0.0f;
+    float playerWakeMinSpeed_ = 1.0f;
+    float playerWakeReferenceSpeed_ = 15.0f;
+    float playerWakeBackOffset_ = 1.3f;
+    float playerWakeSideOffset_ = 0.30f;
+    float playerWakeFineAmountMultiplier_ = 1.0f;
+    float playerWakeBubbleInterval_ = 0.22f;
 };

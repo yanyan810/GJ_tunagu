@@ -1,6 +1,7 @@
-﻿#include "GameApp.h"
+#include "GameApp.h"
 #include "SceneManager.h"
 #include "scene/Main/GameScene.h"
+#include "scene/Flow/GameOverScene.h"
 #include "scene/Test/BossTestScene.h"
 
 #include "WinApp.h"
@@ -200,6 +201,7 @@ bool GameApp::Initialize_() {
     sceneMgr_ = std::make_unique<SceneManager>();
     sceneMgr_->Register("Game", [] { return std::make_unique<GameScene>(); });
     sceneMgr_->Register("BossTest", [] { return std::make_unique<BossTestScene>(); });
+    sceneMgr_->Register("GameOver", [] { return std::make_unique<GameOverScene>(); });
     sceneMgr_->Change(*this, "Game");
 
 

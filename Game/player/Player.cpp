@@ -33,11 +33,19 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     model_->Initialize(objCommon, dx);
     model_->SetCamera(camera_);
     model_->SetModel("tuna/tuna.obj");
+
    // model_->SetModel("MyGtYUhe6t/安比.pmx");
    //   model_->SetModel("ema/SakurabaEma_ByPOWER.pmx");
 
-    model_->SetScale({ 1.0f, 1.0f, 1.0f });
+    model_->SetTexture("tuna/tuna+fish+3d+model_basecolor.jpg");
+    model_->SetScale({ 1.8f, 1.8f, 1.8f });
+
     
+    // HPの初期化
+    maxHp_ = 100.0f;
+    hp_ = maxHp_;
+    isOverweight_ = false;
+
     // 初期座標と向き
     pos_ = { 0.0f, 0.0f, 0.0f };
     yaw_ = 0.0f;
@@ -46,6 +54,8 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     model_->SetTranslate(pos_);
     model_->SetRotate({ pitch_, yaw_ + kModelRotateYawOffset, kModelRotateRollOffset });
     model_->SetEnableLighting(1); // ライティング有効
+    model_->SetIntensity(1.0f);   // ライティング強度
+    model_->SetDirection({ 0.3f, -0.8f, 0.5f }); // 光の向き
 
     // アタッチリストのクリア
     attachedDebris_.clear();
@@ -96,25 +106,65 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
 void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<Debris>>& debrisList) {
     if (!model_ || !model_->GetModel()) return;
 
-    // 1. 装備（ゴミ）の重さと推進力を集計して運動性能を再計算 (擬似物理)
+    // 1. 装備（海洋生物 / ゴミ）の能力・バフを集計
     float totalWeight = 0.0f;
     float totalThrust = 0.0f;
+    float extraMaxHp = 0.0f;
+
+    atkBuff_ = 0.0f;
+    speedBuff_ = 0.0f;
+    chargeSpeedBuff_ = 0.0f;
+    defenseBuff_ = 0.0f;
+    hasRemora_ = false;
+
     for (const auto& debris : attachedDebris_) {
         totalWeight += debris->GetWeight();
         totalThrust += debris->GetThrust();
+        extraMaxHp += debris->GetHpBuff();
+        atkBuff_ += debris->GetAtkBuff();
+        speedBuff_ += debris->GetSpeedBuff();
+        chargeSpeedBuff_ += debris->GetChargeSpeedBuff();
+        defenseBuff_ += debris->GetDefenseBuff();
+
+        if (debris->GetType() == DebrisType::Remora) {
+            hasRemora_ = true;
+        }
     }
 
-    // 重いゴミを付けると動きが重くなり、スクリュー（推進器）を付けると速くなる
+    // 最大HPバフのリアルタイム更新
+    maxHp_ = 100.0f + extraMaxHp;
+    hp_ = (std::min)(hp_, maxHp_);
+
+    // コバンザメのアビリティ: ① HP持続自動回復 (+2.0/s) & ② ゴミ重量50%カット
+    if (hasRemora_) {
+        Heal(2.0f * dt);
+        totalWeight *= 0.5f; // 重さを半減して減速しづらくする
+    }
+
+    // 移動性能の計算 (スピードバフ: サヨリ/イルカ/シャチ等)
     float baseForwardLimit = 15.0f;
     float baseBackwardLimit = -6.0f;
-    maxForwardSpeed_ = (baseForwardLimit + totalThrust) / (1.0f + totalWeight * 0.12f);
-    maxBackwardSpeed_ = baseBackwardLimit / (1.0f + totalWeight * 0.12f);
+    float weightFactor = 1.0f + totalWeight * 0.10f + static_cast<float>(attachedDebris_.size()) * 0.08f;
+    
+    float speedMultiplier = 1.0f + speedBuff_;
+    float calculatedSpeed = ((baseForwardLimit + totalThrust) * speedMultiplier) / weightFactor;
+    maxForwardSpeed_ = (std::max)(3.0f, calculatedSpeed);
+    maxBackwardSpeed_ = (baseBackwardLimit * speedMultiplier) / weightFactor;
+
+    // ゴミが100個以上アタッチされているか、または速度が6.0m/s以下に落ちたら過重状態（HP減少）
+    const float kOverweightSpeedThreshold = 6.0f;
+    const size_t kOverweightCountThreshold = 100;
+    const float kOverweightDamagePerSec = 8.0f;
+
+    isOverweight_ = (attachedDebris_.size() >= kOverweightCountThreshold || maxForwardSpeed_ <= kOverweightSpeedThreshold);
+    if (isOverweight_) {
+        TakeDamage(kOverweightDamagePerSec * dt);
+    }
 
     // 2. キー入力による回転・移動操作
+    // 2. キーボード & マウスによる視点・回転操作
     float rotateSpeedYaw = 1.8f;   // 旋回速度 (rad/s)
-    
-    // 重いほど旋回速度も低下する
-    rotateSpeedYaw /= (1.0f + totalWeight * 0.08f);
+    rotateSpeedYaw = (std::max)(0.4f, rotateSpeedYaw / (1.0f + totalWeight * 0.10f));
 
     if (input.IsKeyPressed(DIK_A) || input.IsKeyPressed(DIK_LEFT)) {
         yaw_ -= rotateSpeedYaw * dt;
@@ -123,32 +173,47 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
         yaw_ += rotateSpeedYaw * dt;
     }
 
-    // 上下移動入力（Wで上昇、Sで下降）
-    float moveSpeedY = 0.0f;
-    float targetPitch = 0.0f;
-    
-    if (input.IsKeyPressed(DIK_W)) {
-        moveSpeedY = maxForwardSpeed_ * 0.2f; // 上昇速度
-        targetPitch = -0.4f; // 頭を上に向ける (ラジアンなので負が上)
-    } else if (input.IsKeyPressed(DIK_S)) {
-        moveSpeedY = -maxForwardSpeed_ * 0.2f; // 下降速度
-        targetPitch = 0.4f; // 頭を下に向ける
+    // マウス移動によるカメラ視点操作 (左右移動でYaw, 上下移動でPitch)
+    float mouseSensitivity = 0.003f;
+    int mouseDX = input.GetMouseDeltaX();
+    int mouseDY = input.GetMouseDeltaY();
+
+    if (mouseDX != 0) {
+        yaw_ += static_cast<float>(mouseDX) * mouseSensitivity;
+    }
+    if (mouseDY != 0) {
+        cameraPitch_ += static_cast<float>(mouseDY) * mouseSensitivity;
     }
 
-    // ピッチ角を目標角度に補間（上下移動をやめるとゆっくり水平に戻る）
-    float pitchLerpRate = 7.0f;
-    pitch_ = pitch_ + (targetPitch - pitch_) * pitchLerpRate * dt;
+    // W/Sキーによる視点上下（ピッチ）操作
+    if (input.IsKeyPressed(DIK_W)) {
+        cameraPitch_ -= 1.0f * dt;
+    } else if (input.IsKeyPressed(DIK_S)) {
+        cameraPitch_ += 1.0f * dt;
+    }
+    // カメラの上下ピッチ角を±0.60rad(約34度)にマイルド制限し、真上・真下への過度な回転を防止
+    cameraPitch_ = std::clamp(cameraPitch_, -0.60f, 0.60f);
 
-    // 前進（常に勝手に前に進む）
-    float moveSpeedZ = maxForwardSpeed_;
+    // マグロモデル自体のピッチ傾きは cameraPitch_ にマイルド連動
+    float targetPitch = cameraPitch_ * 0.70f;
+    pitch_ = pitch_ + (targetPitch - pitch_) * 7.0f * dt;
+    pitch_ = std::clamp(pitch_, -0.45f, 0.45f);
 
-    // 水平進行方向ベクトル（ヨー角のみから計算）
-    float dirX = std::sin(yaw_);
-    float dirZ = std::cos(yaw_);
+    // 進行方向ベクトル (マウスで向けた3次元方向へマグロがダイレクトに泳ぎ進む)
+    float cosP = std::cos(cameraPitch_);
+    float sinP = std::sin(cameraPitch_);
+    float sinY = std::sin(yaw_);
+    float cosY = std::cos(yaw_);
 
-    vel_.x = dirX * moveSpeedZ;
-    vel_.y = moveSpeedY;
-    vel_.z = dirZ * moveSpeedZ;
+    Vector3 moveDir = {
+        sinY * cosP,
+        -sinP, // 上向き視線で上空・水面へ前進
+        cosY * cosP
+    };
+
+    vel_.x = moveDir.x * maxForwardSpeed_;
+    vel_.y = moveDir.y * maxForwardSpeed_;
+    vel_.z = moveDir.z * maxForwardSpeed_;
 
     // 位置更新
     pos_.x += vel_.x * dt;
@@ -167,7 +232,7 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     }
 
     if (isCharging_) {
-        chargeTimer_ += dt;
+        chargeTimer_ += dt * (1.0f + chargeSpeedBuff_);
         int maxDebris = static_cast<int>(attachedDebris_.size());
         if (maxDebris > 0) {
             // 0.5秒ごとに投げる個数を増やす
@@ -208,7 +273,9 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
                     float ry = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
                     float rz = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
 
-                    float baseSpeed = 24.0f;
+                    // 投射初速をすさまじい勢い（65.0m/s ～ チャージ長押しで最高 90.0m/s）に超強化
+                    float chargeBonus = (std::min)(25.0f, chargeTimer_ * 15.0f);
+                    float baseSpeed = 65.0f + chargeBonus;
                     Vector3 velocity = {
                         (forward.x + rx) * baseSpeed,
                         (forward.y + ry) * baseSpeed,
@@ -242,8 +309,8 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     // 4. 尾びれのクネクネうねりアニメーション (頂点変形)
     float currentSpeed = std::sqrt(vel_.x * vel_.x + vel_.y * vel_.y + vel_.z * vel_.z);
     
-    // 静止時はゆっくり動き、移動中は速く動く。身震い（ブルブル）中は非常に高速。
-    float phaseSpeed = 4.0f + currentSpeed * 2.0f;
+    // 静止時も移動時もよりゆったりと優雅に泳ぐように尾びれの振り速度を減速調整
+    float phaseSpeed = 1.8f + currentSpeed * 0.7f;
     if (throwMotionTimer_ > 0.0f) {
         phaseSpeed += 35.0f; // 超高速でブルブルさせる
     } else if (isCharging_ && chargeCount_ > 0) {

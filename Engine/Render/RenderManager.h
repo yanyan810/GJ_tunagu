@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <array>
 #include <memory>
@@ -42,6 +42,7 @@ struct BloomParameter {
 class RenderManager {
 public:
     void Initialize(DirectXCommon* dx, SrvManager* srv);
+    void SetClearColor(const Vector4& color);
 
     void BeginOffscreen();
     void EndOffscreen();
