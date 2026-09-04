@@ -11,7 +11,9 @@ struct AnchorWarningRingSettings {
 
 struct AnchorChainSettings {
     float spacing = 0.8f;
-    Vector3 scale{ 0.5f, 0.5f, 0.5f };
+    Vector3 scale{ 0.35f, 0.50f, 0.70f };
+    Vector3 anchorLocalAttachPosition{ 0.0f, 7.35f, 0.17f };
+    Vector3 endOffset{};
     float alternateRotationDegrees = 90.0f;
     int maxLinks = 64;
 };
@@ -23,8 +25,12 @@ struct AnchorAttackSettings {
     float dropDuration = 0.7f;
     float waitTime = 0.4f;
     float pullUpDuration = 0.8f;
-    float overallScale = 1.0f;
+    float overallScale = 0.15f;
     Vector3 modelScale{ 1.2f, 1.2f, 1.2f };
+    // Keep the anchor mostly upright. Orbit following changes only its yaw.
+    Vector3 modelRotationOffset{ 0.0f, -1.72f, 0.21f };
+    bool followOrbitRotation = true;
+    float orbitRotationMultiplier = 1.0f;
     float startAngularSpeed = 0.5f;
     float angularAcceleration = 1.2f;
     float maxAngularSpeed = 5.0f;
@@ -32,7 +38,7 @@ struct AnchorAttackSettings {
     float verticalAmplitude = 0.5f;
     float verticalFrequency = 2.0f;
     float duration = 6.0f;
-    float selfRotationSpeed = 2.0f;
+    float selfRotationSpeed = 0.0f;
     float collisionRadius = 1.5f;
     float damage = 20.0f;
     float moveSpeedDamage = 5.0f;
@@ -64,6 +70,7 @@ public:
     const Vector3& GetPosition() const { return position_; }
     const Vector3& GetSelfRotation() const { return selfRotation_; }
     float GetAngle() const { return angle_; }
+    float GetOrbitTangentYaw() const;
     float GetCurrentAngularSpeed() const { return currentAngularSpeed_; }
     float GetStateTime() const { return stateTime_; }
     float GetCollisionRadius() const { return settings_.collisionRadius; }
@@ -73,6 +80,8 @@ public:
     static const char* StateName(State state);
 
 private:
+    void UpdateOrbitFacingRotation_();
+
     AnchorAttackSettings settings_{};
     State state_ = State::Inactive;
     Vector3 center_{};
@@ -82,4 +91,5 @@ private:
     float angle_ = 0.0f;
     float currentAngularSpeed_ = 0.0f;
     Vector3 pullStartPosition_{};
+    Vector3 optionalSelfRotation_{};
 };

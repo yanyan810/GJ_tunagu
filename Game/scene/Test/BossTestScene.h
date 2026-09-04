@@ -66,7 +66,7 @@ private:
     std::unique_ptr<Object3d> shockwaveVisual_;
     std::unique_ptr<Object3d> anchorObject_;
     std::unique_ptr<Object3d> anchorWarningRing_;
-    std::unique_ptr<Object3d> anchorCollisionDebug_;
+    std::vector<std::unique_ptr<Object3d>> anchorCollisionDebug_;
     std::vector<std::unique_ptr<Object3d>> anchorOrbitDebug_;
     std::unique_ptr<Object3d> anchorPositionDebug_;
     std::vector<std::unique_ptr<Object3d>> anchorChainLinks_;
@@ -115,6 +115,7 @@ private:
     bool showAnchorCollision_ = true;
     bool showAnchorOrbitRange_ = true;
     bool showAnchorPosition_ = true;
+    bool showAnchorChainPreview_ = true;
 
 	enum class CausticsPreset {
 		ShallowFine,

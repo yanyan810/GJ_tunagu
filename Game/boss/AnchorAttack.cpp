@@ -17,17 +17,19 @@ float EaseInOut(float t) {
     t = std::clamp(t, 0.0f, 1.0f);
     return t < 0.5f ? 2.0f * t * t : 1.0f - std::pow(-2.0f * t + 2.0f, 2.0f) * 0.5f;
 }
+
 }
 
 void AnchorAttack::Trigger(const Vector3& center, const AnchorAttackSettings& settings) {
     settings_ = settings;
     center_ = center;
     position_ = center_ + settings_.spawnLocalPosition;
-    selfRotation_ = {};
+    optionalSelfRotation_ = {};
     stateTime_ = 0.0f;
     angle_ = 0.0f;
     currentAngularSpeed_ = 0.0f;
     state_ = settings_.warningRing.previewTime > 0.0f ? State::Preview : State::Dropping;
+    UpdateOrbitFacingRotation_();
 }
 
 void AnchorAttack::Reset() {
@@ -53,6 +55,7 @@ void AnchorAttack::Update(float dt) {
     const Vector3 orbitStartPosition = center_ + Vector3{ radius, 0.0f, 0.0f };
 
     if (state_ == State::Dropping) {
+        UpdateOrbitFacingRotation_();
         const float duration = std::max(0.0f, settings_.dropDuration);
         const float t = duration > 0.0f ? stateTime_ / duration : 1.0f;
         position_ = Lerp(spawnPosition, orbitStartPosition, EaseInCubic(t));
@@ -65,6 +68,7 @@ void AnchorAttack::Update(float dt) {
     }
 
     if (state_ == State::Wait) {
+        UpdateOrbitFacingRotation_();
         position_ = orbitStartPosition;
         if (stateTime_ >= std::max(0.0f, settings_.waitTime)) {
             state_ = State::Active;
@@ -92,11 +96,12 @@ void AnchorAttack::Update(float dt) {
         center_.y + std::sin(angle_ * settings_.verticalFrequency) * settings_.verticalAmplitude,
         center_.z + std::sin(angle_) * radius
     };
-    selfRotation_ += Vector3{
+    optionalSelfRotation_ += Vector3{
         settings_.selfRotationSpeed * 0.63f,
         settings_.selfRotationSpeed,
         settings_.selfRotationSpeed * 0.41f
     } * dt;
+    UpdateOrbitFacingRotation_();
 
     if (stateTime_ >= std::max(0.0f, settings_.duration)) {
         pullStartPosition_ = position_;
@@ -110,6 +115,29 @@ float AnchorAttack::GetWarningPulseScale() const {
     if (state_ != State::Preview) return 1.0f;
     return 1.0f + std::sin(stateTime_ * settings_.warningRing.pulseSpeed * 6.2831853f) *
         std::max(0.0f, settings_.warningRing.pulseAmount);
+}
+
+float AnchorAttack::GetOrbitTangentYaw() const {
+    const float direction = settings_.rotationDirection < 0 ? -1.0f : 1.0f;
+    const float tangentX = -std::sin(angle_) * direction;
+    const float tangentZ = std::cos(angle_) * direction;
+    return std::atan2(tangentX, tangentZ);
+}
+
+void AnchorAttack::UpdateOrbitFacingRotation_() {
+    selfRotation_ = settings_.modelRotationOffset + optionalSelfRotation_;
+    if (settings_.followOrbitRotation) {
+        // Only yaw follows the tangent. As angle_ completes one revolution,
+        // the model also completes exactly one revolution.
+        selfRotation_.y += GetOrbitTangentYaw() * settings_.orbitRotationMultiplier;
+
+        // Lean away from the boss on both sides of the circle:
+        // left side reads as "/ boss", right side as "boss \\".
+        // cos(angle_) is the normalized radial X position, giving a smooth
+        // transition through the front/back of the orbit.
+        selfRotation_.z = settings_.modelRotationOffset.z * std::cos(angle_) +
+            optionalSelfRotation_.z;
+    }
 }
 
 const char* AnchorAttack::StateName(State state) {

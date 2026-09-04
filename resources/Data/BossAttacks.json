@@ -1,4 +1,71 @@
 {
+    "anchor": {
+        "angularAcceleration": 1.2000000476837158,
+        "centerOffset": [
+            0.0,
+            1.0,
+            0.0
+        ],
+        "chain": {
+            "alternateRotationDegrees": 90.0,
+            "anchorLocalAttachPosition": [
+                0.0,
+                7.349999904632568,
+                0.17000000178813934
+            ],
+            "endOffset": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "maxLinks": 64,
+            "scale": [
+                0.3499999940395355,
+                0.5,
+                0.699999988079071
+            ],
+            "spacing": 1.0
+        },
+        "collisionRadius": 1.5,
+        "damage": 20.0,
+        "dropDuration": 0.699999988079071,
+        "duration": 6.0,
+        "followOrbitRotation": true,
+        "maxAngularSpeed": 5.0,
+        "modelRotationOffset": [
+            0.0,
+            -1.7200000286102295,
+            0.20999999344348907
+        ],
+        "modelScale": [
+            1.2000000476837158,
+            1.2000000476837158,
+            1.2000000476837158
+        ],
+        "moveSpeedDamage": 5.0,
+        "orbitRotationMultiplier": 1.0,
+        "overallScale": 0.47999998927116394,
+        "predictionLineWidth": 1.0,
+        "pullUpDuration": 0.800000011920929,
+        "radius": 15.0,
+        "rotationDirection": 1,
+        "selfRotationSpeed": 0.0,
+        "spawnLocalPosition": [
+            0.0,
+            8.0,
+            0.0
+        ],
+        "startAngularSpeed": 0.5,
+        "verticalAmplitude": 0.5,
+        "verticalFrequency": 2.0,
+        "waitTime": 0.4000000059604645,
+        "warningRing": {
+            "previewTime": 0.800000011920929,
+            "pulseAmount": 0.20000000298023224,
+            "pulseSpeed": 3.0,
+            "thickness": 0.5
+        }
+    },
     "mine": {
         "explosion": {
             "chainReactionFuseTime": 0.3499999940395355,
@@ -7,40 +74,6 @@
             "moveSpeedDamage": 10.0,
             "normalFuseTime": 0.800000011920929,
             "triggerAllFuseJitter": 0.15000000596046448
-        }
-    },
-    "anchor": {
-        "centerOffset": [0.0, 0.0, 0.0],
-        "overallScale": 1.0,
-        "modelScale": [1.2, 1.2, 1.2],
-        "radius": 15.0,
-        "predictionLineWidth": 1.0,
-        "spawnLocalPosition": [0.0, 8.0, 0.0],
-        "dropDuration": 0.7,
-        "waitTime": 0.4,
-        "pullUpDuration": 0.8,
-        "startAngularSpeed": 0.5,
-        "angularAcceleration": 1.2,
-        "maxAngularSpeed": 5.0,
-        "rotationDirection": 1,
-        "verticalAmplitude": 0.5,
-        "verticalFrequency": 2.0,
-        "duration": 6.0,
-        "selfRotationSpeed": 2.0,
-        "collisionRadius": 1.5,
-        "damage": 20.0,
-        "moveSpeedDamage": 5.0,
-        "warningRing": {
-            "previewTime": 0.8,
-            "thickness": 0.5,
-            "pulseSpeed": 3.0,
-            "pulseAmount": 0.2
-        },
-        "chain": {
-            "spacing": 0.8,
-            "scale": [0.5, 0.5, 0.5],
-            "alternateRotationDegrees": 90.0,
-            "maxLinks": 64
         }
     },
     "shockwave": {

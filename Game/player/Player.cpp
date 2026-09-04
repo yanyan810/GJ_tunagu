@@ -1,4 +1,4 @@
-#include "Player.h"
+﻿#include "Player.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
@@ -33,8 +33,13 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     model_->Initialize(objCommon, dx);
     model_->SetCamera(camera_);
     model_->SetModel("tuna/tuna.obj");
+
+   // model_->SetModel("MyGtYUhe6t/安比.pmx");
+   //   model_->SetModel("ema/SakurabaEma_ByPOWER.pmx");
+
     model_->SetTexture("tuna/tuna+fish+3d+model_basecolor.jpg");
     model_->SetScale({ 1.8f, 1.8f, 1.8f });
+
     
     // HPの初期化
     maxHp_ = 100.0f;
