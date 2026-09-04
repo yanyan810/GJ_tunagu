@@ -263,8 +263,11 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::TextDisabled(
         "Underwater Factor: %.3f", lightShaftUnderwaterFactor_);
     ImGui::TextDisabled(
-        "Effective Active Factor: %.3f",
-        lightShaftEffectiveActiveFactor_);
+        "Shader Active Factor: %.3f",
+        lightShaftShaderActiveFactor_);
+    ImGui::TextDisabled(
+        "Medium Active: %s",
+        lightShaftMediumActive_ ? "Yes" : "No");
     ImGui::Combo(
         "Debug View", &lightShaftDebugMode_,
         "Normal\0Pass Solid Magenta\0Source Profile\0Depth Visibility\0"
@@ -340,19 +343,18 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
     lightShaftEffectiveUv_ = parameters.lightUv;
     lightShaftSourceVisibility_ = 0.0f;
     lightShaftUnderwaterFactor_ = 0.0f;
-    lightShaftEffectiveActiveFactor_ = 0.0f;
+    lightShaftShaderActiveFactor_ = 0.0f;
+    lightShaftMediumActive_ = false;
 
     const auto submitParameters = [&]() {
         lightShaftEffectiveUv_ = parameters.lightUv;
         lightShaftSourceVisibility_ = parameters.sourceVisibility;
         lightShaftUnderwaterFactor_ = parameters.underwaterFactor;
-        const bool mediumActive =
+        lightShaftShaderActiveFactor_ =
+            parameters.sourceVisibility * parameters.underwaterFactor;
+        lightShaftMediumActive_ =
             renderManager_->IsEffectEnabled(PostEffectMode::DepthFog) &&
             renderManager_->IsUnderwaterMediumEnabled();
-        lightShaftEffectiveActiveFactor_ =
-            lightShaftEnabled_ && mediumActive
-            ? parameters.sourceVisibility * parameters.underwaterFactor
-            : 0.0f;
         renderManager_->SetLightShaftParameters(parameters);
     };
 
@@ -386,6 +388,32 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
         lightShaftDirection_.y / directionLength,
         lightShaftDirection_.z / directionLength,
     };
+    const Matrix4x4& viewMatrix = camera_->GetViewMatrix();
+    const Vector3 viewDirection = {
+        direction.x * viewMatrix.m[0][0] +
+            direction.y * viewMatrix.m[1][0] +
+            direction.z * viewMatrix.m[2][0],
+        direction.x * viewMatrix.m[0][1] +
+            direction.y * viewMatrix.m[1][1] +
+            direction.z * viewMatrix.m[2][1],
+        direction.x * viewMatrix.m[0][2] +
+            direction.y * viewMatrix.m[1][2] +
+            direction.z * viewMatrix.m[2][2],
+    };
+    Vector2 screenDirection{ viewDirection.x, -viewDirection.y };
+    const float screenDirectionLength = std::sqrt(
+        screenDirection.x * screenDirection.x +
+        screenDirection.y * screenDirection.y);
+    if (screenDirectionLength > 0.0001f) {
+        screenDirection.x /= screenDirectionLength;
+        screenDirection.y /= screenDirectionLength;
+    } else {
+        screenDirection = { 0.0f, -1.0f };
+    }
+
+    const Vector2 screenCenter{ 0.5f, 0.5f };
+    const float controlledDistance = std::clamp(
+        lightShaftVirtualSourceScreenDistance_, 0.55f, 2.0f);
     const Vector3 sourcePosition = {
         cameraPosition.x + direction.x * kLightShaftVirtualSourceDistance,
         cameraPosition.y + direction.y * kLightShaftVirtualSourceDistance,
@@ -408,24 +436,22 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
         sourcePosition.z * viewProjection.m[2][3] +
         viewProjection.m[3][3];
 
-    if (clipW <= 0.0001f) {
-        parameters.sourceVisibility = 0.0f;
-    } else {
+    if (std::abs(clipW) > 0.0001f) {
         const float ndcX = clipX / clipW;
         const float ndcY = clipY / clipW;
         lightShaftRawUv_ = {
             ndcX * 0.5f + 0.5f,
             0.5f - ndcY * 0.5f,
         };
-        const Vector2 screenCenter{ 0.5f, 0.5f };
+    }
+
+    if (clipW > 0.0001f) {
         const Vector2 toRaw{
             lightShaftRawUv_.x - screenCenter.x,
             lightShaftRawUv_.y - screenCenter.y,
         };
         const float rawDistance = std::sqrt(
             toRaw.x * toRaw.x + toRaw.y * toRaw.y);
-        const float controlledDistance = std::clamp(
-            lightShaftVirtualSourceScreenDistance_, 0.55f, 2.0f);
         parameters.lightUv = lightShaftRawUv_;
         if (rawDistance > controlledDistance && rawDistance > 0.0001f) {
             const float scale = controlledDistance / rawDistance;
@@ -434,8 +460,13 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
                 screenCenter.y + toRaw.y * scale,
             };
         }
-        parameters.sourceVisibility = 1.0f;
+    } else {
+        parameters.lightUv = {
+            screenCenter.x + screenDirection.x * controlledDistance,
+            screenCenter.y + screenDirection.y * controlledDistance,
+        };
     }
+    parameters.sourceVisibility = 1.0f;
 
     submitParameters();
 }
