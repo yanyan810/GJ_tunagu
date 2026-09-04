@@ -18,6 +18,7 @@ public:
     void Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam);
     void Update(float dt, const Input& input, std::vector<std::unique_ptr<Debris>>& debrisList);
     void Draw();
+    void DrawImGui();
 
     // カメラの追従やアタッチの計算に必要なgetter
     const Vector3& GetPosition() const { return pos_; }
@@ -25,6 +26,10 @@ public:
     float GetPitch() const { return pitch_; }
     float GetCameraPitch() const { return cameraPitch_; }
     Matrix4x4 GetWorldMatrix() const;
+
+    // マウス感度関連
+    float GetMouseSensitivity() const { return mouseSensitivity_; }
+    void SetMouseSensitivity(float sensitivity) { mouseSensitivity_ = sensitivity; }
 
     // HP関連
     float GetHp() const { return hp_; }
@@ -60,6 +65,7 @@ private:
     float yaw_ = 0.0f;          // 左右旋回
     float pitch_ = 0.0f;        // マグロモデルの上下向き (±0.45radクランプ)
     float cameraPitch_ = 0.0f;  // カメラ見上げ用視点ピッチ (±1.4rad 80度まで可能)
+    float mouseSensitivity_ = 0.0003f; // マウス感度 (デフォルト: 0.0003f)
 
     float maxForwardSpeed_ = 15.0f;
     float maxBackwardSpeed_ = -6.0f;

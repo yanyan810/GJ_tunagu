@@ -7,6 +7,9 @@
 #include "Debris.h"
 #include <cmath>
 #include <algorithm>
+#ifdef USE_IMGUI
+#include "imgui.h"
+#endif
 
 // モデルの初期回転オフセット（進行方向に対してマグロを正面に向け、背中を上にする）
 const float kModelRotateYawOffset = -1.5707963f; // -90度
@@ -169,15 +172,14 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     }
 
     // マウス移動によるカメラ視点操作 (左右移動でYaw, 上下移動でPitch)
-    float mouseSensitivity = 0.003f;
     int mouseDX = input.GetMouseDeltaX();
     int mouseDY = input.GetMouseDeltaY();
 
     if (mouseDX != 0) {
-        yaw_ += static_cast<float>(mouseDX) * mouseSensitivity;
+        yaw_ += static_cast<float>(mouseDX) * mouseSensitivity_;
     }
     if (mouseDY != 0) {
-        cameraPitch_ += static_cast<float>(mouseDY) * mouseSensitivity;
+        cameraPitch_ += static_cast<float>(mouseDY) * mouseSensitivity_;
     }
 
     // W/Sキーによる視点上下（ピッチ）操作
@@ -214,6 +216,9 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     pos_.x += vel_.x * dt;
     pos_.y += vel_.y * dt;
     pos_.z += vel_.z * dt;
+
+    // ボスの高さ (Y=18.0f) の上に行かないようにプレイヤーの高さ上限を14.5fに制限
+    pos_.y = std::clamp(pos_.y, -25.0f, 14.5f);
 
     // モデルの位置と回転を設定
     model_->SetTranslate(pos_);
@@ -431,4 +436,14 @@ Matrix4x4 Player::GetWorldMatrix() const {
         return model_->GetWorldMatrix();
     }
     return Matrix4x4::MakeIdentity4x4();
+}
+
+void Player::DrawImGui() {
+#ifdef USE_IMGUI
+    ImGui::Text("Player Controls / Camera:");
+    ImGui::SliderFloat("Mouse Sensitivity", &mouseSensitivity_, 0.00005f, 0.00200f, "%.5f");
+    if (ImGui::Button("Reset Sensitivity (0.0003)")) {
+        mouseSensitivity_ = 0.0003f;
+    }
+#endif
 }

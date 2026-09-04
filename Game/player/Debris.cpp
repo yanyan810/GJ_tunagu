@@ -314,9 +314,8 @@ void Debris::UpdateThrown(float dt) {
 
     throwTimer_ += dt;
     if (throwTimer_ > 2.0f) {
-        // 2秒経ったら元の Floatingに戻る
-        state_ = DebrisState::Floating;
-        floatTimer_ = 0.0f;
+        // 2秒経ったら消滅
+        isDead_ = true;
     }
 
     model_->SetTranslate(pos_);
