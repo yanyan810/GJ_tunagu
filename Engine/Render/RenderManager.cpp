@@ -204,6 +204,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
     depthFogCBData_->backgroundOpacity = depthFogBackgroundOpacity_;
     depthFogCBData_->farBackgroundBlendStartRatio =
         depthFogFarBackgroundBlendStartRatio_;
+    depthFogCBData_->background = underwaterBackgroundParameters_;
 
     bloomCB_ = dx_->CreateBufferResource((sizeof(BloomParameter) + 0xff) & ~0xff);
     bloomCB_->Map(0, nullptr, reinterpret_cast<void**>(&bloomCBData_));
@@ -343,6 +344,15 @@ void RenderManager::SetDissolveTransition(float threshold, const Vector4& color,
         dissolveCBData_->backgroundColor = dissolveBackgroundColor_;
         dissolveCBData_->edgeColor = dissolveEdgeColor_;
         dissolveCBData_->edgeWidth = dissolveEdgeWidth_;
+    }
+}
+
+void RenderManager::SetUnderwaterBackgroundParameters(
+    const UnderwaterBackgroundParameters& parameters)
+{
+    underwaterBackgroundParameters_ = parameters;
+    if (depthFogCBData_) {
+        depthFogCBData_->background = underwaterBackgroundParameters_;
     }
 }
 
