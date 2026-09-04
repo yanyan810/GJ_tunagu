@@ -4,6 +4,7 @@
 #include "Player.h"
 #include "Enemy.h"
 #include "Camera.h"
+#include "DebugCamera.h"
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
 #include "Object3d.h"
@@ -29,6 +30,17 @@ void GameScene::OnEnter(GameApp& app) {
     camera_->SetTranslate({ 0.0f, 4.0f, -12.0f });
     camera_->SetRotate({ 0.15f, 0.0f, 0.0f });
     app.ObjCom()->SetDefaultCamera(camera_.get());
+
+    debugCamera_ = std::make_unique<DebugCamera>();
+    debugCamera_->Initialize();
+    debugCamera_->SetInput(app.GetInput());
+    debugCamera_->SetPosition(camera_->GetTranslate());
+    debugCamera_->SetRotation(camera_->GetRotate());
+    debugCamera_->SetMoveSpeed(20.0f);
+    debugCamera_->SetMouseLookEnabled(true);
+    debugCameraEnabled_ = false;
+    simulationPaused_ = false;
+    stepOneFrame_ = false;
 
     underwaterEnvironment_ = std::make_unique<UnderwaterEnvironment>();
     underwaterEnvironment_->Initialize(
@@ -92,7 +104,8 @@ void GameScene::OnEnter(GameApp& app) {
     bossShip_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
 }
 
-void GameScene::OnExit(GameApp& /*app*/) {
+void GameScene::OnExit(GameApp& app) {
+    if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(false);
     hpBarFillSprite_.reset();
     hpBarBgSprite_.reset();
     debrisList_.clear();
@@ -101,6 +114,7 @@ void GameScene::OnExit(GameApp& /*app*/) {
     player_.reset();
     if (underwaterEnvironment_) underwaterEnvironment_->Shutdown();
     underwaterEnvironment_.reset();
+    debugCamera_.reset();
     camera_.reset();
 }
 
@@ -114,7 +128,36 @@ void GameScene::Update(GameApp& app, float dt) {
         return;
     }
 
-    if (player_ && app.GetInput()) {
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F1)) {
+        debugCameraEnabled_ = !debugCameraEnabled_;
+        app.GetInput()->SetCameraControlEnabled(debugCameraEnabled_);
+        if (debugCameraEnabled_ && camera_ && debugCamera_) {
+            debugCamera_->SetPosition(camera_->GetTranslate());
+            debugCamera_->SetRotation(camera_->GetRotate());
+        }
+    }
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F4)) {
+        simulationPaused_ = !simulationPaused_;
+    }
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
+        app.RequestQuit();
+        return;
+    }
+    if (debugCameraEnabled_ && debugCamera_ && camera_) {
+        debugCamera_->Update(dt);
+        camera_->SetTranslate(debugCamera_->GetPosition());
+        camera_->SetRotate(debugCamera_->GetRotation());
+        camera_->Update();
+    }
+
+    const bool runSimulation = !simulationPaused_ || stepOneFrame_;
+    if (!runSimulation) {
+        if (camera_) ParticleManager::GetInstance()->Update(0.0f, *camera_);
+        return;
+    }
+    stepOneFrame_ = false;
+
+    if (player_ && app.GetInput() && !debugCameraEnabled_) {
         player_->Update(dt, *app.GetInput(), debrisList_);
         // プレイヤーと漂うゴミとの衝突判定
         player_->CheckDebrisCollision(debrisList_);
@@ -161,7 +204,7 @@ void GameScene::Update(GameApp& app, float dt) {
     }
 
     // カメラの追従処理 (尾びれ中心の極座標TPS追従: 視点回転を行っても常に尾びれが画面中心になり見切れない)
-    if (camera_ && player_) {
+    if (camera_ && player_ && !debugCameraEnabled_) {
         Vector3 targetPos = player_->GetTailPosition(); // 尾びれの位置をカメラ注視点にする
         float camYaw = player_->GetCameraYaw();
         float camPitch = player_->GetCameraPitch();
@@ -249,9 +292,6 @@ void GameScene::Update(GameApp& app, float dt) {
     if (underwaterEnvironment_) underwaterEnvironment_->Update(dt);
     if (camera_) ParticleManager::GetInstance()->Update(dt, *camera_);
 
-    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
-        app.RequestQuit();
-    }
 }
 
 void GameScene::Draw(GameApp& app) {
@@ -279,8 +319,32 @@ void GameScene::Draw(GameApp& app) {
     if (hpBarFillSprite_) hpBarFillSprite_->Draw();
 }
 
-void GameScene::DrawImGui(GameApp& /*app*/) {
+void GameScene::DrawImGui(GameApp& app) {
 #ifdef USE_IMGUI
+    ImGui::Begin("Game Debug Controls");
+    ImGui::TextUnformatted("F1: Debug Camera / F4: Pause");
+    if (ImGui::Checkbox("Debug Camera", &debugCameraEnabled_)) {
+        if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(debugCameraEnabled_);
+        if (debugCameraEnabled_ && camera_ && debugCamera_) {
+            debugCamera_->SetPosition(camera_->GetTranslate());
+            debugCamera_->SetRotation(camera_->GetRotate());
+        }
+    }
+    ImGui::Checkbox("Pause Simulation", &simulationPaused_);
+    ImGui::SameLine();
+    if (ImGui::Button("Step 1 Frame")) {
+        simulationPaused_ = true;
+        stepOneFrame_ = true;
+    }
+    if (debugCamera_) {
+        float moveSpeed = debugCamera_->GetMoveSpeed();
+        if (ImGui::DragFloat("Debug Camera Speed", &moveSpeed, 0.5f, 1.0f, 200.0f)) {
+            debugCamera_->SetMoveSpeed(moveSpeed);
+        }
+    }
+    ImGui::Text("State: %s", simulationPaused_ ? "PAUSED" : "RUNNING");
+    ImGui::End();
+
     if (bossShip_) bossShip_->DrawImGui();
 
     ImGui::Begin("TUNA-GU Status & Creature Buffs");

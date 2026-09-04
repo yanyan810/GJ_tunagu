@@ -10,23 +10,8 @@ class DirectXCommon;
 class Camera;
 class Player;
 class Debris;
-
-struct BossBullet {
-    Vector3 pos = { 0.0f, 0.0f, 0.0f };
-    Vector3 vel = { 0.0f, 0.0f, 0.0f };
-    float radius = 1.0f;
-    float lifeTimer = 0.0f;
-    bool isDead = false;
-};
-
-struct BossNet {
-    Vector3 pos = { 0.0f, 0.0f, 0.0f };
-    float radius = 2.0f;
-    float maxRadius = 9.0f;
-    float fallSpeed = 6.0f;
-    float lifeTimer = 0.0f;
-    bool isDead = false;
-};
+class BossBulletAttack;
+class BossNetAttack;
 
 // 水面で活動するボス船クラス
 class Enemy {
@@ -52,13 +37,11 @@ public:
     void TakeDamage(float damage);
 
 private:
-    void FireBullet(const Vector3& playerPos);
-    void CastNet(const Vector3& playerPos);
-
-private:
     std::unique_ptr<Object3d> shipModel_;
-    std::unique_ptr<Object3d> bulletModel_;
-    std::unique_ptr<Object3d> netModel_;
+    std::unique_ptr<Object3d> orbitDebugModel_;
+    std::unique_ptr<Object3d> collisionDebugModel_;
+    std::unique_ptr<BossBulletAttack> bulletAttack_;
+    std::unique_ptr<BossNetAttack> netAttack_;
     Camera* camera_ = nullptr;
     Object3dCommon* objCommon_ = nullptr;
     DirectXCommon* dx_ = nullptr;
@@ -66,7 +49,9 @@ private:
     // トランスフォーム
     Vector3 pos_ = { 0.0f, 35.0f, 0.0f }; // 高い上空・水上高度
     Vector3 rot_ = { 0.0f, 0.0f, 0.0f };
-    Vector3 scale_ = { 8.0f, 3.0f, 14.0f }; // 船らしい長方形のボックス
+    Vector3 scale_ = { 1.5f, 1.5f, 1.5f };
+    Vector3 visualOffset_ = { 0.0f, 0.0f, 12.0f };
+    Vector3 lastTargetPosition_{};
     float radius_ = 7.0f;
 
     // ステータス
@@ -77,11 +62,12 @@ private:
     // 行動AIパラメータ
     float moveAngle_ = 0.0f;
     float orbitRadius_ = 35.0f;
-    float bulletTimer_ = 0.0f;
-    float bulletInterval_ = 2.2f;
-    float netTimer_ = 0.0f;
-    float netInterval_ = 5.0f;
-
-    std::vector<BossBullet> bullets_;
-    std::vector<BossNet> nets_;
+    float orbitAngularSpeed_ = 0.18f;
+    float orbitFollowSpeed_ = 0.8f;
+    float turnSpeed_ = 1.8f;
+    bool movementEnabled_ = true;
+    bool attacksEnabled_ = true;
+    bool shipLightingEnabled_ = false;
+    bool showOrbitDebug_ = false;
+    bool showCollisionDebug_ = false;
 };

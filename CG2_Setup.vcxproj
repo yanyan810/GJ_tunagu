@@ -203,6 +203,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\ShockwaveRock.cpp" />
     <ClCompile Include="Game\boss\AnchorAttack.cpp" />
     <ClCompile Include="Game\boss\ScrewAttack.cpp" />
+    <ClCompile Include="Game\boss\BossBulletAttack.cpp" />
+    <ClCompile Include="Game\boss\BossNetAttack.cpp" />
     <ClCompile Include="Engine\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="Engine\Core\CrashHandler.cpp" />
     <ClCompile Include="Engine\Audio\AudioSystem.cpp" />
@@ -579,6 +581,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\scene\Main\GameScene.h" />
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h" />
     <ClInclude Include="Game\scene\Test\BossTestScene.h" />
+    <ClInclude Include="Game\boss\BossBulletAttack.h" />
+    <ClInclude Include="Game\boss\BossNetAttack.h" />
     <ClInclude Include="Game\scene\Test\ShipScene.h" />
     <ClInclude Include="Game\scene\Flow\GameOverScene.h" />
     <ClInclude Include="Game\player\Player.h" />

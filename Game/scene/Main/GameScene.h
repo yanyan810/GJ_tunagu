@@ -9,6 +9,7 @@ class Enemy;
 class Camera;
 class Debris;
 class UnderwaterEnvironment;
+class DebugCamera;
 
 // 新しいゲームの実装を始めるための最小シーンです。
 class GameScene final : public IScene {
@@ -23,6 +24,7 @@ public:
 
 private:
     std::unique_ptr<Camera> camera_;
+    std::unique_ptr<DebugCamera> debugCamera_;
     std::unique_ptr<UnderwaterEnvironment> underwaterEnvironment_;
     std::unique_ptr<Player> player_;
     std::unique_ptr<Enemy> bossShip_;
@@ -32,4 +34,7 @@ private:
     // 2D UI スプライトで構築する画面左上 HPバー
     std::unique_ptr<Sprite> hpBarBgSprite_;
     std::unique_ptr<Sprite> hpBarFillSprite_;
+    bool debugCameraEnabled_ = false;
+    bool simulationPaused_ = false;
+    bool stepOneFrame_ = false;
 };
