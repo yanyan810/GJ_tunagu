@@ -25,6 +25,7 @@ private:
     std::unique_ptr<Camera> camera_;
     std::unique_ptr<UnderwaterEnvironment> underwaterEnvironment_;
     std::unique_ptr<Player> player_;
+    std::unique_ptr<Enemy> bossShip_;
     std::vector<std::unique_ptr<Enemy>> enemies_;
     std::vector<std::unique_ptr<Debris>> debrisList_;
 

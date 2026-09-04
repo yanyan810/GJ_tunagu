@@ -78,8 +78,10 @@ public:
 
     // Setter
     void SetPosition(const Vector3& pos) { pos_ = pos; }
+    void SetDead(bool dead) { isDead_ = dead; }
 
     // Getter
+    bool IsDead() const { return isDead_; }
     DebrisState GetState() const { return state_; }
     DebrisType GetType() const { return type_; }
     const Vector3& GetPosition() const { return pos_; }
@@ -132,4 +134,5 @@ private:
     // 投射中の物理挙動用
     Vector3 velocity_ = { 0.0f, 0.0f, 0.0f };
     float throwTimer_ = 0.0f;
+    bool isDead_ = false;
 };

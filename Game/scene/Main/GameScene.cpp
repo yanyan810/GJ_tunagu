@@ -85,6 +85,10 @@ void GameScene::OnEnter(GameApp& app) {
         debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), type, { x, y, z });
         debrisList_.push_back(std::move(debris));
     }
+
+    // ボス船の生成・初期化
+    bossShip_ = std::make_unique<Enemy>();
+    bossShip_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
 }
 
 void GameScene::OnExit(GameApp& /*app*/) {
@@ -92,6 +96,7 @@ void GameScene::OnExit(GameApp& /*app*/) {
     hpBarBgSprite_.reset();
     debrisList_.clear();
     enemies_.clear();
+    bossShip_.reset();
     player_.reset();
     underwaterEnvironment_.reset();
     camera_.reset();
@@ -115,11 +120,33 @@ void GameScene::Update(GameApp& app, float dt) {
         }
     }
 
+    // ボス船の更新と攻撃・被弾衝突判定
+    if (bossShip_ && player_) {
+        bossShip_->Update(dt, player_->GetPosition());
+        bossShip_->CheckCollisionWithPlayer(player_.get());
+
+        // 投げられたゴミ/海洋生物とボス船の衝突判定
+        for (auto& debris : debrisList_) {
+            if (debris->GetState() == DebrisState::Thrown && !debris->IsDead()) {
+                if (bossShip_->CheckCollisionWithDebris(debris.get())) {
+                    debris->SetDead(true);
+                }
+            }
+        }
+    }
+
     // ゴミオブジェクトの更新（漂流 / 投射状態）
     for (auto& debris : debrisList_) {
         debris->Update(dt);
     }
     
+    // 消滅フラグが立ったゴミをリストから削除
+    debrisList_.erase(
+        std::remove_if(debrisList_.begin(), debrisList_.end(),
+            [](const std::unique_ptr<Debris>& d) { return d->IsDead(); }),
+        debrisList_.end()
+    );
+
     for (const auto& enemy : enemies_) {
         enemy->Update(dt);
     }
@@ -247,6 +274,7 @@ void GameScene::Update(GameApp& app, float dt) {
 void GameScene::Draw(GameApp& app) {
     if (underwaterEnvironment_) underwaterEnvironment_->Draw();
     if (player_) player_->Draw();
+    if (bossShip_) bossShip_->Draw();
 
     // 漂うゴミの描画
     for (auto& debris : debrisList_) {
@@ -264,6 +292,8 @@ void GameScene::Draw(GameApp& app) {
 
 void GameScene::DrawImGui(GameApp& /*app*/) {
 #ifdef USE_IMGUI
+    if (bossShip_) bossShip_->DrawImGui();
+
     ImGui::Begin("TUNA-GU Status & Creature Buffs");
     if (player_) {
         ImGui::Text("Player HP: %.1f / %.1f", player_->GetHp(), player_->GetMaxHp());
@@ -291,6 +321,9 @@ void GameScene::DrawImGui(GameApp& /*app*/) {
         if (player_->HasRemora()) {
             ImGui::TextColored(ImVec4(0.9f, 0.4f, 1.0f, 1.0f), "  REMORA: WEIGHT -50%% & HP REGEN (+2/s)");
         }
+
+        ImGui::Separator();
+        player_->DrawImGui();
     }
     ImGui::Separator();
     ImGui::Text("Floating Creatures in World: %d", static_cast<int>(debrisList_.size()));
