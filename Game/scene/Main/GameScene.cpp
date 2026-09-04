@@ -105,6 +105,10 @@ void GameScene::OnExit(GameApp& /*app*/) {
 }
 
 void GameScene::Update(GameApp& app, float dt) {
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F3)) {
+        RequestChangeScene_("Ship");
+        return;
+    }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F2)) {
         RequestChangeScene_("BossTest");
         return;

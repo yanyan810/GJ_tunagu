@@ -175,6 +175,74 @@ void Object3d::EnsureInstanceMaterial_()
 	instanceMaterialInitializedFromModel_ = true;
 }
 
+static Matrix4x4 ApplyMeshExplosionOffset(
+	const Matrix4x4& nodeWorld, const Vector3& translate, const Vector3& rotate) {
+	Matrix4x4 localShape = nodeWorld;
+	const Vector3 nodePosition{ nodeWorld.m[3][0], nodeWorld.m[3][1], nodeWorld.m[3][2] };
+	localShape.m[3][0] = 0.0f;
+	localShape.m[3][1] = 0.0f;
+	localShape.m[3][2] = 0.0f;
+	const Matrix4x4 fragmentRotation = Matrix4x4::MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, rotate, {});
+	Matrix4x4 result = Matrix4x4::Multiply(localShape, fragmentRotation);
+	result.m[3][0] = nodePosition.x + translate.x;
+	result.m[3][1] = nodePosition.y + translate.y;
+	result.m[3][2] = nodePosition.z + translate.z;
+	return result;
+}
+
+void Object3d::RebuildNodeTransformResources_()
+{
+	nodeTransformationResources_.clear();
+	nodeTransformationData_.clear();
+	if (!dx_ || !model_) {
+		return;
+	}
+
+	const size_t count = model_->GetNodeInstances().size();
+	meshInstanceExplosionOffsets_.assign(count, {});
+	nodeTransformationResources_.reserve(count);
+	nodeTransformationData_.reserve(count);
+	for (size_t i = 0; i < count; ++i) {
+		auto resource = dx_->CreateBufferResource(sizeof(TransformationMatrix));
+		TransformationMatrix* mapped = nullptr;
+		if (resource) {
+			resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
+			if (mapped) {
+				mapped->WVP = Matrix4x4::MakeIdentity4x4();
+				mapped->World = Matrix4x4::MakeIdentity4x4();
+				mapped->WorldInverseTranspose = Matrix4x4::MakeIdentity4x4();
+			}
+		}
+		nodeTransformationResources_.push_back(std::move(resource));
+		nodeTransformationData_.push_back(mapped);
+	}
+}
+
+void Object3d::SetModel(Model* model)
+{
+	model_ = model;
+	RebuildNodeTransformResources_();
+}
+
+std::string Object3d::GetMeshInstanceNodeName(size_t instanceIndex) const
+{
+	if (!model_ || instanceIndex >= model_->GetNodeInstances().size()) return {};
+	return model_->GetNodeName(static_cast<int>(model_->GetNodeInstances()[instanceIndex].nodeIndex));
+}
+
+void Object3d::SetMeshInstanceExplosionOffset(
+	size_t instanceIndex, const Vector3& translate, const Vector3& rotate)
+{
+	if (instanceIndex >= meshInstanceExplosionOffsets_.size()) return;
+	meshInstanceExplosionOffsets_[instanceIndex].translate = translate;
+	meshInstanceExplosionOffsets_[instanceIndex].rotate = rotate;
+}
+
+void Object3d::ResetMeshInstanceExplosionOffsets()
+{
+	for (auto& offset : meshInstanceExplosionOffsets_) offset = {};
+}
+
 Matrix4x4 Object3d::CalculateWorldMatrix() const {
 	if (useWorldMatrixOverride_) {
 		return worldMatrixOverride_;
@@ -534,21 +602,30 @@ void Object3d::Draw()
 			std::vector<Matrix4x4> nodeGlobals;
 			model_->ComputeNodeGlobalMatrices(anim, animTime, nodeGlobals);
 
+			size_t instanceIndex = 0;
 			for (const auto& inst : model_->GetNodeInstances()) {
 				if (model_->IsMeshSkinned(inst.meshIndex)) {
+					++instanceIndex;
 					continue;
 				}
 
-				const Matrix4x4 nodeWorld = nodeGlobals[inst.nodeIndex];
+				Matrix4x4 nodeWorld = nodeGlobals[inst.nodeIndex];
+				if (instanceIndex < meshInstanceExplosionOffsets_.size()) {
+					const auto& offset = meshInstanceExplosionOffsets_[instanceIndex];
+					nodeWorld = ApplyMeshExplosionOffset(nodeWorld, offset.translate, offset.rotate);
+				}
 				Matrix4x4 world = Matrix4x4::Multiply(nodeWorld, baseWorld);
 				Matrix4x4 wvpM = Matrix4x4::Multiply(world, vp);
 
-				transformationMatrixDataModel->World = world;
-				transformationMatrixDataModel->WVP = wvpM;
-				transformationMatrixDataModel->WorldInverseTranspose =
-					Matrix4x4::Transpose(Matrix4x4::Inverse(world));
+				TransformationMatrix* nodeTransform = instanceIndex < nodeTransformationData_.size()
+					? nodeTransformationData_[instanceIndex] : transformationMatrixDataModel;
+				nodeTransform->World = world;
+				nodeTransform->WVP = wvpM;
+				nodeTransform->WorldInverseTranspose = Matrix4x4::Transpose(Matrix4x4::Inverse(world));
 
-				cmd->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceModel->GetGPUVirtualAddress());
+				ID3D12Resource* nodeResource = instanceIndex < nodeTransformationResources_.size()
+					? nodeTransformationResources_[instanceIndex].Get() : transformationMatrixResourceModel.Get();
+				cmd->SetGraphicsRootConstantBufferView(1, nodeResource->GetGPUVirtualAddress());
 				
 				if (enableOutline_ && object3dCommon) {
 					object3dCommon->SetGraphicsPipelineStateOutline();
@@ -564,6 +641,7 @@ void Object3d::Draw()
 				cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 
 				model_->DrawOneMesh(cmd, inst.meshIndex, 2, overrideTexture);
+				++instanceIndex;
 			}
 
 			transformationMatrixDataModel->World = originalWorld;
@@ -619,20 +697,25 @@ void Object3d::Draw()
 				? instanceMaterialResource_->GetGPUVirtualAddress()
 				: model_->GetMaterialCBV());
 
-		if (animator_ && animator_->HasAnimation()) {
+		// Static GLTF/FBX files can contain many meshes whose vertices are in
+		// node-local space. They still require their node transforms even when
+		// the model has no animation (for example, separated ship fragments).
+		if (!model_->GetNodeInstances().empty()) {
 
-			const auto& anims = model_->GetAnimations();
 			const Animation* anim = nullptr;
-			float animTime = animator_->GetTime();
-
-			if (!animator_->GetPlayingAnimName().empty()) {
-				auto itA = anims.find(animator_->GetPlayingAnimName());
-				if (itA != anims.end()) {
-					anim = &itA->second;
+			float animTime = 0.0f;
+			if (animator_ && animator_->HasAnimation()) {
+				const auto& anims = model_->GetAnimations();
+				animTime = animator_->GetTime();
+				if (!animator_->GetPlayingAnimName().empty()) {
+					auto itA = anims.find(animator_->GetPlayingAnimName());
+					if (itA != anims.end()) {
+						anim = &itA->second;
+					}
 				}
-			}
-			if (!anim && !anims.empty()) {
-				anim = &anims.begin()->second;
+				if (!anim && !anims.empty()) {
+					anim = &anims.begin()->second;
+				}
 			}
 
 			std::vector<Matrix4x4> nodeGlobals;
@@ -642,19 +725,26 @@ void Object3d::Draw()
 			const Matrix4x4 originalWorld = transformationMatrixDataModel->World;
 			const Matrix4x4 baseWorld = CalculateWorldMatrix();
 
+			size_t instanceIndex = 0;
 			for (const auto& inst : model_->GetNodeInstances()) {
-				const Matrix4x4 nodeWorld = nodeGlobals[inst.nodeIndex];
+				Matrix4x4 nodeWorld = nodeGlobals[inst.nodeIndex];
+				if (instanceIndex < meshInstanceExplosionOffsets_.size()) {
+					const auto& offset = meshInstanceExplosionOffsets_[instanceIndex];
+					nodeWorld = ApplyMeshExplosionOffset(nodeWorld, offset.translate, offset.rotate);
+				}
 
 				Matrix4x4 world = Matrix4x4::Multiply(nodeWorld, baseWorld);
 				Matrix4x4 wvp = Matrix4x4::Multiply(world, vp);
 
-				transformationMatrixDataModel->World = world;
-				transformationMatrixDataModel->WVP = wvp;
-				transformationMatrixDataModel->WorldInverseTranspose =
-					Matrix4x4::Transpose(Matrix4x4::Inverse(world));
+				TransformationMatrix* nodeTransform = instanceIndex < nodeTransformationData_.size()
+					? nodeTransformationData_[instanceIndex] : transformationMatrixDataModel;
+				nodeTransform->World = world;
+				nodeTransform->WVP = wvp;
+				nodeTransform->WorldInverseTranspose = Matrix4x4::Transpose(Matrix4x4::Inverse(world));
 
-				cmd->SetGraphicsRootConstantBufferView(
-					1, transformationMatrixResourceModel->GetGPUVirtualAddress());
+				ID3D12Resource* nodeResource = instanceIndex < nodeTransformationResources_.size()
+					? nodeTransformationResources_[instanceIndex].Get() : transformationMatrixResourceModel.Get();
+				cmd->SetGraphicsRootConstantBufferView(1, nodeResource->GetGPUVirtualAddress());
 
 				if (enableOutline_ && object3dCommon) {
 					object3dCommon->SetGraphicsPipelineStateOutline();
@@ -665,6 +755,7 @@ void Object3d::Draw()
 				}
 
 				model_->DrawOneMesh(cmd, inst.meshIndex, 2, overrideTexture);
+				++instanceIndex;
 			}
 
 			transformationMatrixDataModel->World = originalWorld;
@@ -862,6 +953,7 @@ void Object3d::SetModel(const std::string& filePath) {
 		m = mgr->FindModel(filePath);
 	}
 	model_ = m;
+	RebuildNodeTransformResources_();
 
 	boneMarkers_.clear();
 	boneLinks_.clear();

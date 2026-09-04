@@ -42,7 +42,7 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
 
     model_->SetTexture("tuna/tuna+fish+3d+model_basecolor.jpg");
     model_->SetScale({ 1.8f, 1.8f, 1.8f });
-
+    
     
     // HPの初期化
     maxHp_ = 100.0f;
