@@ -113,5 +113,44 @@
             "spawnRadiusMin": 2.0
         }
     },
+    "screw": {
+        "localPosition": [
+            0.0,
+            0.0,
+            -5.0
+        ],
+        "previewTime": 0.8,
+        "suctionRadius": 20.0,
+        "suctionPower": 20.0,
+        "innerSuctionMultiplier": 1.5,
+        "middleSuctionMultiplier": 1.0,
+        "outerSuctionMultiplier": 0.6,
+        "ranges": {
+            "inner": {
+                "offset": [0.0, 0.0, 0.0],
+                "halfSize": [6.67, 6.67, 6.67]
+            },
+            "middle": {
+                "offset": [0.0, 0.0, 0.0],
+                "halfSize": [13.33, 13.33, 13.33]
+            },
+            "outer": {
+                "offset": [0.0, 0.0, 0.0],
+                "halfSize": [20.0, 20.0, 20.0]
+            }
+        },
+        "suctionDuration": 3.0,
+        "gatherDistance": 4.0,
+        "gatherPointLocalOffset": [
+            0.0,
+            0.0,
+            4.0
+        ],
+        "gatherRadius": 3.0,
+        "holdTime": 0.4,
+        "releasePower": 35.0,
+        "releaseSpread": 4.0,
+        "testGroundY": -5.0
+    },
     "version": 1
 }

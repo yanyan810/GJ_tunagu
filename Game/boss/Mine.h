@@ -48,6 +48,7 @@ public:
     // A simple velocity impulse shared by future screw, shockwave and explosion forces.
     void AddForce(const Vector3& force);
     bool TriggerExplosion(float delay);
+    void ExplodeImmediately();
     bool ConsumeExplosionEvent(MineExplosionEvent& event);
 
     State GetState() const { return state_; }
