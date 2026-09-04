@@ -265,6 +265,10 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::TextDisabled(
         "Effective Active Factor: %.3f",
         lightShaftEffectiveActiveFactor_);
+    ImGui::Combo(
+        "Debug View", &lightShaftDebugMode_,
+        "Normal\0Pass Solid Magenta\0Source Profile\0Depth Visibility\0"
+        "Scattering\0Shaft Contribution\0");
     if (ImGui::Button("Visibility Test")) {
         lightShaftNumSamples_ = 32;
         lightShaftDensity_ = 0.90f;
@@ -328,6 +332,8 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
     parameters.waterLevelY = waterLevelY_;
     parameters.sourceRadius = std::max(lightShaftSourceRadius_, 0.0001f);
     parameters.offscreenFadeDistance = kLightShaftOffscreenFadeDistance;
+    parameters.debugMode = static_cast<float>(
+        std::clamp(lightShaftDebugMode_, 0, 5));
     parameters.lightUv = { 0.5f, 0.5f };
 
     lightShaftRawUv_ = parameters.lightUv;

@@ -27,7 +27,7 @@ struct LightShaftParameters {
     float waterLevelY;
     float sourceRadius;
     float offscreenFadeDistance;
-    float padding;
+    float debugMode;
 };
 
 static_assert(sizeof(LightShaftParameters) == 144);

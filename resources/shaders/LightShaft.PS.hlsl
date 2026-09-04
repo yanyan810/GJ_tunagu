@@ -28,7 +28,7 @@ struct LightShaftParameter
     float waterLevelY;
     float sourceRadius;
     float offscreenFadeDistance;
-    float padding;
+    float debugMode;
 };
 
 ConstantBuffer<LightShaftParameter> gLightShaft : register(b7);
@@ -92,10 +92,27 @@ float EvaluateSourceProfile(float2 uv)
 
 float4 main(VertexShaderOutput input) : SV_TARGET0
 {
+    int debugMode = clamp((int)round(gLightShaft.debugMode), 0, 5);
+    if (debugMode == 1)
+    {
+        return float4(1.0f, 0.0f, 1.0f, 1.0f);
+    }
+    if (debugMode == 2)
+    {
+        float sourceProfile = EvaluateSourceProfile(input.texcoord);
+        return float4(sourceProfile, sourceProfile, sourceProfile, 1.0f);
+    }
+    if (debugMode == 3)
+    {
+        float depthVisibility = EvaluateDepthVisibility(input.texcoord);
+        return float4(
+            depthVisibility, depthVisibility, depthVisibility, 1.0f);
+    }
+
     float4 sceneColor = gSceneTexture.Sample(gSampler, input.texcoord);
     float activeFactor = saturate(gLightShaft.sourceVisibility) *
         saturate(gLightShaft.underwaterFactor);
-    if (activeFactor <= 0.0f)
+    if (debugMode == 0 && activeFactor <= 0.0f)
     {
         return sceneColor;
     }
@@ -119,8 +136,20 @@ float4 main(VertexShaderOutput input) : SV_TARGET0
         illuminationDecay *= saturate(gLightShaft.decay);
     }
 
+    if (debugMode == 4)
+    {
+        float debugScattering = saturate(scattering * 4.0f);
+        return float4(
+            debugScattering, debugScattering, debugScattering, 1.0f);
+    }
+
     float3 shaftColor = max(gLightShaft.lightColor, 0.0f) *
         scattering * max(gLightShaft.exposure, 0.0f) * activeFactor;
+    if (debugMode == 5)
+    {
+        return float4(saturate(shaftColor * 4.0f), 1.0f);
+    }
+
     sceneColor.rgb = saturate(sceneColor.rgb + shaftColor);
     return sceneColor;
 }
