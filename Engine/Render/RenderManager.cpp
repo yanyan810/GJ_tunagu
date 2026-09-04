@@ -1,4 +1,4 @@
-#include "RenderManager.h"
+﻿#include "RenderManager.h"
 
 #include "DirectXCommon.h"
 #include "SrvManager.h"
@@ -666,10 +666,10 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
         cmd->SetGraphicsRootConstantBufferView(8, depthFogCB_->GetGPUVirtualAddress());
     } else if (mode == PostEffectMode::LightShaft) {
         LightShaftParameters effectiveParameters = lightShaftParameters_;
-        const bool mediumActive =
-            enabledEffects_[static_cast<int>(PostEffectMode::DepthFog)] &&
-            underwaterMediumEnabled_;
-        if (!mediumActive) {
+        const bool fogActive =
+            enabledEffects_[static_cast<int>(PostEffectMode::DepthFog)];
+
+        if (!fogActive) {
             effectiveParameters.underwaterFactor = 0.0f;
         }
         *lightShaftCBData_ = effectiveParameters;
