@@ -110,7 +110,8 @@ private:
     Vector2 lightShaftEffectiveUv_{ 0.5f, 0.5f };
     float lightShaftSourceVisibility_ = 0.0f;
     float lightShaftUnderwaterFactor_ = 0.0f;
-    float lightShaftEffectiveActiveFactor_ = 0.0f;
+    float lightShaftShaderActiveFactor_ = 0.0f;
+    bool lightShaftMediumActive_ = false;
     int lightShaftDebugMode_ = 0;
 
     std::vector<std::string> marineSnowGroupNames_;
