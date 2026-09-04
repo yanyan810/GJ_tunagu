@@ -60,6 +60,9 @@ void Input::Initialize  (WinApp* winApp) {
 
     // デバイスの取得開始
     keyboardDevice_->Acquire();
+
+    // デフォルトでカメラコントロール（マウス中央ロック＆カーソル隠し）を有効化
+    SetCameraControlEnabled(true);
 }
 
 void Input::UpdateMouseDelta() {
@@ -99,10 +102,7 @@ void Input::UpdateMouseDelta() {
         // マウスを中央に戻す
         ClientToScreen(hwnd, &center);
         SetCursorPos(center.x, center.y);
-    } else {
-        mouseDelta_ = { 0, 0 };
     }
-
 }
 
 
@@ -111,6 +111,7 @@ void Input::Update() {
     memcpy(prevKeys_, keys_, sizeof(keys_));
     prevGamepadState_ = gamepadState_;
     prevMouseLeft_ = mouseLeft_;
+    prevMouseRight_ = mouseRight_;
 
     XINPUT_STATE newGamepadState{};
     gamepadConnected_ = XInputGetState(0, &newGamepadState) == ERROR_SUCCESS;
@@ -130,30 +131,30 @@ void Input::Update() {
 
     UpdateMouseDelta();
 
-    // マウス左クリック状態の更新
+    // マウス左右クリック状態の更新
     mouseLeft_ = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    mouseRight_ = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
 
-    // === 修正済み：トグル処理は1回だけ ===
-    bool toggleKey = keys_[DIK_F1];
+    // === Tabキー / F1キーでカーソル隠し＆ロックモードとカーソル自由移動モードをトグル切り替え ===
+    bool toggleKey = keys_[DIK_TAB] || keys_[DIK_F1];
     if (toggleKey && !prevToggleKeyState_) {
         SetCameraControlEnabled(!cameraControlEnabled_);
-        justEnteredCameraMode_ = cameraControlEnabled_; // 初回だけtrue
-
+        justEnteredCameraMode_ = cameraControlEnabled_;
     }
     prevToggleKeyState_ = toggleKey;
 }
 
 void Input::SetCameraControlEnabled(bool enabled) {
-    if (cameraControlEnabled_ == enabled) {
-        return;
-    }
-
     cameraControlEnabled_ = enabled;
     justEnteredCameraMode_ = enabled;
     firstMouseUpdate_ = true;
     mouseDelta_ = { 0, 0 };
 
-    ShowCursor(!cameraControlEnabled_);
+    if (cameraControlEnabled_) {
+        while (ShowCursor(FALSE) >= 0) {}
+    } else {
+        while (ShowCursor(TRUE) < 0) {}
+    }
 }
 
 bool Input::IsKeyTrigger(BYTE keyCode) const {

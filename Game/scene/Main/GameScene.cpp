@@ -129,18 +129,21 @@ void GameScene::Update(GameApp& app, float dt) {
         float playerYaw = player_->GetYaw();
         float playerPitch = player_->GetPitch();
 
-        // カメラの目標位置を計算 (プレイヤーの後ろ・上)
-        // 垂直移動時にカメラが極端に回り込むのを防ぐため、Yの高さオフセットは固定とする
+        // マグロの尾びれ・背中側を目で追うアングルのカメラ計算
+        float rawCameraPitch = player_->GetCameraPitch();
         float cosY = std::cos(playerYaw);
         float sinY = std::sin(playerYaw);
+        float cosP = std::cos(rawCameraPitch);
+        float sinP = std::sin(rawCameraPitch);
 
-        float distance = 11.0f; // プレイヤーとの距離
-        float heightOffset = 4.8f; // 基本の高さを上げ、より上からプレイヤーを見下ろすアングルにする
+        // 尾びれフォーカス距離 (マグロの後方 11.5m, 高さ 3.6m)
+        float distance = 11.5f;
+        float baseHeight = 3.6f;
 
         Vector3 offset;
-        offset.x = -(sinY * distance);
-        offset.y = heightOffset;
-        offset.z = -(cosY * distance);
+        offset.x = -(sinY * cosP * distance);
+        offset.y = baseHeight + sinP * distance * 0.50f;
+        offset.z = -(cosY * cosP * distance);
 
         Vector3 targetCamPos = {
             playerPos.x + offset.x,
@@ -148,20 +151,18 @@ void GameScene::Update(GameApp& app, float dt) {
             playerPos.z + offset.z
         };
 
-        // 水平追従(4.5f)・垂直追従(4.0f)の速度をさらに下げ、徐々に（ゆっくり）追従するように調整
-        float lerpRateXZ = 4.5f;
-        float lerpRateY = 4.0f; 
+        // スムーズなカメラ位置追従
+        float lerpRate = 8.0f;
         Vector3 currentCamPos = camera_->GetTranslate();
         Vector3 newCamPos;
-        newCamPos.x = currentCamPos.x + (targetCamPos.x - currentCamPos.x) * lerpRateXZ * dt;
-        newCamPos.y = currentCamPos.y + (targetCamPos.y - currentCamPos.y) * lerpRateY * dt;
-        newCamPos.z = currentCamPos.z + (targetCamPos.z - currentCamPos.z) * lerpRateXZ * dt;
+        newCamPos.x = currentCamPos.x + (targetCamPos.x - currentCamPos.x) * lerpRate * dt;
+        newCamPos.y = currentCamPos.y + (targetCamPos.y - currentCamPos.y) * lerpRate * dt;
+        newCamPos.z = currentCamPos.z + (targetCamPos.z - currentCamPos.z) * lerpRate * dt;
         camera_->SetTranslate(newCamPos);
 
-        // カメラの回転も合わせる
+        // 尾びれ・背中を見下ろして目で追う快適アングル (基本見下ろし角 0.22rad ＝ 約13度)
         Vector3 currentCamRot = camera_->GetRotate();
-        // 急激なカメラの角度変化を防ぐため、プレイヤーのピッチ連動を0.2倍に抑え、基本見下ろし角度を0.25fに深く設定
-        float targetPitch = playerPitch * 0.2f + 0.25f; 
+        float targetPitch = std::clamp(rawCameraPitch * 0.60f + 0.22f, -0.45f, 0.60f);
         Vector3 targetCamRot = { targetPitch, playerYaw, 0.0f };
 
         // ヨーの回転差分を最短にする処理
@@ -171,9 +172,9 @@ void GameScene::Update(GameApp& app, float dt) {
         while (diffYaw > PI) diffYaw -= 2.0f * PI;
 
         Vector3 newCamRot;
-        newCamRot.x = currentCamRot.x + (targetCamRot.x - currentCamRot.x) * lerpRateXZ * dt;
-        newCamRot.y = currentCamRot.y + diffYaw * lerpRateXZ * dt;
-        newCamRot.z = 0.0f;
+        newCamRot.x = currentCamRot.x + (targetCamRot.x - currentCamRot.x) * lerpRate * dt;
+        newCamRot.y = currentCamRot.y + diffYaw * lerpRate * dt;
+        newCamRot.z = 0.0f; // ロール傾きを防止
         camera_->SetRotate(newCamRot);
 
         camera_->Update();

@@ -40,12 +40,17 @@ public:
 
     void UpdateMouseDelta();
     POINT GetMouseDelta() const { return mouseDelta_; }
+    int GetMouseDeltaX() const { return mouseDelta_.x; }
+    int GetMouseDeltaY() const { return mouseDelta_.y; }
     void SetCameraControlEnabled(bool enabled);
     bool IsCameraControlEnabled() const { return cameraControlEnabled_; }
 
     bool IsMouseLeftPressed() const { return mouseLeft_; }
     bool IsMouseLeftTrigger() const { return mouseLeft_ && !prevMouseLeft_; }
     bool IsMouseLeftReleased() const { return !mouseLeft_ && prevMouseLeft_; }
+
+    bool IsMouseRightPressed() const { return mouseRight_; }
+    bool IsMouseRightTrigger() const { return mouseRight_ && !prevMouseRight_; }
 
 private:
     IDirectInput8* directInput_ = nullptr;
@@ -62,6 +67,8 @@ private:
 
     bool mouseLeft_ = false;
     bool prevMouseLeft_ = false;
+    bool mouseRight_ = false;
+    bool prevMouseRight_ = false;
 
     WinApp* winApp_ = nullptr;
 

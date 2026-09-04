@@ -1,4 +1,4 @@
-﻿#include "RenderManager.h"
+#include "RenderManager.h"
 
 #include "DirectXCommon.h"
 #include "SrvManager.h"
@@ -254,6 +254,13 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         CreatePipelineState(kEffectPSPaths[i], pipelineStates_[i]);
     }
     CreatePipelineState(L"resources/shaders/AdditiveComposite.PS.hlsl", additiveCompositePSO_);
+}
+
+void RenderManager::SetClearColor(const Vector4& color)
+{
+    if (offscreen_) {
+        offscreen_->SetClearColor(color);
+    }
 }
 
 void RenderManager::SetMode(PostEffectMode mode)
