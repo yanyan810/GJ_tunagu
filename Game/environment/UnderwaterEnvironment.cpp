@@ -248,6 +248,31 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::DragFloat(
         "Light Shaft Occlusion Range", &lightShaftOcclusionDepthRange_,
         1.0f, 1.0f, 1000.0f, "%.1f");
+    ImGui::DragFloat(
+        "Virtual Source Screen Distance",
+        &lightShaftVirtualSourceScreenDistance_,
+        0.01f, 0.55f, 2.0f, "%.2f");
+    ImGui::TextDisabled(
+        "Raw Light UV: %.3f, %.3f",
+        lightShaftRawUv_.x, lightShaftRawUv_.y);
+    ImGui::TextDisabled(
+        "Effective Light UV: %.3f, %.3f",
+        lightShaftEffectiveUv_.x, lightShaftEffectiveUv_.y);
+    ImGui::TextDisabled(
+        "Source Visibility: %.3f", lightShaftSourceVisibility_);
+    ImGui::TextDisabled(
+        "Underwater Factor: %.3f", lightShaftUnderwaterFactor_);
+    ImGui::TextDisabled(
+        "Effective Active Factor: %.3f",
+        lightShaftEffectiveActiveFactor_);
+    if (ImGui::Button("Visibility Test")) {
+        lightShaftNumSamples_ = 32;
+        lightShaftDensity_ = 0.90f;
+        lightShaftDecay_ = 0.96f;
+        lightShaftWeight_ = 0.08f;
+        lightShaftExposure_ = 1.00f;
+        lightShaftSourceRadius_ = 1.20f;
+    }
     ImGui::Separator();
     ImGui::Text("Marine Snow");
     if (ImGui::Checkbox("Marine Snow Enabled", &marineSnowEnabled_)) {
@@ -303,16 +328,42 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
     parameters.waterLevelY = waterLevelY_;
     parameters.sourceRadius = std::max(lightShaftSourceRadius_, 0.0001f);
     parameters.offscreenFadeDistance = kLightShaftOffscreenFadeDistance;
+    parameters.lightUv = { 0.5f, 0.5f };
+
+    lightShaftRawUv_ = parameters.lightUv;
+    lightShaftEffectiveUv_ = parameters.lightUv;
+    lightShaftSourceVisibility_ = 0.0f;
+    lightShaftUnderwaterFactor_ = 0.0f;
+    lightShaftEffectiveActiveFactor_ = 0.0f;
+
+    const auto submitParameters = [&]() {
+        lightShaftEffectiveUv_ = parameters.lightUv;
+        lightShaftSourceVisibility_ = parameters.sourceVisibility;
+        lightShaftUnderwaterFactor_ = parameters.underwaterFactor;
+        const bool mediumActive =
+            renderManager_->IsEffectEnabled(PostEffectMode::DepthFog) &&
+            renderManager_->IsUnderwaterMediumEnabled();
+        lightShaftEffectiveActiveFactor_ =
+            lightShaftEnabled_ && mediumActive
+            ? parameters.sourceVisibility * parameters.underwaterFactor
+            : 0.0f;
+        renderManager_->SetLightShaftParameters(parameters);
+    };
 
     if (!camera_) {
         parameters.inverseViewProjection = Matrix4x4::MakeIdentity4x4();
         parameters.sourceVisibility = 0.0f;
-        renderManager_->SetLightShaftParameters(parameters);
+        submitParameters();
         return;
     }
 
     const Matrix4x4& viewProjection = camera_->GetViewProjectionMatrix();
     parameters.inverseViewProjection = Matrix4x4::Inverse(viewProjection);
+    const Vector3 cameraPosition = camera_->GetTranslate();
+    parameters.underwaterFactor = Smoothstep(
+        0.0f,
+        kLightShaftUnderwaterFadeDistance,
+        waterLevelY_ - cameraPosition.y);
 
     const float directionLength = std::sqrt(
         lightShaftDirection_.x * lightShaftDirection_.x +
@@ -320,7 +371,7 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
         lightShaftDirection_.z * lightShaftDirection_.z);
     if (directionLength <= 0.0001f) {
         parameters.sourceVisibility = 0.0f;
-        renderManager_->SetLightShaftParameters(parameters);
+        submitParameters();
         return;
     }
 
@@ -329,7 +380,6 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
         lightShaftDirection_.y / directionLength,
         lightShaftDirection_.z / directionLength,
     };
-    const Vector3 cameraPosition = camera_->GetTranslate();
     const Vector3 sourcePosition = {
         cameraPosition.x + direction.x * kLightShaftVirtualSourceDistance,
         cameraPosition.y + direction.y * kLightShaftVirtualSourceDistance,
@@ -357,28 +407,31 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
     } else {
         const float ndcX = clipX / clipW;
         const float ndcY = clipY / clipW;
-        parameters.lightUv = {
+        lightShaftRawUv_ = {
             ndcX * 0.5f + 0.5f,
             0.5f - ndcY * 0.5f,
         };
-
-        const float outsideX = std::max(
-            std::max(-parameters.lightUv.x, 0.0f),
-            parameters.lightUv.x - 1.0f);
-        const float outsideY = std::max(
-            std::max(-parameters.lightUv.y, 0.0f),
-            parameters.lightUv.y - 1.0f);
-        const float outsideDistance = std::sqrt(
-            outsideX * outsideX + outsideY * outsideY);
-        parameters.sourceVisibility = 1.0f - Smoothstep(
-            0.0f, parameters.offscreenFadeDistance, outsideDistance);
+        const Vector2 screenCenter{ 0.5f, 0.5f };
+        const Vector2 toRaw{
+            lightShaftRawUv_.x - screenCenter.x,
+            lightShaftRawUv_.y - screenCenter.y,
+        };
+        const float rawDistance = std::sqrt(
+            toRaw.x * toRaw.x + toRaw.y * toRaw.y);
+        const float controlledDistance = std::clamp(
+            lightShaftVirtualSourceScreenDistance_, 0.55f, 2.0f);
+        parameters.lightUv = lightShaftRawUv_;
+        if (rawDistance > controlledDistance && rawDistance > 0.0001f) {
+            const float scale = controlledDistance / rawDistance;
+            parameters.lightUv = {
+                screenCenter.x + toRaw.x * scale,
+                screenCenter.y + toRaw.y * scale,
+            };
+        }
+        parameters.sourceVisibility = 1.0f;
     }
 
-    parameters.underwaterFactor = Smoothstep(
-        0.0f,
-        kLightShaftUnderwaterFadeDistance,
-        waterLevelY_ - cameraPosition.y);
-    renderManager_->SetLightShaftParameters(parameters);
+    submitParameters();
 }
 
 void UnderwaterEnvironment::ApplyFloorSettings_() {

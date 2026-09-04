@@ -105,6 +105,12 @@ private:
     float lightShaftExposure_ = 0.35f;
     float lightShaftSourceRadius_ = 0.85f;
     float lightShaftOcclusionDepthRange_ = 120.0f;
+    float lightShaftVirtualSourceScreenDistance_ = 1.0f;
+    Vector2 lightShaftRawUv_{ 0.5f, 0.5f };
+    Vector2 lightShaftEffectiveUv_{ 0.5f, 0.5f };
+    float lightShaftSourceVisibility_ = 0.0f;
+    float lightShaftUnderwaterFactor_ = 0.0f;
+    float lightShaftEffectiveActiveFactor_ = 0.0f;
 
     std::vector<std::string> marineSnowGroupNames_;
     bool marineSnowEnabled_ = true;

@@ -71,6 +71,7 @@ public:
     void SetMode(PostEffectMode mode);
     void SetEffectEnabled(PostEffectMode mode, bool enabled);
     bool IsEffectEnabled(PostEffectMode mode) const;
+    bool IsUnderwaterMediumEnabled() const { return underwaterMediumEnabled_; }
     void ClearEffects();
     void SetRadialBlurParameters(const Vector2& center, int32_t numSamples, float blurWidth);
     void SetDissolveTransition(float threshold, const Vector4& color, float edgeWidth = 0.0f);
