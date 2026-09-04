@@ -31,7 +31,8 @@ void GameScene::OnEnter(GameApp& app) {
     app.ObjCom()->SetDefaultCamera(camera_.get());
 
     underwaterEnvironment_ = std::make_unique<UnderwaterEnvironment>();
-    underwaterEnvironment_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
+    underwaterEnvironment_->Initialize(
+        app.ObjCom(), app.Dx(), camera_.get(), app.Render());
 
     player_ = std::make_unique<Player>();
     player_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
@@ -93,6 +94,7 @@ void GameScene::OnExit(GameApp& /*app*/) {
     debrisList_.clear();
     enemies_.clear();
     player_.reset();
+    if (underwaterEnvironment_) underwaterEnvironment_->Shutdown();
     underwaterEnvironment_.reset();
     camera_.reset();
 }
@@ -245,6 +247,7 @@ void GameScene::Update(GameApp& app, float dt) {
 }
 
 void GameScene::Draw(GameApp& app) {
+    if (underwaterEnvironment_) underwaterEnvironment_->DrawBackground();
     if (underwaterEnvironment_) underwaterEnvironment_->Draw();
     if (player_) player_->Draw();
 

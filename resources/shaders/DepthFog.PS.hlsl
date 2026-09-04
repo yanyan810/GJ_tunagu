@@ -1,4 +1,5 @@
 #include "CopyImage.hlsli"
+#include "UnderwaterBackground.hlsli"
 
 Texture2D<float4> gSceneTexture : register(t0);
 Texture2D<float> gDepthTexture : register(t1);
@@ -18,6 +19,15 @@ struct DepthFogParameter
     float farClip;
     float backgroundOpacity;
     float farBackgroundBlendStartRatio;
+
+    float4x4 backgroundInverseViewProjection;
+    float4 backgroundSurfaceColor;
+    float4 backgroundHorizonColor;
+    float4 backgroundLowerColor;
+    float backgroundHorizonSoftness;
+    float backgroundUpwardLift;
+    float backgroundLowerBlend;
+    float underwaterBackgroundEnabled;
 };
 
 ConstantBuffer<DepthFogParameter> gFog : register(b6);
@@ -53,11 +63,24 @@ float4 main(VertexShaderOutput input) : SV_TARGET0
 
     float3 fogColor = max(gFog.color, 0.0f);
     float depth = LoadDepth(input.position);
+    float3 farBackgroundColor = fogColor;
+    if (gFog.underwaterBackgroundEnabled >= 0.5f)
+    {
+        farBackgroundColor = EvaluateUnderwaterBackground(
+            input.texcoord,
+            gFog.backgroundInverseViewProjection,
+            gFog.backgroundSurfaceColor.rgb,
+            gFog.backgroundHorizonColor.rgb,
+            gFog.backgroundLowerColor.rgb,
+            gFog.backgroundHorizonSoftness,
+            gFog.backgroundUpwardLift,
+            gFog.backgroundLowerBlend);
+    }
     if (depth >= kBackgroundDepthThreshold)
     {
         sceneColor.rgb = lerp(
             sceneColor.rgb,
-            fogColor,
+            farBackgroundColor,
             saturate(gFog.backgroundOpacity));
         return sceneColor;
     }
@@ -80,9 +103,13 @@ float4 main(VertexShaderOutput input) : SV_TARGET0
         requestedFarBlendStart, backgroundBoundaryViewZ - 0.001f);
     float farBlend = smoothstep(
         farBlendStart, backgroundBoundaryViewZ, viewZ);
-    float fogFactor = lerp(
-        baseFogFactor, saturate(gFog.backgroundOpacity), farBlend);
-
-    sceneColor.rgb = lerp(sceneColor.rgb, fogColor, fogFactor);
+    float3 baseFoggedColor = lerp(
+        sceneColor.rgb, fogColor, baseFogFactor);
+    float3 farBackgroundFoggedColor = lerp(
+        sceneColor.rgb,
+        farBackgroundColor,
+        saturate(gFog.backgroundOpacity));
+    sceneColor.rgb = lerp(
+        baseFoggedColor, farBackgroundFoggedColor, farBlend);
     return sceneColor;
 }

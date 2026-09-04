@@ -5,6 +5,8 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
+#include "RenderManager.h"
+#include "UnderwaterBackgroundRenderer.h"
 #include "WaterSurfaceRenderer.h"
 #include <algorithm>
 #include <cstdint>
@@ -39,8 +41,15 @@ UnderwaterEnvironment::~UnderwaterEnvironment() {
 }
 
 void UnderwaterEnvironment::Initialize(
-    Object3dCommon* object3dCommon, DirectXCommon* dx, Camera* camera) {
+    Object3dCommon* object3dCommon, DirectXCommon* dx,
+    Camera* camera, RenderManager* renderManager) {
     camera_ = camera;
+    renderManager_ = renderManager;
+
+    background_ = std::make_unique<UnderwaterBackgroundRenderer>();
+    background_->Initialize(dx);
+    ApplyBackgroundSettings_();
+
     floor_ = std::make_unique<Object3d>();
     floor_->Initialize(object3dCommon, dx);
     floor_->SetCamera(camera);
@@ -63,6 +72,15 @@ void UnderwaterEnvironment::Initialize(
     LoadPlayerWake_();
 }
 
+void UnderwaterEnvironment::Shutdown() {
+    if (renderManager_) {
+        UnderwaterBackgroundParameters disabledParameters{};
+        disabledParameters.enabled = 0.0f;
+        renderManager_->SetUnderwaterBackgroundParameters(disabledParameters);
+        renderManager_ = nullptr;
+    }
+}
+
 void UnderwaterEnvironment::SetPlayerSnapshot(
     const Vector3& position, float yaw, float pitch) {
     playerSnapshotPosition_ = position;
@@ -72,6 +90,8 @@ void UnderwaterEnvironment::SetPlayerSnapshot(
 }
 
 void UnderwaterEnvironment::Update(float dt) {
+    ApplyBackgroundSettings_();
+
     if (!floor_) {
         return;
     }
@@ -117,6 +137,12 @@ void UnderwaterEnvironment::Update(float dt) {
     }
 }
 
+void UnderwaterEnvironment::DrawBackground() {
+    if (background_) {
+        background_->Draw();
+    }
+}
+
 void UnderwaterEnvironment::Draw() {
     if (floor_) {
         floor_->Draw();
@@ -138,6 +164,21 @@ void UnderwaterEnvironment::DrawWaterSurface() {
 void UnderwaterEnvironment::DrawImGui() {
 #ifdef USE_IMGUI
     ImGui::Begin("Underwater Environment");
+    ImGui::Text("Underwater Background");
+    ImGui::Checkbox("Underwater Background Enabled", &backgroundEnabled_);
+    ImGui::ColorEdit3("Background Surface Color", &backgroundSurfaceColor_.x);
+    ImGui::ColorEdit3("Background Horizon Color", &backgroundHorizonColor_.x);
+    ImGui::ColorEdit3("Background Lower Color", &backgroundLowerColor_.x);
+    ImGui::DragFloat(
+        "Background Horizon Softness",
+        &backgroundHorizonSoftness_, 0.01f, 0.05f, 1.0f, "%.2f");
+    ImGui::DragFloat(
+        "Background Upward Lift",
+        &backgroundUpwardLift_, 0.01f, 0.0f, 1.0f, "%.2f");
+    ImGui::DragFloat(
+        "Background Lower Blend",
+        &backgroundLowerBlend_, 0.01f, 0.0f, 1.0f, "%.2f");
+    ImGui::Separator();
     ImGui::DragFloat("Floor Height", &floorHeight_, 0.25f, -200.0f, 50.0f, "%.1f");
     ImGui::DragFloat("Floor Scale", &floorScale_, 1.0f, 1.0f, 500.0f, "%.0f");
     ImGui::ColorEdit4("Floor Color", &floorColor_.x);
@@ -233,6 +274,30 @@ void UnderwaterEnvironment::ApplyCausticsSettings_() {
         kCausticsFrameCount,
         kCausticsAtlasColumns,
         kCausticsAtlasRows);
+}
+
+void UnderwaterEnvironment::ApplyBackgroundSettings_() {
+    if (!background_ || !camera_) {
+        return;
+    }
+
+    UnderwaterBackgroundParameters parameters{};
+    parameters.inverseViewProjection =
+        Matrix4x4::Inverse(camera_->GetViewProjectionMatrix());
+    parameters.surfaceColor = backgroundSurfaceColor_;
+    parameters.horizonColor = backgroundHorizonColor_;
+    parameters.lowerColor = backgroundLowerColor_;
+    parameters.horizonSoftness =
+        std::max(backgroundHorizonSoftness_, 0.001f);
+    parameters.upwardLift = std::max(backgroundUpwardLift_, 0.0f);
+    parameters.lowerBlend =
+        std::clamp(backgroundLowerBlend_, 0.0f, 1.0f);
+    parameters.enabled = backgroundEnabled_ ? 1.0f : 0.0f;
+
+    background_->SetParameters(parameters);
+    if (renderManager_) {
+        renderManager_->SetUnderwaterBackgroundParameters(parameters);
+    }
 }
 
 void UnderwaterEnvironment::ApplyWaterSurfaceSettings_() {
