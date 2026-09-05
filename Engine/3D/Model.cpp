@@ -25,7 +25,10 @@ static void BuildMaterials(Model::ModelData& out,
 		out.materials[i].baseColor = {
 			baseColor.r, baseColor.g, baseColor.b, baseColor.a
 		};
-		if (mtl->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
+		const bool hasBaseColorTexture =
+			mtl->GetTexture(aiTextureType_BASE_COLOR, 0, &texPath) == AI_SUCCESS ||
+			mtl->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS;
+		if (hasBaseColorTexture) {
 			out.materials[i].textureFilePath = directoryPath + "/" + texPath.C_Str();
 		}
 		else {
@@ -1821,7 +1824,10 @@ Model::ModelData Model::LoadAssimpFile(const std::string& fullPath)
 			baseColor.r, baseColor.g, baseColor.b, baseColor.a
 		};
 
-		if (mtl->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
+		const bool hasBaseColorTexture =
+			mtl->GetTexture(aiTextureType_BASE_COLOR, 0, &texPath) == AI_SUCCESS ||
+			mtl->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS;
+		if (hasBaseColorTexture) {
 
 			std::string t = texPath.C_Str();
 

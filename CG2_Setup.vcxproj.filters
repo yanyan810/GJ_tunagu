@@ -362,6 +362,9 @@
     <ClInclude Include="Engine\Render\RenderManager.h">
       <Filter>Engine\Render</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Render\LightShaftParameters.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Render\OffscreenPass.h">
       <Filter>Engine\Render</Filter>
     </ClInclude>
@@ -437,6 +440,9 @@
     </ClInclude>
     <ClInclude Include="externals\imgui\imstb_truetype.h">
       <Filter>externals\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="resources\shaders\WaterSurfaceCommon.hlsli">
+      <Filter>shaders</Filter>
     </ClInclude>
     <ClInclude Include="Engine\3D\GeometryGenerator.h" />
     <ClInclude Include="Engine\3D\LightingParam.h" />
@@ -603,6 +609,9 @@
       <Filter>shaders</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\DepthFog.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\LightShaft.PS.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\GaussianBlurX.PS.hlsl" />

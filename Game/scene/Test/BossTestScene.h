@@ -174,7 +174,8 @@ private:
 	float causticsPlaybackTime_ = 0.0f;
 
     Vector3 bossPosition_{ 0.0f, 3.0f, 25.0f };
-    Vector3 bossRotation_{ 0.0f, 0.0f, 0.0f };
-    Vector3 bossScale_{ 12.0f, 3.0f, 24.0f };
+    Vector3 bossRotation_{ 0.0f, -1.5707963f, 0.0f };
+    Vector3 bossScale_{ 1.5f, 1.5f, 1.5f };
+    Vector3 bossVisualOffset_{ 0.0f, 0.0f, 12.0f };
     float cameraPresetDistance_ = 80.0f;
 };

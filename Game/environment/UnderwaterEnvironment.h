@@ -41,6 +41,7 @@ private:
     void ApplyCausticsSettings_();
     void ApplyBackgroundSettings_();
     void ApplyWaterSurfaceSettings_();
+    void ApplyLightShaftSettings_();
     const char* GetCausticsTexturePath_() const;
     void LoadMarineSnow_();
     void RemoveMarineSnowGroups_();
@@ -58,9 +59,9 @@ private:
     std::unique_ptr<WaterSurfaceRenderer> waterSurface_;
 
     bool backgroundEnabled_ = true;
-    Vector4 backgroundSurfaceColor_{ 0.10f, 0.42f, 0.55f, 1.0f };
-    Vector4 backgroundHorizonColor_{ 0.04f, 0.18f, 0.22f, 1.0f };
-    Vector4 backgroundLowerColor_{ 0.12f, 0.25f, 0.25f, 1.0f };
+    Vector4 backgroundSurfaceColor_{ 0.08f, 0.38f, 0.46f, 1.0f };
+    Vector4 backgroundHorizonColor_{ 0.018f, 0.115f, 0.16f, 1.0f };
+    Vector4 backgroundLowerColor_{ 0.012f, 0.055f, 0.085f, 1.0f };
     float backgroundHorizonSoftness_ = 0.45f;
     float backgroundUpwardLift_ = 0.12f;
     float backgroundLowerBlend_ = 0.80f;
@@ -70,7 +71,7 @@ private:
     Vector4 floorColor_{ 0.58f, 0.49f, 0.34f, 1.0f };
     bool sandVariationEnabled_ = true;
     float sandVariationScale_ = 0.025f;
-    float sandVariationStrength_ = 0.08f;
+    float sandVariationStrength_ = 0.14f;
 
     bool causticsEnabled_ = true;
     CausticsPreset causticsPreset_ = CausticsPreset::DeepBroad;
@@ -84,15 +85,45 @@ private:
 
     bool waterSurfaceEnabled_ = true;
     float waterLevelY_ = 28.0f;
-    Vector4 waterSurfaceTint_{ 0.16f, 0.48f, 0.58f, 0.30f };
+    Vector4 waterSurfaceTint_{ 0.025f, 0.23f, 0.25f, 0.30f };
     float waterNormalScaleA_ = 0.030f;
     float waterNormalScaleB_ = 0.055f;
     Vector2 waterNormalSpeedA_{ 0.012f, 0.006f };
     Vector2 waterNormalSpeedB_{ -0.008f, 0.011f };
-    float waterNormalStrength_ = 0.55f;
+    float waterNormalStrength_ = 0.20f;
+    float waterWaveStrength_ = 1.0f;
+    float environmentTime_ = 0.0f;
+    bool underwaterOpticsEnabled_ = true;
+    float underwaterShaftIntensity_ = 0.10f;
+    bool previousDepthFogEnabled_ = false;
+    float previousFogStart_ = 25.0f;
+    Vector3 previousFogExtinction_{80.0f, 160.0f, 320.0f};
+    float previousFogOpacity_ = 0.72f;
     float waterFresnelStrength_ = 0.75f;
     float waterFresnelPower_ = 5.0f;
-    float waterReflectionStrength_ = 0.20f;
+    float waterReflectionStrength_ = 0.65f;
+
+    bool lightShaftEnabled_ = true;
+    bool lightShaftTransmissionEnabled_ = true;
+    float lightShaftTransmissionStrength_ = 0.85f;
+    float lightShaftTransmissionScale_ = 0.008f;
+    Vector3 lightShaftDirection_{ 0.15f, 1.0f, 0.10f };
+    Vector3 lightShaftColor_{ 0.78f, 0.94f, 1.0f };
+    int lightShaftNumSamples_ = 48;
+    float lightShaftDensity_ = 0.85f;
+    float lightShaftDecay_ = 0.96f;
+    float lightShaftWeight_ = 0.030f;
+    float lightShaftExposure_ = 0.14f;
+    float lightShaftSourceRadius_ = 0.85f;
+    float lightShaftOcclusionDepthRange_ = 120.0f;
+    float lightShaftVirtualSourceScreenDistance_ = 1.0f;
+    Vector2 lightShaftRawUv_{ 0.5f, 0.5f };
+    Vector2 lightShaftEffectiveUv_{ 0.5f, 0.5f };
+    float lightShaftSourceVisibility_ = 0.0f;
+    float lightShaftUnderwaterFactor_ = 0.0f;
+    float lightShaftShaderActiveFactor_ = 0.0f;
+    bool lightShaftMediumActive_ = false;
+    int lightShaftDebugMode_ = 0;
 
     std::vector<std::string> marineSnowGroupNames_;
     bool marineSnowEnabled_ = true;

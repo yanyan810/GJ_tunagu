@@ -331,23 +331,25 @@ void BossTestScene::ApplyCausticsSettings_() {
 }
 
 void BossTestScene::CreateTemporaryBoss_(GameApp& app) {
-    // Replace only this model path when the final ship asset becomes available.
-    boss_ = CreateObject(app, camera_.get(), "cube/cube.obj",
+    boss_ = CreateObject(app, camera_.get(), "Boss_Ship/sip.gltf",
         bossPosition_, bossRotation_, bossScale_);
-    boss_->SetMaterialColor({ 0.55f, 0.18f, 0.12f, 1.0f });
+    boss_->SetMaterialColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+    ApplyBossTransform_();
 }
 
 void BossTestScene::ApplyBossTransform_() {
     if (!boss_) return;
-    boss_->SetTranslate(bossPosition_);
+    const Matrix4x4 bossRoot = Matrix4x4::MakeAffineMatrix(
+        { 1.0f, 1.0f, 1.0f }, bossRotation_, bossPosition_);
+    boss_->SetTranslate(TransformPoint(bossVisualOffset_, bossRoot));
     boss_->SetRotate(bossRotation_);
     boss_->SetScale(bossScale_);
 }
 
 void BossTestScene::ResetTestObjects_() {
     bossPosition_ = { 0.0f, 3.0f, 25.0f };
-    bossRotation_ = {};
-    bossScale_ = { 12.0f, 3.0f, 24.0f };
+    bossRotation_ = { 0.0f, -1.5707963f, 0.0f };
+    bossScale_ = { 1.5f, 1.5f, 1.5f };
     ApplyBossTransform_();
     mines_.clear();
     pendingMineEmissions_.clear();
@@ -1597,6 +1599,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
         ImGui::DragFloat3("Position##Boss", &bossPosition_.x, 0.1f);
         ImGui::DragFloat3("Rotation##Boss", &bossRotation_.x, 0.01f);
         ImGui::DragFloat3("Scale##Boss", &bossScale_.x, 0.1f, 0.1f, 500.0f);
+        ImGui::DragFloat3("Visual Offset##Boss", &bossVisualOffset_.x, 0.1f);
     }
 
     if (ImGui::CollapsingHeader("Boss Attacks", ImGuiTreeNodeFlags_DefaultOpen)) {

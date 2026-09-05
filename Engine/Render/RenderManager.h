@@ -1,12 +1,14 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <wrl.h>
 #include <d3d12.h>
 
 #include "OffscreenPass.h"
+#include "LightShaftParameters.h"
 #include "UnderwaterBackgroundParameters.h"
 
 class DirectXCommon;
@@ -28,6 +30,7 @@ enum class PostEffectMode {
     LuminanceBasedOutline,
     LuminanceOutlineMask,
     DepthFog,
+    LightShaft,
 
     Count
 };
@@ -39,6 +42,25 @@ struct BloomParameter {
     float alpha;
     float _pad;
 };
+
+// World-space inputs for the water volume. Set enabled only when a camera and
+// its matching UnderwaterBackgroundParameters have been supplied this frame.
+struct UnderwaterMediumParameters {
+    Vector3 cameraPosition{};
+    float waterLevelY = 28.0f;
+    Vector3 sunDirection{ 0.15f, 1.0f, 0.10f }; // Toward the sun.
+    float time = 0.0f;
+    Vector3 sunColor{ 0.78f, 0.94f, 1.0f };
+    float shaftIntensity = 0.10f;
+    float depthLightRange = 180.0f;
+    float shaftScale = 0.035f;
+    int32_t shaftSamples = 8; // 0 disables volumetric shafts; otherwise 4-12.
+    float enabled = 0.0f;
+};
+static_assert(offsetof(UnderwaterMediumParameters, sunDirection) == 16);
+static_assert(offsetof(UnderwaterMediumParameters, sunColor) == 32);
+static_assert(offsetof(UnderwaterMediumParameters, depthLightRange) == 48);
+static_assert(sizeof(UnderwaterMediumParameters) == 64);
 
 class RenderManager {
 public:
@@ -69,6 +91,10 @@ public:
     void SetMode(PostEffectMode mode);
     void SetEffectEnabled(PostEffectMode mode, bool enabled);
     bool IsEffectEnabled(PostEffectMode mode) const;
+    bool IsUnderwaterMediumEnabled() const { return underwaterMediumEnabled_; }
+    float GetUnderwaterFogStartDistance() const { return depthFogStartDistance_; }
+    Vector3 GetUnderwaterFogExtinctionDistanceRGB() const { return depthFogExtinctionDistanceRGB_; }
+    float GetUnderwaterFogMaxOpacity() const { return depthFogMaxOpacity_; }
     void ClearEffects();
     void SetRadialBlurParameters(const Vector2& center, int32_t numSamples, float blurWidth);
     void SetDissolveTransition(float threshold, const Vector4& color, float edgeWidth = 0.0f);
@@ -78,6 +104,13 @@ public:
     void SetParticleLayerOutlineBloomColor(const Vector4& color) { particleLayerOutlineBloomColor_ = color; }
     void SetUnderwaterBackgroundParameters(
         const UnderwaterBackgroundParameters& parameters);
+    void SetUnderwaterMediumParameters(
+        const UnderwaterMediumParameters& parameters);
+    void SetUnderwaterFogParameters(float startDistance,
+        const Vector3& extinctionDistanceRGB, float maxOpacity);
+    void SetLightShaftParameters(
+        const LightShaftParameters& parameters,
+        D3D12_GPU_DESCRIPTOR_HANDLE transmissionTexture = {});
 
     uint32_t GetOffscreenSrvIndex() const;
     uint32_t GetPreviewSrvIndex() const;
@@ -202,11 +235,19 @@ private:
         float backgroundOpacity;
         float farBackgroundBlendStartRatio;
         UnderwaterBackgroundParameters background;
+        Vector3 extinctionDistanceRGB;
+        float underwaterMediumEnabled;
+        UnderwaterMediumParameters medium;
     };
-    static_assert(sizeof(DepthFogParameter) == 176);
+    static_assert(offsetof(DepthFogParameter, background) == 48);
+    static_assert(offsetof(DepthFogParameter, extinctionDistanceRGB) == 176);
+    static_assert(offsetof(DepthFogParameter, medium) == 192);
+    static_assert(sizeof(DepthFogParameter) == 256);
     static_assert(sizeof(DepthFogParameter) % 16 == 0);
     Microsoft::WRL::ComPtr<ID3D12Resource> depthFogCB_;
     DepthFogParameter* depthFogCBData_ = nullptr;
+    // Controls are edited on the CPU, then copied once when recording a draw.
+    DepthFogParameter depthFogParameters_{};
 
     Vector3 depthFogColor_ = { 0.04f, 0.18f, 0.22f };
     float depthFogStartDistance_ = 25.0f;
@@ -215,7 +256,14 @@ private:
     float depthFogMaxOpacity_ = 0.72f;
     float depthFogBackgroundOpacity_ = 1.0f;
     float depthFogFarBackgroundBlendStartRatio_ = 0.85f;
+    Vector3 depthFogExtinctionDistanceRGB_{ 80.0f, 160.0f, 320.0f };
+    bool underwaterMediumEnabled_ = true;
     UnderwaterBackgroundParameters underwaterBackgroundParameters_{};
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> lightShaftCB_;
+    LightShaftParameters* lightShaftCBData_ = nullptr;
+    LightShaftParameters lightShaftParameters_{};
+    D3D12_GPU_DESCRIPTOR_HANDLE lightShaftTransmissionTexture_{};
 
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomCB_;
     BloomParameter* bloomCBData_ = nullptr;

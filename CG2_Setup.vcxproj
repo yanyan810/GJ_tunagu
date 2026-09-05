@@ -203,6 +203,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\ShockwaveRock.cpp" />
     <ClCompile Include="Game\boss\AnchorAttack.cpp" />
     <ClCompile Include="Game\boss\ScrewAttack.cpp" />
+    <ClCompile Include="Game\boss\BossBulletAttack.cpp" />
+    <ClCompile Include="Game\boss\BossNetAttack.cpp" />
     <ClCompile Include="Engine\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="Engine\Core\CrashHandler.cpp" />
     <ClCompile Include="Engine\Audio\AudioSystem.cpp" />
@@ -236,6 +238,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\scene\Main\GameScene.cpp" />
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp" />
     <ClCompile Include="Game\scene\Test\BossTestScene.cpp" />
+    <ClCompile Include="Game\scene\Test\ShipScene.cpp" />
     <ClCompile Include="Game\scene\Flow\GameOverScene.cpp" />
     <ClCompile Include="main.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
@@ -285,6 +288,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="resources\shaders\DepthFog.PS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\LightShaft.PS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -500,9 +508,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\math\Quaternion.h" />
     <ClInclude Include="Engine\Render\OffscreenPass.h" />
     <ClInclude Include="Engine\Render\RenderManager.h" />
+    <ClInclude Include="Engine\Render\LightShaftParameters.h" />
     <ClInclude Include="Engine\Render\UnderwaterBackgroundParameters.h" />
     <ClInclude Include="Engine\Render\UnderwaterBackgroundRenderer.h" />
     <ClInclude Include="Engine\Render\WaterSurfaceRenderer.h" />
+    <ClInclude Include="resources\shaders\WaterSurfaceCommon.hlsli" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />
     <ClInclude Include="externals\imgui\backends\imgui_impl_dx12.h" />
@@ -572,6 +582,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\scene\Main\GameScene.h" />
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h" />
     <ClInclude Include="Game\scene\Test\BossTestScene.h" />
+    <ClInclude Include="Game\boss\BossBulletAttack.h" />
+    <ClInclude Include="Game\boss\BossNetAttack.h" />
+    <ClInclude Include="Game\scene\Test\ShipScene.h" />
     <ClInclude Include="Game\scene\Flow\GameOverScene.h" />
     <ClInclude Include="Game\player\Player.h" />
     <ClInclude Include="Game\player\Debris.h" />

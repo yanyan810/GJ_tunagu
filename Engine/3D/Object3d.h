@@ -92,9 +92,13 @@ public:
 
 	void Draw();
 
-	void SetModel(Model* model) { this->model_ = model; }
+	void SetModel(Model* model);
 
 	void SetModel(const std::string& filePath);
+	size_t GetMeshInstanceCount() const { return model_ ? model_->GetNodeInstances().size() : 0; }
+	std::string GetMeshInstanceNodeName(size_t instanceIndex) const;
+	void SetMeshInstanceExplosionOffset(size_t instanceIndex, const Vector3& translate, const Vector3& rotate);
+	void ResetMeshInstanceExplosionOffsets();
 
 	void SetBillboard(bool billboard) { isBillboard_ = billboard; }
 	bool GetBillboard() const { return isBillboard_; }
@@ -250,6 +254,7 @@ public:
 
 private:
 	void EnsureInstanceMaterial_();
+	void RebuildNodeTransformResources_();
 	void BindCaustics_(ID3D12GraphicsCommandList* commandList) const;
 
 	bool useEnvironmentMap_ = false;
@@ -269,6 +274,13 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourceModel;/* = dxCommon->CreateBufferResource(sizeof(TransformationMatrix));*/
 	TransformationMatrix* transformationMatrixDataModel = nullptr;
+	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> nodeTransformationResources_;
+	std::vector<TransformationMatrix*> nodeTransformationData_;
+	struct MeshInstanceExplosionOffset {
+		Vector3 translate{};
+		Vector3 rotate{};
+	};
+	std::vector<MeshInstanceExplosionOffset> meshInstanceExplosionOffsets_;
 
 	Transform transform;
 	Transform cameraTransform;
