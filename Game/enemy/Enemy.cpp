@@ -58,8 +58,6 @@ void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam
     hp_ = maxHp_;
     isDead_ = false;
     damageFlashTimer_ = 0.0f;
-    bullets_.clear();
-    nets_.clear();
 }
 
 void Enemy::Update(float dt, const Vector3& playerPos) {
