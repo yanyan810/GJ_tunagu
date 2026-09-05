@@ -96,6 +96,9 @@ private:
     float waterReflectionStrength_ = 0.20f;
 
     bool lightShaftEnabled_ = true;
+    bool lightShaftTransmissionEnabled_ = true;
+    float lightShaftTransmissionStrength_ = 0.85f;
+    float lightShaftTransmissionScale_ = 0.008f;
     Vector3 lightShaftDirection_{ 0.15f, 1.0f, 0.10f };
     Vector3 lightShaftColor_{ 0.78f, 0.94f, 1.0f };
     int lightShaftNumSamples_ = 48;

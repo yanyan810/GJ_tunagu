@@ -81,7 +81,9 @@ public:
     void SetParticleLayerOutlineBloomColor(const Vector4& color) { particleLayerOutlineBloomColor_ = color; }
     void SetUnderwaterBackgroundParameters(
         const UnderwaterBackgroundParameters& parameters);
-    void SetLightShaftParameters(const LightShaftParameters& parameters);
+    void SetLightShaftParameters(
+        const LightShaftParameters& parameters,
+        D3D12_GPU_DESCRIPTOR_HANDLE transmissionTexture = {});
 
     uint32_t GetOffscreenSrvIndex() const;
     uint32_t GetPreviewSrvIndex() const;
@@ -228,6 +230,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> lightShaftCB_;
     LightShaftParameters* lightShaftCBData_ = nullptr;
     LightShaftParameters lightShaftParameters_{};
+    D3D12_GPU_DESCRIPTOR_HANDLE lightShaftTransmissionTexture_{};
 
     Microsoft::WRL::ComPtr<ID3D12Resource> bloomCB_;
     BloomParameter* bloomCBData_ = nullptr;
