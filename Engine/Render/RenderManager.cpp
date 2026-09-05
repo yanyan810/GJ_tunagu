@@ -383,9 +383,11 @@ void RenderManager::SetUnderwaterBackgroundParameters(
 }
 
 void RenderManager::SetLightShaftParameters(
-    const LightShaftParameters& parameters)
+    const LightShaftParameters& parameters,
+    D3D12_GPU_DESCRIPTOR_HANDLE transmissionTexture)
 {
     lightShaftParameters_ = parameters;
+    lightShaftTransmissionTexture_ = transmissionTexture;
 }
 
 void RenderManager::BeginOffscreen()
@@ -501,7 +503,13 @@ void RenderManager::CreateCopyImageRootSignature()
     range1.BaseShaderRegister = 1; // t1
     range1.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParams[10]{};
+    D3D12_DESCRIPTOR_RANGE range2{};
+    range2.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    range2.NumDescriptors = 1;
+    range2.BaseShaderRegister = 2; // t2: Light Shaft water transmission
+    range2.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    D3D12_ROOT_PARAMETER rootParams[11]{};
     // [0]: SRV (t0) Color
     rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -561,6 +569,12 @@ void RenderManager::CreateCopyImageRootSignature()
     rootParams[9].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParams[9].Descriptor.ShaderRegister = 7;
     rootParams[9].Descriptor.RegisterSpace = 0;
+
+    // [10]: SRV (t2). Existing post-effect root indices stay unchanged.
+    rootParams[10].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParams[10].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParams[10].DescriptorTable.NumDescriptorRanges = 1;
+    rootParams[10].DescriptorTable.pDescriptorRanges = &range2;
 
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -666,6 +680,15 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
         cmd->SetGraphicsRootConstantBufferView(8, depthFogCB_->GetGPUVirtualAddress());
     } else if (mode == PostEffectMode::LightShaft) {
         LightShaftParameters effectiveParameters = lightShaftParameters_;
+        const bool hasTransmissionTexture = lightShaftTransmissionTexture_.ptr != 0;
+        if (!hasTransmissionTexture) {
+            effectiveParameters.transmissionEnabled = 0.0f;
+        }
+        // Bind a valid descriptor even before an environment has supplied its atlas.
+        // The disabled shader path never samples this unused binding.
+        cmd->SetGraphicsRootDescriptorTable(10, hasTransmissionTexture
+            ? lightShaftTransmissionTexture_
+            : srv_->GetGPUDescriptionHandle(srcSrvIndex));
         const bool fogActive =
             enabledEffects_[static_cast<int>(PostEffectMode::DepthFog)];
 

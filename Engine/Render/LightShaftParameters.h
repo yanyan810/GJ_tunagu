@@ -3,6 +3,7 @@
 #include "Matrix4x4.h"
 
 #include <cstdint>
+#include <cstddef>
 
 struct LightShaftParameters {
     Matrix4x4 inverseViewProjection;
@@ -28,7 +29,23 @@ struct LightShaftParameters {
     float sourceRadius;
     float offscreenFadeDistance;
     float debugMode;
+
+    Vector3 cameraPosition;
+    float transmissionEnabled;
+
+    float transmissionStrength;
+    float transmissionScale;
+    float transmissionMean;
+    float transmissionFrameBlend;
+
+    uint32_t transmissionCurrentFrame;
+    uint32_t transmissionNextFrame;
+    uint32_t transmissionAtlasColumns;
+    uint32_t transmissionAtlasRows;
 };
 
-static_assert(sizeof(LightShaftParameters) == 144);
+static_assert(offsetof(LightShaftParameters, cameraPosition) == 144);
+static_assert(offsetof(LightShaftParameters, transmissionStrength) == 160);
+static_assert(offsetof(LightShaftParameters, transmissionCurrentFrame) == 176);
+static_assert(sizeof(LightShaftParameters) == 192);
 static_assert(sizeof(LightShaftParameters) % 16 == 0);

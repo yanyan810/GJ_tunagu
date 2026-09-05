@@ -6,6 +6,7 @@
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
 #include "RenderManager.h"
+#include "TextureManager.h"
 #include "UnderwaterBackgroundRenderer.h"
 #include "WaterSurfaceRenderer.h"
 #include <algorithm>
@@ -59,7 +60,6 @@ void UnderwaterEnvironment::Initialize(
     background_ = std::make_unique<UnderwaterBackgroundRenderer>();
     background_->Initialize(dx);
     ApplyBackgroundSettings_();
-    ApplyLightShaftSettings_();
 
     floor_ = std::make_unique<Object3d>();
     floor_->Initialize(object3dCommon, dx);
@@ -78,6 +78,7 @@ void UnderwaterEnvironment::Initialize(
     waterSurface_->Initialize(dx, camera);
     ApplyWaterSurfaceSettings_();
     waterSurface_->Update(0.0f);
+    ApplyLightShaftSettings_();
 
     LoadMarineSnow_();
     LoadPlayerWake_();
@@ -103,9 +104,9 @@ void UnderwaterEnvironment::SetPlayerSnapshot(
 
 void UnderwaterEnvironment::Update(float dt) {
     ApplyBackgroundSettings_();
-    ApplyLightShaftSettings_();
 
     if (!floor_) {
+        ApplyLightShaftSettings_();
         return;
     }
 
@@ -128,6 +129,8 @@ void UnderwaterEnvironment::Update(float dt) {
         ApplyWaterSurfaceSettings_();
         waterSurface_->Update(dt);
     }
+    // Submit after advancing the atlas clock, so floor and shafts use the same frame.
+    ApplyLightShaftSettings_();
 
     UpdatePlayerWake_(dt);
 
@@ -235,6 +238,11 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::Separator();
     ImGui::Text("Light Shaft / God Ray");
     ImGui::Checkbox("Light Shaft Enabled", &lightShaftEnabled_);
+    ImGui::Checkbox("Water Transmission Enabled", &lightShaftTransmissionEnabled_);
+    ImGui::DragFloat("Transmission Strength", &lightShaftTransmissionStrength_,
+        0.01f, 0.0f, 1.0f, "%.2f");
+    ImGui::DragFloat("Transmission Scale", &lightShaftTransmissionScale_,
+        0.0005f, 0.001f, 0.05f, "%.4f");
     ImGui::DragFloat3(
         "Toward Sun Direction", &lightShaftDirection_.x,
         0.01f, -1.0f, 1.0f, "%.2f");
@@ -271,7 +279,8 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::Combo(
         "Debug View", &lightShaftDebugMode_,
         "Normal\0Pass Solid Magenta\0Source Profile\0Depth Visibility\0"
-        "Scattering\0Shaft Contribution\0");
+        "Scattering\0Shaft Contribution\0Water Transmission\0");
+    ImGui::TextDisabled("Transmission debug: neutral = 0.25; animation follows Caustics.");
     if (ImGui::Button("Visibility Test")) {
         lightShaftNumSamples_ = 32;
         lightShaftDensity_ = 0.90f;
@@ -336,8 +345,28 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
     parameters.sourceRadius = std::max(lightShaftSourceRadius_, 0.0001f);
     parameters.offscreenFadeDistance = kLightShaftOffscreenFadeDistance;
     parameters.debugMode = static_cast<float>(
-        std::clamp(lightShaftDebugMode_, 0, 5));
+        std::clamp(lightShaftDebugMode_, 0, 6));
     parameters.lightUv = { 0.5f, 0.5f };
+    parameters.transmissionEnabled =
+        lightShaftTransmissionEnabled_ && floor_ && camera_ ? 1.0f : 0.0f;
+    parameters.transmissionStrength = std::clamp(lightShaftTransmissionStrength_, 0.0f, 1.0f);
+    parameters.transmissionScale = std::clamp(lightShaftTransmissionScale_, 0.001f, 0.05f);
+    // Approximate spatial means of sqrt(linear atlas R), measured from the existing assets.
+    // Normalize each frame before temporal blending to avoid darkening the whole shaft.
+    parameters.transmissionMean = causticsPreset_ == CausticsPreset::DeepBroad ? 0.23f : 0.17f;
+    parameters.transmissionAtlasColumns = kCausticsAtlasColumns;
+    parameters.transmissionAtlasRows = kCausticsAtlasRows;
+    if (causticsAnimationEnabled_) {
+        const float framePosition =
+            std::max(causticsPlaybackTime_, 0.0f) /
+            std::max(causticsLoopDuration_, 0.0001f) * kCausticsFrameCount;
+        const float frameFloor = std::floor(framePosition);
+        parameters.transmissionCurrentFrame =
+            static_cast<uint32_t>(frameFloor) % kCausticsFrameCount;
+        parameters.transmissionNextFrame =
+            (parameters.transmissionCurrentFrame + 1) % kCausticsFrameCount;
+        parameters.transmissionFrameBlend = framePosition - frameFloor;
+    }
 
     lightShaftRawUv_ = parameters.lightUv;
     lightShaftEffectiveUv_ = parameters.lightUv;
@@ -355,7 +384,10 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
         lightShaftMediumActive_ =
             renderManager_->IsEffectEnabled(PostEffectMode::DepthFog) &&
             renderManager_->IsUnderwaterMediumEnabled();
-        renderManager_->SetLightShaftParameters(parameters);
+        const D3D12_GPU_DESCRIPTOR_HANDLE atlasHandle = floor_
+            ? TextureManager::GetInstance()->GetSrvHandleGPU(GetCausticsTexturePath_())
+            : D3D12_GPU_DESCRIPTOR_HANDLE{};
+        renderManager_->SetLightShaftParameters(parameters, atlasHandle);
     };
 
     if (!camera_) {
@@ -368,6 +400,7 @@ void UnderwaterEnvironment::ApplyLightShaftSettings_() {
     const Matrix4x4& viewProjection = camera_->GetViewProjectionMatrix();
     parameters.inverseViewProjection = Matrix4x4::Inverse(viewProjection);
     const Vector3 cameraPosition = camera_->GetTranslate();
+    parameters.cameraPosition = cameraPosition;
     parameters.underwaterFactor = Smoothstep(
         0.0f,
         kLightShaftUnderwaterFadeDistance,
