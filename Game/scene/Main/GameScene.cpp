@@ -17,6 +17,32 @@
 #include <cstdlib>
 #include <ctime>
 
+namespace {
+    // 3Dワールド座標がカメラの画面内（視界内・描画範囲）に映っているか判定するヘルパー関数
+    bool IsBossInScreen(const Vector3& worldPos, const Camera* camera) {
+        if (!camera) return false;
+
+        Matrix4x4 vpMat = camera->GetViewProjectionMatrix();
+
+        // ワールド座標を WVP 行列で同次座標系へ変換
+        float x = worldPos.x * vpMat.m[0][0] + worldPos.y * vpMat.m[1][0] + worldPos.z * vpMat.m[2][0] + vpMat.m[3][0];
+        float y = worldPos.x * vpMat.m[0][1] + worldPos.y * vpMat.m[1][1] + worldPos.z * vpMat.m[2][1] + vpMat.m[3][1];
+        float z = worldPos.x * vpMat.m[0][2] + worldPos.y * vpMat.m[1][2] + worldPos.z * vpMat.m[2][2] + vpMat.m[3][2];
+        float w = worldPos.x * vpMat.m[0][3] + worldPos.y * vpMat.m[1][3] + worldPos.z * vpMat.m[2][3] + vpMat.m[3][3];
+
+        // カメラの背後にある場合 (w <= 0.001f) は画面外
+        if (w <= 0.001f) return false;
+
+        // 正規化デバイス座標 (NDC: -1.0 ~ 1.0)
+        float ndcX = x / w;
+        float ndcY = y / w;
+        float ndcZ = z / w;
+
+        // 画面内（マージンを含めて ±1.15 の範囲）に収まっているか判定
+        return (ndcX >= -1.15f && ndcX <= 1.15f && ndcY >= -1.15f && ndcY <= 1.15f && ndcZ >= 0.0f && ndcZ <= 1.0f);
+    }
+}
+
 GameScene::GameScene() = default;
 GameScene::~GameScene() = default;
 
@@ -47,6 +73,27 @@ void GameScene::OnEnter(GameApp& app) {
     hpBarFillSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
     hpBarFillSprite_->SetPosition({ 34.0f, 34.0f });
     hpBarFillSprite_->SetColor({ 0.0f, 1.0f, 0.0f, 1.0f }); // 初期値：緑
+
+    // 2D UI スプライトで構築する画面右上 ボスHPバーの初期化
+    bossHpBarFrameSprite_ = std::make_unique<Sprite>();
+    bossHpBarFrameSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
+    bossHpBarFrameSprite_->SetColor({ 0.85f, 0.65f, 0.15f, 0.95f }); // ダークゴールド枠
+
+    bossHpBarBgSprite_ = std::make_unique<Sprite>();
+    bossHpBarBgSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
+    bossHpBarBgSprite_->SetColor({ 0.15f, 0.05f, 0.05f, 0.85f }); // 暗赤色背景
+
+    bossHpBarCatchupSprite_ = std::make_unique<Sprite>();
+    bossHpBarCatchupSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
+    bossHpBarCatchupSprite_->SetColor({ 1.0f, 0.90f, 0.70f, 0.85f }); // 被弾残影ゲージ (白/薄橙)
+
+    bossHpBarFillSprite_ = std::make_unique<Sprite>();
+    bossHpBarFillSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
+    bossHpBarFillSprite_->SetColor({ 0.95f, 0.15f, 0.15f, 1.0f }); // ボスメインゲージ (深赤)
+
+    bossHpCatchupRatio_ = 1.0f;
+    bossHpShakeTimer_ = 0.0f;
+    clearTransitionTimer_ = 0.0f;
 
     // 漂う海洋生物・装備の初期スポーン
     debrisList_.clear();
@@ -93,6 +140,10 @@ void GameScene::OnEnter(GameApp& app) {
 }
 
 void GameScene::OnExit(GameApp& /*app*/) {
+    bossHpBarFillSprite_.reset();
+    bossHpBarCatchupSprite_.reset();
+    bossHpBarBgSprite_.reset();
+    bossHpBarFrameSprite_.reset();
     hpBarFillSprite_.reset();
     hpBarBgSprite_.reset();
     debrisList_.clear();
@@ -127,14 +178,25 @@ void GameScene::Update(GameApp& app, float dt) {
         bossShip_->Update(dt, player_->GetPosition());
         bossShip_->CheckCollisionWithPlayer(player_.get());
 
-        // プレイヤーにエイムアシスト用ターゲット位置を連携
-        player_->SetTargetPos(bossShip_->GetPosition(), !bossShip_->IsDead());
+        // ボスが画面内に映っている時のみエイムアシスト・ホーミングターゲット位置を連携
+        bool isBossVisibleInScreen = IsBossInScreen(bossShip_->GetPosition(), camera_.get());
+        player_->SetTargetPos(bossShip_->GetPosition(), (!bossShip_->IsDead() && isBossVisibleInScreen));
+
+        // ボス撃破時のクリア画面自動遷移タイマー処理
+        if (bossShip_->IsDead()) {
+            clearTransitionTimer_ += dt;
+            if (clearTransitionTimer_ >= 1.5f) {
+                app.Scenes().Change(app, "GameClear");
+                return;
+            }
+        }
 
         // 投げられたゴミ/海洋生物とボス船の衝突判定
         for (auto& debris : debrisList_) {
             if (debris->GetState() == DebrisState::Thrown && !debris->IsDead()) {
                 if (bossShip_->CheckCollisionWithDebris(debris.get())) {
                     debris->SetDead(true);
+                    bossHpShakeTimer_ = 0.35f; // 被弾時にHPバーを振動させる
                 }
             }
         }
@@ -186,14 +248,14 @@ void GameScene::Update(GameApp& app, float dt) {
         camera_->SetRotate({ camPitch, camYaw, 0.0f });
         camera_->Update();
 
+        // 2D正射影行列 (1280 x 720 スクリーンスペース)
+        Matrix4x4 viewMat = Matrix4x4::MakeIdentity4x4();
+        Matrix4x4 projMat = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
+
         // ----------------------------------------------------
         // 2D UI スプライトによる画面左上 HPバーのトランスフォーム＆「緑→黄→赤」カラー更新
         // ----------------------------------------------------
         if (player_ && hpBarBgSprite_ && hpBarFillSprite_) {
-            // 2D正射影行列 (1280 x 720 スクリーンスペース)
-            Matrix4x4 viewMat = Matrix4x4::MakeIdentity4x4();
-            Matrix4x4 projMat = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
-
             // 背景バーのサイズ指定 (幅 300px, 高さ 30px)
             const DirectX::TexMetadata& bgMeta = TextureManager::GetInstance()->GetMetaData(hpBarBgSprite_->GetTextureFilePath());
             float bgTexW = (std::max)(1.0f, static_cast<float>(bgMeta.width));
@@ -236,6 +298,77 @@ void GameScene::Update(GameApp& app, float dt) {
 
             hpBarFillSprite_->Update(viewMat, projMat);
         }
+
+        // ----------------------------------------------------
+        // 2D UI スプライトによる画面右上 ボスHPバーのトランスフォーム＆アニメーション更新
+        // ----------------------------------------------------
+        if (bossShip_ && bossHpBarFrameSprite_ && bossHpBarBgSprite_ && bossHpBarCatchupSprite_ && bossHpBarFillSprite_) {
+            // 被弾シェイク計算
+            float shakeX = 0.0f;
+            float shakeY = 0.0f;
+            if (bossHpShakeTimer_ > 0.0f) {
+                bossHpShakeTimer_ -= dt;
+                shakeX = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * 8.0f;
+                shakeY = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * 8.0f;
+            }
+
+            // ボスHP割合
+            float realRatio = bossShip_->GetHpRatio();
+            realRatio = std::clamp(realRatio, 0.0f, 1.0f);
+
+            // 白残影ゲージを実際の割合に向けて滑らかに追従縮小
+            if (bossHpCatchupRatio_ > realRatio) {
+                bossHpCatchupRatio_ -= 0.6f * dt;
+                if (bossHpCatchupRatio_ < realRatio) bossHpCatchupRatio_ = realRatio;
+            } else {
+                bossHpCatchupRatio_ = realRatio;
+            }
+
+            // 右上の基準座標 (X=750, Y=30)
+            float basePosX = 750.0f + shakeX;
+            float basePosY = 30.0f + shakeY;
+
+            // ① 外枠 (幅 480px, 高さ 36px)
+            const DirectX::TexMetadata& frameMeta = TextureManager::GetInstance()->GetMetaData(bossHpBarFrameSprite_->GetTextureFilePath());
+            float frameTexW = (std::max)(1.0f, static_cast<float>(frameMeta.width));
+            float frameTexH = (std::max)(1.0f, static_cast<float>(frameMeta.height));
+            bossHpBarFrameSprite_->SetPosition({ basePosX, basePosY });
+            bossHpBarFrameSprite_->SetScale({ 480.0f / frameTexW, 36.0f / frameTexH, 1.0f });
+            bossHpBarFrameSprite_->Update(viewMat, projMat);
+
+            // ② 背景 (幅 472px, 高さ 28px)
+            const DirectX::TexMetadata& bgMeta = TextureManager::GetInstance()->GetMetaData(bossHpBarBgSprite_->GetTextureFilePath());
+            float bgTexW = (std::max)(1.0f, static_cast<float>(bgMeta.width));
+            float bgTexH = (std::max)(1.0f, static_cast<float>(bgMeta.height));
+            bossHpBarBgSprite_->SetPosition({ basePosX + 4.0f, basePosY + 4.0f });
+            bossHpBarBgSprite_->SetScale({ 472.0f / bgTexW, 28.0f / bgTexH, 1.0f });
+            bossHpBarBgSprite_->Update(viewMat, projMat);
+
+            // ③ 白残影ゲージ (幅 472px * catchupRatio, 高さ 28px)
+            const DirectX::TexMetadata& catchupMeta = TextureManager::GetInstance()->GetMetaData(bossHpBarCatchupSprite_->GetTextureFilePath());
+            float catchupTexW = (std::max)(1.0f, static_cast<float>(catchupMeta.width));
+            float catchupTexH = (std::max)(1.0f, static_cast<float>(catchupMeta.height));
+            float catchupWidth = (std::max)(0.1f, 472.0f * bossHpCatchupRatio_);
+            bossHpBarCatchupSprite_->SetPosition({ basePosX + 4.0f, basePosY + 4.0f });
+            bossHpBarCatchupSprite_->SetScale({ catchupWidth / catchupTexW, 28.0f / catchupTexH, 1.0f });
+            bossHpBarCatchupSprite_->Update(viewMat, projMat);
+
+            // ④ メインゲージ (幅 472px * realRatio, 高さ 28px)
+            const DirectX::TexMetadata& fillMeta = TextureManager::GetInstance()->GetMetaData(bossHpBarFillSprite_->GetTextureFilePath());
+            float fillTexW = (std::max)(1.0f, static_cast<float>(fillMeta.width));
+            float fillTexH = (std::max)(1.0f, static_cast<float>(fillMeta.height));
+            float fillWidth = (std::max)(0.1f, 472.0f * realRatio);
+            bossHpBarFillSprite_->SetPosition({ basePosX + 4.0f, basePosY + 4.0f });
+            bossHpBarFillSprite_->SetScale({ fillWidth / fillTexW, 28.0f / fillTexH, 1.0f });
+
+            // HP割合に応じてゲージ色を真紅→紫赤→暗赤へ変化
+            if (bossShip_->IsDead()) {
+                bossHpBarFillSprite_->SetColor({ 0.2f, 0.0f, 0.0f, 0.5f });
+            } else {
+                bossHpBarFillSprite_->SetColor({ 0.95f, 0.15f * realRatio, 0.15f * realRatio, 1.0f });
+            }
+            bossHpBarFillSprite_->Update(viewMat, projMat);
+        }
     }
 
     if (underwaterEnvironment_ && player_) {
@@ -270,14 +403,32 @@ void GameScene::Draw(GameApp& app) {
 
     ParticleManager::GetInstance()->Draw(app.Dx()->GetCommandList());
 
-    // 2D UI スプライト HPバーの描画
+    // 2D UI スプライト HPバーの描画（画面左上 プレイヤーHPバー）
     if (hpBarBgSprite_) hpBarBgSprite_->Draw();
     if (hpBarFillSprite_) hpBarFillSprite_->Draw();
+
+    // 2D UI スプライト ボスHPバーの描画（画面右上 ボスHPバー）
+    if (bossHpBarFrameSprite_) bossHpBarFrameSprite_->Draw();
+    if (bossHpBarBgSprite_) bossHpBarBgSprite_->Draw();
+    if (bossHpBarCatchupSprite_) bossHpBarCatchupSprite_->Draw();
+    if (bossHpBarFillSprite_) bossHpBarFillSprite_->Draw();
 }
 
 void GameScene::DrawImGui(GameApp& /*app*/) {
 #ifdef USE_IMGUI
-    if (bossShip_) bossShip_->DrawImGui();
+    if (bossShip_) {
+        bossShip_->DrawImGui();
+
+        ImGui::SetNextWindowPos(ImVec2(750.0f, 6.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.0f);
+        ImGui::Begin("BossHPTitleOverlay", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoSavedSettings);
+        if (bossShip_->IsDead()) {
+            ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "BOSS DESTROYED!");
+        } else {
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "BOSS : BATTLE SHIP   HP: %.0f / %.0f", bossShip_->GetHp(), bossShip_->GetMaxHp());
+        }
+        ImGui::End();
+    }
 
     ImGui::Begin("TUNA-GU Status & Creature Buffs");
     if (player_) {

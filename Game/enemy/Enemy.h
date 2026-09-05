@@ -46,6 +46,7 @@ public:
     // Getter / Setter
     float GetHp() const { return hp_; }
     float GetMaxHp() const { return maxHp_; }
+    float GetHpRatio() const { return (maxHp_ > 0.0f) ? (hp_ / maxHp_) : 0.0f; }
     bool IsDead() const { return isDead_; }
     const Vector3& GetPosition() const { return pos_; }
 
@@ -73,6 +74,7 @@ private:
     float maxHp_ = 1000.0f;
     float hp_ = 1000.0f;
     bool isDead_ = false;
+    float damageFlashTimer_ = 0.0f; // 被弾フラッシュタイマー
 
     // 行動AIパラメータ
     float moveAngle_ = 0.0f;

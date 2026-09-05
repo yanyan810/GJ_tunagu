@@ -61,12 +61,18 @@ void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam
     pos_ = { 0.0f, 35.0f, 0.0f }; // 高い上空・水上高度
     hp_ = maxHp_;
     isDead_ = false;
+    damageFlashTimer_ = 0.0f;
     bullets_.clear();
     nets_.clear();
 }
 
 void Enemy::Update(float dt, const Vector3& playerPos) {
     if (isDead_) return;
+
+    // 被弾フラッシュタイマーの更新
+    if (damageFlashTimer_ > 0.0f) {
+        damageFlashTimer_ -= dt;
+    }
 
     // 1. 水面上でプレイヤーを中心に旋回移動
     moveAngle_ += 0.3f * dt;
@@ -86,6 +92,14 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
     if (shipModel_) {
         shipModel_->SetTranslate(pos_);
         shipModel_->SetRotate(rot_);
+
+        // 被弾フラッシュ演出: ダメージ発生直後は真っ赤に明滅
+        if (damageFlashTimer_ > 0.0f) {
+            shipModel_->SetMaterialColor({ 1.0f, 0.25f, 0.25f, 1.0f });
+        } else {
+            shipModel_->SetMaterialColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+        }
+
         shipModel_->Update(dt);
     }
 
@@ -166,6 +180,7 @@ void Enemy::CastNet(const Vector3& playerPos) {
 void Enemy::TakeDamage(float damage) {
     if (isDead_) return;
     hp_ -= damage;
+    damageFlashTimer_ = 0.35f; // 被弾赤フラッシュを発動
     if (hp_ <= 0.0f) {
         hp_ = 0.0f;
         isDead_ = true;
@@ -177,21 +192,25 @@ bool Enemy::CheckCollisionWithDebris(Debris* debris) {
     if (debris->GetState() != DebrisState::Thrown) return false;
 
     Vector3 dPos = debris->GetPosition();
-    // XZ距離とY差分による立体ヒット判定
     float dx = pos_.x - dPos.x;
     float dy = pos_.y - dPos.y;
     float dz = pos_.z - dPos.z;
     float distXZSq = dx * dx + dz * dz;
 
-    float hitRadius = radius_ + 3.5f;
-    if (distXZSq <= hitRadius * hitRadius && std::abs(dy) <= 8.5f) {
+    // ボスのスケール (scale_ = {8.0, 3.0, 14.0}) および球・直方体での立体ヒット判定
+    float hitRadius = radius_ + 5.0f; // より当てやすいように半径に余裕を持たせる
+    bool hitXZ = (distXZSq <= hitRadius * hitRadius) || (std::abs(dx) <= (scale_.x + 4.0f) && std::abs(dz) <= (scale_.z + 4.0f));
+    bool hitY = std::abs(dy) <= 12.0f;
+
+    if (hitXZ && hitY) {
         // ヒット！ボスのHPを減らす
         float baseAtk = debris->GetAtk();
         float throwBuff = debris->GetThrowAtkBuff();
         float damage = baseAtk * (1.0f + throwBuff) * 2.5f;
         TakeDamage(damage);
 
-        // ヒットエフェクト
+        // ヒットエフェクト（散乱パーティクル）
+        ParticleManager::GetInstance()->Emit("Default", dPos, 25);
         ParticleManager::GetInstance()->Emit("Default", pos_, 15);
         return true;
     }

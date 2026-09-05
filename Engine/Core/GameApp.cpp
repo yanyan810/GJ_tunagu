@@ -2,6 +2,7 @@
 #include "SceneManager.h"
 #include "scene/Main/GameScene.h"
 #include "scene/Flow/GameOverScene.h"
+#include "scene/Flow/GameClearScene.h"
 #include "scene/Test/BossTestScene.h"
 
 #include "WinApp.h"
@@ -202,6 +203,7 @@ bool GameApp::Initialize_() {
     sceneMgr_->Register("Game", [] { return std::make_unique<GameScene>(); });
     sceneMgr_->Register("BossTest", [] { return std::make_unique<BossTestScene>(); });
     sceneMgr_->Register("GameOver", [] { return std::make_unique<GameOverScene>(); });
+    sceneMgr_->Register("GameClear", [] { return std::make_unique<GameClearScene>(); });
     sceneMgr_->Change(*this, "Game");
 
 

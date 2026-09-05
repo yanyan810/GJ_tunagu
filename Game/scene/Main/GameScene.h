@@ -32,4 +32,14 @@ private:
     // 2D UI スプライトで構築する画面左上 HPバー
     std::unique_ptr<Sprite> hpBarBgSprite_;
     std::unique_ptr<Sprite> hpBarFillSprite_;
+
+    // 2D UI スプライトで構築する画面右上 ボスHPバー
+    std::unique_ptr<Sprite> bossHpBarFrameSprite_;   // 外枠 (ダークゴールド/ブロンズ)
+    std::unique_ptr<Sprite> bossHpBarBgSprite_;      // 背景バー (暗赤色/ダークグレー)
+    std::unique_ptr<Sprite> bossHpBarCatchupSprite_; // ダメージ追従残影バー (白い滑らかなゲージ減算)
+    std::unique_ptr<Sprite> bossHpBarFillSprite_;    // メインHPゲージ (ボスらしいグラデーション赤)
+
+    float bossHpCatchupRatio_ = 1.0f; // ダメージ減算追従補間用
+    float bossHpShakeTimer_ = 0.0f;   // 被弾時のHPバー振動タイマー
+    float clearTransitionTimer_ = 0.0f; // ボス撃破後のクリア画面遷移用タイマー
 };

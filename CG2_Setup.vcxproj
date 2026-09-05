@@ -236,6 +236,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\scene\Main\GameScene.cpp" />
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp" />
     <ClCompile Include="Game\scene\Test\BossTestScene.cpp" />
+    <ClCompile Include="Game\scene\Flow\GameClearScene.cpp" />
     <ClCompile Include="Game\scene\Flow\GameOverScene.cpp" />
     <ClCompile Include="main.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
@@ -572,6 +573,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\scene\Main\GameScene.h" />
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h" />
     <ClInclude Include="Game\scene\Test\BossTestScene.h" />
+    <ClInclude Include="Game\scene\Flow\GameClearScene.h" />
     <ClInclude Include="Game\scene\Flow\GameOverScene.h" />
     <ClInclude Include="Game\player\Player.h" />
     <ClInclude Include="Game\player\Debris.h" />
