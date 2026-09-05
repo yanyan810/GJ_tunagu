@@ -512,6 +512,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Render\UnderwaterBackgroundParameters.h" />
     <ClInclude Include="Engine\Render\UnderwaterBackgroundRenderer.h" />
     <ClInclude Include="Engine\Render\WaterSurfaceRenderer.h" />
+    <ClInclude Include="resources\shaders\WaterSurfaceCommon.hlsli" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />
     <ClInclude Include="externals\imgui\backends\imgui_impl_dx12.h" />

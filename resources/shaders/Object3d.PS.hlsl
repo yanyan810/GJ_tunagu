@@ -211,7 +211,15 @@ float EvaluateWorldColorVariationMultiplier(float2 worldPositionXZ)
     }
 
     float centeredNoise = SampleWorldColorVariation(worldPositionXZ) * 2.0f - 1.0f;
-    return max(0.0f, 1.0f + centeredNoise * max(gEffect.worldColorVariationStrength, 0.0f));
+    // Sand ripples live in world space; derivative filtering removes distant shimmer.
+    float ripplePhase = dot(worldPositionXZ, float2(0.85f, 0.32f)) * 6.2831853f
+        + 1.8f * sin(worldPositionXZ.y * 0.15f)
+        + 0.6f * sin(worldPositionXZ.x * 0.23f);
+    float rippleVisibility = 1.0f - smoothstep(0.6f, 2.5f, fwidth(ripplePhase));
+    float ripples = (sin(ripplePhase) + 0.28f * sin(2.0f * ripplePhase))
+        * rippleVisibility;
+    float variation = centeredNoise + 0.65f * ripples;
+    return max(0.0f, 1.0f + variation * max(gEffect.worldColorVariationStrength, 0.0f));
 }
 
 PixelShaderOutput main(VertexShaderOutput input)
