@@ -441,6 +441,9 @@
     <ClInclude Include="externals\imgui\imstb_truetype.h">
       <Filter>externals\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="resources\shaders\WaterSurfaceCommon.hlsli">
+      <Filter>shaders</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\3D\GeometryGenerator.h" />
     <ClInclude Include="Engine\3D\LightingParam.h" />
     <ClInclude Include="Engine\Core\D3DResourceLeakChecker.h" />

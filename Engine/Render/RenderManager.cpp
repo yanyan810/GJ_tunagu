@@ -195,21 +195,21 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
 
     depthFogCB_ = dx_->CreateBufferResource((sizeof(DepthFogParameter) + 0xff) & ~0xff);
     depthFogCB_->Map(0, nullptr, reinterpret_cast<void**>(&depthFogCBData_));
-    depthFogCBData_->color = depthFogColor_;
-    depthFogCBData_->enabled = 1.0f;
-    depthFogCBData_->startDistance = depthFogStartDistance_;
-    depthFogCBData_->endDistance = depthFogEndDistance_;
-    depthFogCBData_->density = depthFogDensity_;
-    depthFogCBData_->maxOpacity = depthFogMaxOpacity_;
-    depthFogCBData_->nearClip = 0.1f;
-    depthFogCBData_->farClip = 1000.0f;
-    depthFogCBData_->backgroundOpacity = depthFogBackgroundOpacity_;
-    depthFogCBData_->farBackgroundBlendStartRatio =
+    depthFogParameters_.color = depthFogColor_;
+    depthFogParameters_.enabled = 1.0f;
+    depthFogParameters_.startDistance = depthFogStartDistance_;
+    depthFogParameters_.endDistance = depthFogEndDistance_;
+    depthFogParameters_.density = depthFogDensity_;
+    depthFogParameters_.maxOpacity = depthFogMaxOpacity_;
+    depthFogParameters_.nearClip = 0.1f;
+    depthFogParameters_.farClip = 1000.0f;
+    depthFogParameters_.backgroundOpacity = depthFogBackgroundOpacity_;
+    depthFogParameters_.farBackgroundBlendStartRatio =
         depthFogFarBackgroundBlendStartRatio_;
-    depthFogCBData_->background = underwaterBackgroundParameters_;
-    depthFogCBData_->extinctionDistanceRGB =
+    depthFogParameters_.background = underwaterBackgroundParameters_;
+    depthFogParameters_.extinctionDistanceRGB =
         depthFogExtinctionDistanceRGB_;
-    depthFogCBData_->underwaterMediumEnabled =
+    depthFogParameters_.underwaterMediumEnabled =
         underwaterMediumEnabled_ ? 1.0f : 0.0f;
 
     lightShaftParameters_.inverseViewProjection = Matrix4x4::MakeIdentity4x4();
@@ -378,7 +378,7 @@ void RenderManager::SetUnderwaterBackgroundParameters(
 {
     underwaterBackgroundParameters_ = parameters;
     if (depthFogCBData_) {
-        depthFogCBData_->background = underwaterBackgroundParameters_;
+        depthFogParameters_.background = underwaterBackgroundParameters_;
     }
 }
 
@@ -388,6 +388,33 @@ void RenderManager::SetLightShaftParameters(
 {
     lightShaftParameters_ = parameters;
     lightShaftTransmissionTexture_ = transmissionTexture;
+}
+
+void RenderManager::SetUnderwaterMediumParameters(
+    const UnderwaterMediumParameters& parameters)
+{
+    depthFogParameters_.medium = parameters;
+    auto& medium = depthFogParameters_.medium;
+    medium.shaftIntensity = std::clamp(medium.shaftIntensity, 0.0f, 0.5f);
+    medium.depthLightRange = std::max(medium.depthLightRange, 1.0f);
+    medium.shaftScale = std::max(medium.shaftScale, 0.0001f);
+    medium.shaftSamples = medium.shaftSamples <= 0
+        ? 0 : std::clamp(medium.shaftSamples, 4, 12);
+}
+
+void RenderManager::SetUnderwaterFogParameters(float startDistance,
+    const Vector3& extinctionDistanceRGB, float maxOpacity)
+{
+    depthFogStartDistance_ = std::max(startDistance, 0.0f);
+    depthFogExtinctionDistanceRGB_ = {
+        std::max(extinctionDistanceRGB.x, 0.001f),
+        std::max(extinctionDistanceRGB.y, 0.001f),
+        std::max(extinctionDistanceRGB.z, 0.001f)
+    };
+    depthFogMaxOpacity_ = std::clamp(maxOpacity, 0.0f, 1.0f);
+    depthFogParameters_.startDistance = depthFogStartDistance_;
+    depthFogParameters_.extinctionDistanceRGB = depthFogExtinctionDistanceRGB_;
+    depthFogParameters_.maxOpacity = depthFogMaxOpacity_;
 }
 
 void RenderManager::BeginOffscreen()
@@ -677,6 +704,10 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
 #endif
         cmd->SetGraphicsRootConstantBufferView(6, randomCB_->GetGPUVirtualAddress());
     } else if (mode == PostEffectMode::DepthFog) {
+        // ImGui may edit controls after command recording. Keep those writes
+        // out of the upload memory referenced by this draw. PostDraw fences
+        // each submitted frame before this buffer is reused.
+        *depthFogCBData_ = depthFogParameters_;
         cmd->SetGraphicsRootConstantBufferView(8, depthFogCB_->GetGPUVirtualAddress());
     } else if (mode == PostEffectMode::LightShaft) {
         LightShaftParameters effectiveParameters = lightShaftParameters_;
@@ -1266,56 +1297,56 @@ void RenderManager::DrawImGui()
             SetEffectEnabled(PostEffectMode::DepthFog, depthFogEnabled);
         }
         if (ImGui::ColorEdit3("Fog Color", &depthFogColor_.x)) {
-            depthFogCBData_->color = depthFogColor_;
+            depthFogParameters_.color = depthFogColor_;
         }
         if (ImGui::DragFloat("Start Distance", &depthFogStartDistance_, 1.0f, 0.0f, 1000.0f, "%.1f")) {
-            depthFogCBData_->startDistance = depthFogStartDistance_;
+            depthFogParameters_.startDistance = depthFogStartDistance_;
         }
         if (ImGui::DragFloat("End Distance", &depthFogEndDistance_, 1.0f, 0.0f, 2000.0f, "%.1f")) {
-            depthFogCBData_->endDistance = depthFogEndDistance_;
+            depthFogParameters_.endDistance = depthFogEndDistance_;
         }
         if (ImGui::DragFloat("Density", &depthFogDensity_, 0.001f, 0.0f, 0.1f, "%.3f")) {
-            depthFogCBData_->density = depthFogDensity_;
+            depthFogParameters_.density = depthFogDensity_;
         }
         if (ImGui::SliderFloat("Max Opacity", &depthFogMaxOpacity_, 0.0f, 1.0f)) {
-            depthFogCBData_->maxOpacity = depthFogMaxOpacity_;
+            depthFogParameters_.maxOpacity = depthFogMaxOpacity_;
         }
         if (ImGui::SliderFloat("Background Opacity", &depthFogBackgroundOpacity_, 0.0f, 1.0f)) {
-            depthFogCBData_->backgroundOpacity = depthFogBackgroundOpacity_;
+            depthFogParameters_.backgroundOpacity = depthFogBackgroundOpacity_;
         }
         if (ImGui::SliderFloat(
             "Far Background Blend Start",
             &depthFogFarBackgroundBlendStartRatio_, 0.60f, 0.98f, "%.2f")) {
-            depthFogCBData_->farBackgroundBlendStartRatio =
+            depthFogParameters_.farBackgroundBlendStartRatio =
                 depthFogFarBackgroundBlendStartRatio_;
         }
         if (ImGui::Checkbox(
             "Underwater Medium Model", &underwaterMediumEnabled_)) {
-            depthFogCBData_->underwaterMediumEnabled =
+            depthFogParameters_.underwaterMediumEnabled =
                 underwaterMediumEnabled_ ? 1.0f : 0.0f;
         }
         if (ImGui::DragFloat3(
             "Extinction Distance RGB",
             &depthFogExtinctionDistanceRGB_.x,
             1.0f, 0.0f, 1000.0f, "%.1f")) {
-            depthFogCBData_->extinctionDistanceRGB =
+            depthFogParameters_.extinctionDistanceRGB =
                 depthFogExtinctionDistanceRGB_;
         }
         if (ImGui::Button("Shallow Clear")) {
             depthFogExtinctionDistanceRGB_ = { 80.0f, 160.0f, 320.0f };
-            depthFogCBData_->extinctionDistanceRGB =
+            depthFogParameters_.extinctionDistanceRGB =
                 depthFogExtinctionDistanceRGB_;
         }
         ImGui::SameLine();
         if (ImGui::Button("Very Clear")) {
             depthFogExtinctionDistanceRGB_ = { 120.0f, 240.0f, 480.0f };
-            depthFogCBData_->extinctionDistanceRGB =
+            depthFogParameters_.extinctionDistanceRGB =
                 depthFogExtinctionDistanceRGB_;
         }
         ImGui::SameLine();
         if (ImGui::Button("Strong Test")) {
             depthFogExtinctionDistanceRGB_ = { 45.0f, 90.0f, 180.0f };
-            depthFogCBData_->extinctionDistanceRGB =
+            depthFogParameters_.extinctionDistanceRGB =
                 depthFogExtinctionDistanceRGB_;
         }
     }

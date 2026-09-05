@@ -6,12 +6,17 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
+#include <vector>
 
 namespace {
 constexpr char kNormalAPath[] = "resources/water/water_normal_a.png";
 constexpr char kNormalBPath[] = "resources/water/water_normal_b.png";
 constexpr char kReflectionPath[] = "resources/skybox/skybox.dds";
+constexpr UINT kGridCells = 128;
+// Concentrate vertices near the player; match the spacing estimate in the VS.
+constexpr float kGridDistribution = 4.8f;
 }
 
 void WaterSurfaceRenderer::Initialize(DirectXCommon* dx, Camera* camera) {
@@ -58,7 +63,7 @@ void WaterSurfaceRenderer::Update(float dt) {
     time_ = std::fmod(time_ + std::max(dt, 0.0f), 4096.0f);
     const Vector3 cameraPosition = camera_->GetTranslate();
     const Matrix4x4 world = Matrix4x4::MakeAffineMatrix(
-        { surfaceHalfExtent_, 1.0f, surfaceHalfExtent_ },
+        { 1.0f, 1.0f, 1.0f },
         {},
         { cameraPosition.x, waterLevel_, cameraPosition.z });
     transformationData_->World = world;
@@ -77,7 +82,13 @@ void WaterSurfaceRenderer::Update(float dt) {
     parameterData_->fresnelStrength = std::max(fresnelStrength_, 0.0f);
     parameterData_->fresnelPower = std::max(fresnelPower_, 0.01f);
     parameterData_->reflectionStrength = std::clamp(reflectionStrength_, 0.0f, 1.0f);
-    parameterData_->padding = 0.0f;
+    parameterData_->waveStrength = std::clamp(waveStrength_, 0.0f, 2.0f);
+    const float sunLength = std::sqrt(
+        sunDirection_.x * sunDirection_.x + sunDirection_.y * sunDirection_.y +
+        sunDirection_.z * sunDirection_.z);
+    parameterData_->sunDirection = sunLength > 0.0001f ?
+        sunDirection_ * (1.0f / sunLength) : Vector3{ 0.0f, 1.0f, 0.0f };
+    parameterData_->waterLevel = waterLevel_;
 }
 
 void WaterSurfaceRenderer::DrawDepth() const {
@@ -85,7 +96,7 @@ void WaterSurfaceRenderer::DrawDepth() const {
         return;
     }
     BindCommon_(depthPipelineState_.Get());
-    dx_->GetCommandList()->DrawInstanced(6, 1, 0, 0);
+    dx_->GetCommandList()->DrawIndexedInstanced(indexCount_, 1, 0, 0, 0);
 }
 
 void WaterSurfaceRenderer::DrawColor() const {
@@ -93,7 +104,7 @@ void WaterSurfaceRenderer::DrawColor() const {
         return;
     }
     BindCommon_(colorPipelineState_.Get());
-    dx_->GetCommandList()->DrawInstanced(6, 1, 0, 0);
+    dx_->GetCommandList()->DrawIndexedInstanced(indexCount_, 1, 0, 0, 0);
 }
 
 void WaterSurfaceRenderer::CreateRootSignature_() {
@@ -114,7 +125,7 @@ void WaterSurfaceRenderer::CreateRootSignature_() {
     parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     parameters[2].Descriptor.ShaderRegister = 1;
-    parameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    parameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     for (UINT i = 0; i < 3; ++i) {
         parameters[3 + i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         parameters[3 + i].DescriptorTable.NumDescriptorRanges = 1;
@@ -216,23 +227,54 @@ void WaterSurfaceRenderer::CreatePipelineStates_() {
 void WaterSurfaceRenderer::CreateResources_() {
     static_assert(sizeof(TransformationData) == 128);
     static_assert(sizeof(CameraData) == 16);
-    static_assert(sizeof(WaterParameters) == 64);
+    static_assert(sizeof(WaterParameters) == 80);
+    static_assert(offsetof(WaterParameters, normalSpeedA) == 32);
+    static_assert(offsetof(WaterParameters, fresnelStrength) == 48);
+    static_assert(offsetof(WaterParameters, waveStrength) == 60);
+    static_assert(offsetof(WaterParameters, sunDirection) == 64);
+    static_assert(offsetof(WaterParameters, waterLevel) == 76);
 
-    const VertexData vertices[6] = {
-        {{ -1.0f, 0.0f, -1.0f, 1.0f }},
-        {{ -1.0f, 0.0f,  1.0f, 1.0f }},
-        {{  1.0f, 0.0f, -1.0f, 1.0f }},
-        {{  1.0f, 0.0f, -1.0f, 1.0f }},
-        {{ -1.0f, 0.0f,  1.0f, 1.0f }},
-        {{  1.0f, 0.0f,  1.0f, 1.0f }},
+    std::vector<VertexData> vertices((kGridCells + 1) * (kGridCells + 1));
+    const auto gridCoordinate = [this](UINT index) {
+        const float t = 2.0f * static_cast<float>(index) / kGridCells - 1.0f;
+        return surfaceHalfExtent_ * std::sinh(kGridDistribution * t) /
+            std::sinh(kGridDistribution);
     };
-    vertexResource_ = dx_->CreateBufferResource(sizeof(vertices));
+    for (UINT z = 0; z <= kGridCells; ++z) {
+        for (UINT x = 0; x <= kGridCells; ++x) {
+            vertices[z * (kGridCells + 1) + x].position =
+                { gridCoordinate(x), 0.0f, gridCoordinate(z), 1.0f };
+        }
+    }
+    std::vector<UINT> indices;
+    indices.reserve(kGridCells * kGridCells * 6);
+    for (UINT z = 0; z < kGridCells; ++z) {
+        for (UINT x = 0; x < kGridCells; ++x) {
+            const UINT a = z * (kGridCells + 1) + x;
+            const UINT b = a + kGridCells + 1;
+            indices.insert(indices.end(), { a, b, a + 1, a + 1, b, b + 1 });
+        }
+    }
+    indexCount_ = static_cast<UINT>(indices.size());
+    const UINT vertexBytes = static_cast<UINT>(vertices.size() * sizeof(VertexData));
+    const UINT indexBytes = static_cast<UINT>(indices.size() * sizeof(UINT));
+    vertexResource_ = dx_->CreateBufferResource(vertexBytes);
     VertexData* mappedVertices = nullptr;
     vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedVertices));
-    std::memcpy(mappedVertices, vertices, sizeof(vertices));
+    std::memcpy(mappedVertices, vertices.data(), vertexBytes);
+    vertexResource_->Unmap(0, nullptr);
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-    vertexBufferView_.SizeInBytes = sizeof(vertices);
+    vertexBufferView_.SizeInBytes = vertexBytes;
     vertexBufferView_.StrideInBytes = sizeof(VertexData);
+
+    indexResource_ = dx_->CreateBufferResource(indexBytes);
+    UINT* mappedIndices = nullptr;
+    indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedIndices));
+    std::memcpy(mappedIndices, indices.data(), indexBytes);
+    indexResource_->Unmap(0, nullptr);
+    indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
+    indexBufferView_.SizeInBytes = indexBytes;
+    indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
 
     transformationResource_ = dx_->CreateBufferResource(sizeof(TransformationData));
     cameraResource_ = dx_->CreateBufferResource(sizeof(CameraData));
@@ -253,6 +295,7 @@ void WaterSurfaceRenderer::BindCommon_(ID3D12PipelineState* pipelineState) const
     commandList->SetPipelineState(pipelineState);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
+    commandList->IASetIndexBuffer(&indexBufferView_);
     commandList->SetGraphicsRootConstantBufferView(
         0, transformationResource_->GetGPUVirtualAddress());
     commandList->SetGraphicsRootConstantBufferView(

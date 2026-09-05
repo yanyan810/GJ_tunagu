@@ -314,6 +314,10 @@ void GameScene::Draw(GameApp& app) {
 
     ParticleManager::GetInstance()->Draw(app.Dx()->GetCommandList());
 
+}
+
+void GameScene::DrawOverlay2D(GameApp&) {
+
     // 2D UI スプライト HPバーの描画
     if (hpBarBgSprite_) hpBarBgSprite_->Draw();
     if (hpBarFillSprite_) hpBarFillSprite_->Draw();

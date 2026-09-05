@@ -56,6 +56,14 @@ void UnderwaterEnvironment::Initialize(
     Camera* camera, RenderManager* renderManager) {
     camera_ = camera;
     renderManager_ = renderManager;
+    if (renderManager_) {
+        previousDepthFogEnabled_ = renderManager_->IsEffectEnabled(PostEffectMode::DepthFog);
+        previousFogStart_ = renderManager_->GetUnderwaterFogStartDistance();
+        previousFogExtinction_ = renderManager_->GetUnderwaterFogExtinctionDistanceRGB();
+        previousFogOpacity_ = renderManager_->GetUnderwaterFogMaxOpacity();
+        renderManager_->SetEffectEnabled(PostEffectMode::DepthFog, true);
+        renderManager_->SetUnderwaterFogParameters(2.0f, {40.0f, 95.0f, 130.0f}, 1.0f);
+    }
 
     background_ = std::make_unique<UnderwaterBackgroundRenderer>();
     background_->Initialize(dx);
@@ -90,6 +98,10 @@ void UnderwaterEnvironment::Shutdown() {
         disabledParameters.enabled = 0.0f;
         renderManager_->SetUnderwaterBackgroundParameters(disabledParameters);
         renderManager_->SetEffectEnabled(PostEffectMode::LightShaft, false);
+        renderManager_->SetUnderwaterMediumParameters(UnderwaterMediumParameters{});
+        renderManager_->SetEffectEnabled(PostEffectMode::DepthFog, previousDepthFogEnabled_);
+        renderManager_->SetUnderwaterFogParameters(
+            previousFogStart_, previousFogExtinction_, previousFogOpacity_);
         renderManager_ = nullptr;
     }
 }
@@ -103,10 +115,9 @@ void UnderwaterEnvironment::SetPlayerSnapshot(
 }
 
 void UnderwaterEnvironment::Update(float dt) {
-    ApplyBackgroundSettings_();
+    environmentTime_ = std::fmod(environmentTime_ + std::max(dt, 0.0f), 4096.0f);
 
     if (!floor_) {
-        ApplyLightShaftSettings_();
         return;
     }
 
@@ -129,8 +140,6 @@ void UnderwaterEnvironment::Update(float dt) {
         ApplyWaterSurfaceSettings_();
         waterSurface_->Update(dt);
     }
-    // Submit after advancing the atlas clock, so floor and shafts use the same frame.
-    ApplyLightShaftSettings_();
 
     UpdatePlayerWake_(dt);
 
@@ -154,6 +163,15 @@ void UnderwaterEnvironment::Update(float dt) {
 }
 
 void UnderwaterEnvironment::DrawBackground() {
+    // View-dependent parameters belong to drawing: the scene can skip Update
+    // while paused and still move its camera. Do not advance clocks or emit here.
+    ApplyBackgroundSettings_();
+    if (waterSurface_) {
+        ApplyWaterSurfaceSettings_();
+        waterSurface_->Update(0.0f);
+    }
+    // Uses the atlas clock already advanced by Update, matching the floor.
+    ApplyLightShaftSettings_();
     if (background_) {
         background_->Draw();
     }
@@ -180,6 +198,9 @@ void UnderwaterEnvironment::DrawWaterSurface() {
 void UnderwaterEnvironment::DrawImGui() {
 #ifdef USE_IMGUI
     ImGui::Begin("Underwater Environment");
+    ImGui::Checkbox("Depth / Sunlight Optics", &underwaterOpticsEnabled_);
+    ImGui::DragFloat("Sunlit Water Strength", &underwaterShaftIntensity_, 0.005f, 0.0f, 0.3f, "%.3f");
+    ImGui::DragFloat("Ocean Swell Strength", &waterWaveStrength_, 0.02f, 0.0f, 2.0f, "%.2f");
     ImGui::Text("Underwater Background");
     ImGui::Checkbox("Underwater Background Enabled", &backgroundEnabled_);
     ImGui::ColorEdit3("Background Surface Color", &backgroundSurfaceColor_.x);
@@ -550,6 +571,15 @@ void UnderwaterEnvironment::ApplyBackgroundSettings_() {
     background_->SetParameters(parameters);
     if (renderManager_) {
         renderManager_->SetUnderwaterBackgroundParameters(parameters);
+        UnderwaterMediumParameters medium{};
+        medium.cameraPosition = camera_->GetTranslate();
+        medium.waterLevelY = waterLevelY_;
+        medium.sunDirection = lightShaftDirection_;
+        medium.sunColor = lightShaftColor_;
+        medium.time = environmentTime_;
+        medium.shaftIntensity = underwaterShaftIntensity_;
+        medium.enabled = underwaterOpticsEnabled_ ? 1.0f : 0.0f;
+        renderManager_->SetUnderwaterMediumParameters(medium);
     }
 }
 
@@ -563,6 +593,8 @@ void UnderwaterEnvironment::ApplyWaterSurfaceSettings_() {
     waterSurface_->SetFresnelSettings(
         waterFresnelStrength_, waterFresnelPower_);
     waterSurface_->SetReflectionStrength(waterReflectionStrength_);
+    waterSurface_->SetWaveStrength(waterWaveStrength_);
+    waterSurface_->SetSunDirection(lightShaftDirection_);
 }
 
 const char* UnderwaterEnvironment::GetCausticsTexturePath_() const {

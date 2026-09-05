@@ -20,6 +20,7 @@ public:
     void OnExit(GameApp& app) override;
     void Update(GameApp& app, float dt) override;
     void Draw(GameApp& app) override;
+    void DrawOverlay2D(GameApp& app) override;
     void DrawImGui(GameApp& app) override;
 
 private:
