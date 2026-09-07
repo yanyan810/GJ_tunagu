@@ -6,6 +6,7 @@
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
 #include "RenderManager.h"
+#include "SeabedDetailRenderer.h"
 #include "TextureManager.h"
 #include "UnderwaterBackgroundRenderer.h"
 #include "WaterSurfaceRenderer.h"
@@ -82,6 +83,10 @@ void UnderwaterEnvironment::Initialize(
     ApplyCausticsSettings_();
     floor_->Update(0.0f);
 
+    seabedDetails_ = std::make_unique<SeabedDetailRenderer>();
+    seabedDetails_->Initialize(dx, camera);
+    seabedDetails_->Update(0.0f, floorHeight_, lightShaftDirection_);
+
     waterSurface_ = std::make_unique<WaterSurfaceRenderer>();
     waterSurface_->Initialize(dx, camera);
     ApplyWaterSurfaceSettings_();
@@ -136,6 +141,10 @@ void UnderwaterEnvironment::Update(float dt) {
     ApplyCausticsSettings_();
     floor_->Update(dt);
 
+    if (seabedDetails_) {
+        seabedDetails_->Update(dt, floorHeight_, lightShaftDirection_);
+    }
+
     if (waterSurface_) {
         ApplyWaterSurfaceSettings_();
         waterSurface_->Update(dt);
@@ -179,7 +188,14 @@ void UnderwaterEnvironment::DrawBackground() {
 
 void UnderwaterEnvironment::Draw() {
     if (floor_) {
+        ApplyFloorSettings_();
+        floor_->Update(0.0f);
         floor_->Draw();
+    }
+    if (seabedDetails_) {
+        seabedDetails_->SetEnabled(seabedDetailsEnabled_);
+        seabedDetails_->Update(0.0f, floorHeight_, lightShaftDirection_);
+        seabedDetails_->Draw();
     }
 }
 
@@ -198,6 +214,10 @@ void UnderwaterEnvironment::DrawWaterSurface() {
 void UnderwaterEnvironment::DrawImGui() {
 #ifdef USE_IMGUI
     ImGui::Begin("Underwater Environment");
+    ImGui::Checkbox("Seabed Rocks / Seagrass", &seabedDetailsEnabled_);
+    ImGui::DragFloat("Sand Relief", &sandReliefStrength_, 0.02f, 0.0f, 1.5f, "%.2f");
+    ImGui::DragFloat("Water Sky Exposure", &waterSkyExposure_, 0.01f, 0.1f, 2.0f, "%.2f");
+    ImGui::DragFloat("Seabed Reflection Approximation", &seabedReflectionStrength_, 0.01f, 0.0f, 1.0f, "%.2f");
     ImGui::Checkbox("Depth / Sunlight Optics", &underwaterOpticsEnabled_);
     ImGui::DragFloat("Sunlit Water Strength", &underwaterShaftIntensity_, 0.005f, 0.0f, 0.3f, "%.3f");
     ImGui::DragFloat("Ocean Swell Strength", &waterWaveStrength_, 0.02f, 0.0f, 2.0f, "%.2f");
@@ -531,6 +551,9 @@ void UnderwaterEnvironment::ApplyFloorSettings_() {
     const float safeScale = std::max(floorScale_, 1.0f);
     floor_->SetScale({ safeScale, 1.0f, safeScale });
     floor_->SetMaterialColor(floorColor_);
+    floor_->SetSandReliefStrength(sandReliefStrength_);
+    floor_->SetDirection(lightShaftDirection_ * -1.0f);
+    floor_->SetLightColor({ lightShaftColor_.x, lightShaftColor_.y, lightShaftColor_.z, 1.0f });
     floor_->SetWorldColorVariationSettings(
         sandVariationEnabled_, sandVariationScale_, sandVariationStrength_);
 }
@@ -595,6 +618,11 @@ void UnderwaterEnvironment::ApplyWaterSurfaceSettings_() {
     waterSurface_->SetReflectionStrength(waterReflectionStrength_);
     waterSurface_->SetWaveStrength(waterWaveStrength_);
     waterSurface_->SetSunDirection(lightShaftDirection_);
+    waterSurface_->SetUnderwaterAppearance(waterSkyExposure_, floorHeight_,
+        { floorColor_.x, floorColor_.y, floorColor_.z },
+        renderManager_ ? renderManager_->GetUnderwaterFogExtinctionDistanceRGB() : Vector3{40.0f, 95.0f, 130.0f},
+        { backgroundHorizonColor_.x, backgroundHorizonColor_.y, backgroundHorizonColor_.z },
+        seabedReflectionStrength_);
 }
 
 const char* UnderwaterEnvironment::GetCausticsTexturePath_() const {

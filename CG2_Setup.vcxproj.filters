@@ -168,6 +168,9 @@
     <ClCompile Include="Engine\Render\WaterSurfaceRenderer.cpp">
       <Filter>Engine\Render</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Render\SeabedDetailRenderer.cpp">
+      <Filter>Engine\Render</Filter>
+    </ClCompile>
     <!-- Engine\Level: レベルローダー -->
     <!-- Engine\math: 数学ライブラリ -->
     <ClCompile Include="Engine\math\Matrix4x4.cpp">
@@ -376,6 +379,15 @@
     </ClInclude>
     <ClInclude Include="Engine\Render\WaterSurfaceRenderer.h">
       <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\SeabedDetailRenderer.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="resources\shaders\SandSurface.hlsli">
+      <Filter>shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="resources\shaders\SeabedDetail.hlsli">
+      <Filter>shaders</Filter>
     </ClInclude>
     <!-- Engine\Level -->
     <!-- Engine\math -->
@@ -629,6 +641,12 @@
       <Filter>shaders</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\WaterSurfaceDepth.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\SeabedDetail.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\SeabedDetail.PS.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
   </ItemGroup>

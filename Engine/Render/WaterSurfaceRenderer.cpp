@@ -17,6 +17,18 @@ constexpr char kReflectionPath[] = "resources/skybox/skybox.dds";
 constexpr UINT kGridCells = 128;
 // Concentrate vertices near the player; match the spacing estimate in the VS.
 constexpr float kGridDistribution = 4.8f;
+
+float FiniteClamp(float value, float fallback, float minimum, float maximum) {
+    return std::clamp(std::isfinite(value) ? value : fallback, minimum, maximum);
+}
+
+Vector3 FiniteColor(const Vector3& value, const Vector3& fallback) {
+    return {
+        FiniteClamp(value.x, fallback.x, 0.0f, 1.0f),
+        FiniteClamp(value.y, fallback.y, 0.0f, 1.0f),
+        FiniteClamp(value.z, fallback.z, 0.0f, 1.0f)
+    };
+}
 }
 
 void WaterSurfaceRenderer::Initialize(DirectXCommon* dx, Camera* camera) {
@@ -55,6 +67,21 @@ void WaterSurfaceRenderer::SetFresnelSettings(float strength, float power) {
     fresnelPower_ = power;
 }
 
+void WaterSurfaceRenderer::SetUnderwaterAppearance(float skyExposure, float floorHeight,
+    const Vector3& floorColor, const Vector3& extinctionDistanceRGB,
+    const Vector3& deepWaterColor, float floorReflectionStrength) {
+    skyExposure_ = FiniteClamp(skyExposure, 0.65f, 0.0f, 4.0f);
+    reflectionFloorHeight_ = std::isfinite(floorHeight) ? floorHeight : -22.0f;
+    reflectionFloorColor_ = FiniteColor(floorColor, { 0.58f, 0.49f, 0.34f });
+    extinctionDistanceRGB_ = {
+        FiniteClamp(extinctionDistanceRGB.x, 40.0f, 0.001f, 100000.0f),
+        FiniteClamp(extinctionDistanceRGB.y, 95.0f, 0.001f, 100000.0f),
+        FiniteClamp(extinctionDistanceRGB.z, 130.0f, 0.001f, 100000.0f)
+    };
+    deepWaterColor_ = FiniteColor(deepWaterColor, { 0.018f, 0.115f, 0.16f });
+    floorReflectionStrength_ = FiniteClamp(floorReflectionStrength, 1.0f, 0.0f, 1.0f);
+}
+
 void WaterSurfaceRenderer::Update(float dt) {
     if (!camera_ || !transformationData_ || !cameraData_ || !parameterData_) {
         return;
@@ -89,6 +116,12 @@ void WaterSurfaceRenderer::Update(float dt) {
     parameterData_->sunDirection = sunLength > 0.0001f ?
         sunDirection_ * (1.0f / sunLength) : Vector3{ 0.0f, 1.0f, 0.0f };
     parameterData_->waterLevel = waterLevel_;
+    parameterData_->reflectionFloorColor = reflectionFloorColor_;
+    parameterData_->reflectionFloorHeight = reflectionFloorHeight_;
+    parameterData_->extinctionDistanceRGB = extinctionDistanceRGB_;
+    parameterData_->skyExposure = skyExposure_;
+    parameterData_->deepWaterColor = deepWaterColor_;
+    parameterData_->floorReflectionStrength = floorReflectionStrength_;
 }
 
 void WaterSurfaceRenderer::DrawDepth() const {
@@ -227,12 +260,18 @@ void WaterSurfaceRenderer::CreatePipelineStates_() {
 void WaterSurfaceRenderer::CreateResources_() {
     static_assert(sizeof(TransformationData) == 128);
     static_assert(sizeof(CameraData) == 16);
-    static_assert(sizeof(WaterParameters) == 80);
+    static_assert(sizeof(WaterParameters) == 128);
     static_assert(offsetof(WaterParameters, normalSpeedA) == 32);
     static_assert(offsetof(WaterParameters, fresnelStrength) == 48);
     static_assert(offsetof(WaterParameters, waveStrength) == 60);
     static_assert(offsetof(WaterParameters, sunDirection) == 64);
     static_assert(offsetof(WaterParameters, waterLevel) == 76);
+    static_assert(offsetof(WaterParameters, reflectionFloorColor) == 80);
+    static_assert(offsetof(WaterParameters, reflectionFloorHeight) == 92);
+    static_assert(offsetof(WaterParameters, extinctionDistanceRGB) == 96);
+    static_assert(offsetof(WaterParameters, skyExposure) == 108);
+    static_assert(offsetof(WaterParameters, deepWaterColor) == 112);
+    static_assert(offsetof(WaterParameters, floorReflectionStrength) == 124);
 
     std::vector<VertexData> vertices((kGridCells + 1) * (kGridCells + 1));
     const auto gridCoordinate = [this](UINT index) {

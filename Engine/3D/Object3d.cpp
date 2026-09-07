@@ -122,7 +122,7 @@ void Object3d::Initialize(Object3dCommon* object3dCommon, DirectXCommon* dx, Srv
 		effectParamData_->enableWorldColorVariation = enableWorldColorVariation_ ? 1.0f : 0.0f;
 		effectParamData_->worldColorVariationScale = worldColorVariationScale_;
 		effectParamData_->worldColorVariationStrength = worldColorVariationStrength_;
-		effectParamData_->pad4 = 0.0f;
+		effectParamData_->sandReliefStrength = sandReliefStrength_;
 	}
 
 	causticsParamResource_ = dx_->CreateBufferResource(sizeof(CausticsParams));
@@ -373,7 +373,7 @@ void Object3d::Update(float dt)
 		effectParamData_->enableWorldColorVariation = enableWorldColorVariation_ ? 1.0f : 0.0f;
 		effectParamData_->worldColorVariationScale = worldColorVariationScale_;
 		effectParamData_->worldColorVariationStrength = worldColorVariationStrength_;
-		effectParamData_->pad4 = 0.0f;
+		effectParamData_->sandReliefStrength = sandReliefStrength_;
 	}
 	
 	if (!maskTexturePath_.empty()) {

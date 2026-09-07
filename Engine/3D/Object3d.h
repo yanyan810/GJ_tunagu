@@ -60,7 +60,7 @@ public:
 		float enableWorldColorVariation;
 		float worldColorVariationScale;
 		float worldColorVariationStrength;
-		float pad4;
+		float sandReliefStrength;
 	};
 	static_assert(sizeof(EffectParam) == 96);
 	static_assert(sizeof(EffectParam) % 16 == 0);
@@ -220,6 +220,8 @@ public:
 		worldColorVariationScale_ = (std::max)(scale, 0.0f);
 		worldColorVariationStrength_ = (std::max)(strength, 0.0f);
 	}
+	// Opt-in sand shading; leaves other objects and their lighting unchanged.
+	void SetSandReliefStrength(float strength) { sandReliefStrength_ = (std::max)(strength, 0.0f); }
 
 	void SetMaskTexturePath(const std::string& path) { maskTexturePath_ = path; TextureManager::GetInstance()->LoadTexture(path); }
 
@@ -312,6 +314,7 @@ private:
 	bool enableWorldColorVariation_ = false;
 	float worldColorVariationScale_ = 0.025f;
 	float worldColorVariationStrength_ = 0.08f;
+	float sandReliefStrength_ = 0.0f;
 
 	std::string texturePath_ = "";
 	bool useOverrideTexture_ = false;
