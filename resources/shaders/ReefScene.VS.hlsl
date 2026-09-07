@@ -18,6 +18,8 @@ ReefVertexOutput main(VertexShaderInput input)
     position.xz += current * input.detail.z;
     if (input.detail.x > 1.5f && input.detail.x < 2.5f)
         normal.y -= dot(normal.xz, current) * input.uv.y * 2.0f;
+    if (input.detail.x > 3.1f)
+        normal.y -= dot(normal.xz, current) * input.uv.y * (0.65f * 2.0f);
     output.position = mul(float4(position, 1.0f), gViewProjection);
     output.worldPosition = position;
     output.normal = normalize(normal);

@@ -40,16 +40,24 @@ float OceanSunVisibility(float3 position, float3 normal, bool volumeSample)
     }
     else
     {
+        // Bilinearly interpolate four overlapping 3x3 box filters. Merging
+        // their taps gives this separable 4x4 kernel (16 unique comparisons).
+        // Its weights sum to one and remain continuous as base advances a texel.
+        // A plain 3x3 box at floor(pixelPosition) discards the fractional UV and
+        // makes a moving receiver's shadow jump in 1/9 increments.
+        float2 blend = frac(pixelPosition);
+        float4 weightsX = float4(1.0f - blend.x, 1.0f, 1.0f, blend.x) / 3.0f;
+        float4 weightsY = float4(1.0f - blend.y, 1.0f, 1.0f, blend.y) / 3.0f;
         [unroll]
-        for (int y = -1; y <= 1; ++y)
+        for (int y = 0; y < 4; ++y)
         {
             [unroll]
-            for (int x = -1; x <= 1; ++x)
+            for (int x = 0; x < 4; ++x)
             {
-                visibility += OceanShadowCompare(base + int2(x, y), dimensions, receiverDepth);
+                visibility += OceanShadowCompare(base + int2(x - 1, y - 1),
+                    dimensions, receiverDepth) * weightsX[x] * weightsY[y];
             }
         }
-        visibility /= 9.0f;
     }
     // Avoid a visible rectangle at the edge of the single shadow map.
     float2 edge = min(uv, 1.0f - uv);

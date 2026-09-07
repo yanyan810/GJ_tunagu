@@ -209,3 +209,7 @@ git push
 
 # DebugAI locally generated source index (can contain source excerpts)
 Engine/DebugAI/profiles/*/project_scan.json
+
+# Local ocean research and implementation notes
+/docs/Ocean*.md
+/local-ocean-docs/

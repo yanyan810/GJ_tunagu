@@ -265,7 +265,8 @@ void UnderwaterEnvironment::DrawReefShadow_() {
     if (reefScene_) {
         reefScene_->SetEnabled(reefSceneEnabled_);
         reefScene_->SetSandAppearance({ floorColor_.x, floorColor_.y, floorColor_.z },
-            sandReliefStrength_);
+            sandReliefStrength_, { sandVariationEnabled_ ? 1.0f : 0.0f,
+                sandVariationScale_, sandVariationStrength_ }, lightShaftColor_, lightShaftDirection_);
         reefScene_->Update(0.0f, floorHeight_, lightShaftDirection_);
     }
     if (reefScene_ && reefSceneEnabled_ && reefSunShadowEnabled_ && dx_

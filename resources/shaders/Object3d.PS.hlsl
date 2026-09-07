@@ -187,45 +187,10 @@ float3 EvaluateWorldSpaceCaustics(VertexShaderOutput input)
         * causticsMask;
 }
 
-float HashWorldColorVariationCell(float2 cell)
-{
-    return frac(sin(dot(cell, float2(127.1f, 311.7f))) * 43758.5453f);
-}
-
-float SampleWorldColorVariation(float2 worldPositionXZ)
-{
-    float2 p = worldPositionXZ * max(gEffect.worldColorVariationScale, 0.000001f);
-    float2 cell = floor(p);
-    float2 localPosition = frac(p);
-    float2 weight = localPosition * localPosition * (3.0f - 2.0f * localPosition);
-
-    float n00 = HashWorldColorVariationCell(cell);
-    float n10 = HashWorldColorVariationCell(cell + float2(1.0f, 0.0f));
-    float n01 = HashWorldColorVariationCell(cell + float2(0.0f, 1.0f));
-    float n11 = HashWorldColorVariationCell(cell + float2(1.0f, 1.0f));
-
-    float nx0 = lerp(n00, n10, weight.x);
-    float nx1 = lerp(n01, n11, weight.x);
-    return lerp(nx0, nx1, weight.y);
-}
-
 float EvaluateWorldColorVariationMultiplier(float2 worldPositionXZ)
 {
-    if (gEffect.enableWorldColorVariation < 0.5f)
-    {
-        return 1.0f;
-    }
-
-    float centeredNoise = SampleWorldColorVariation(worldPositionXZ) * 2.0f - 1.0f;
-    // Sand ripples live in world space; derivative filtering removes distant shimmer.
-    float ripplePhase = dot(worldPositionXZ, float2(0.85f, 0.32f)) * 6.2831853f
-        + 1.8f * sin(worldPositionXZ.y * 0.15f)
-        + 0.6f * sin(worldPositionXZ.x * 0.23f);
-    float rippleVisibility = 1.0f - smoothstep(0.6f, 2.5f, fwidth(ripplePhase));
-    float ripples = (sin(ripplePhase) + 0.28f * sin(2.0f * ripplePhase))
-        * rippleVisibility;
-    float variation = centeredNoise + (gEffect.sandReliefStrength > 0.0f ? 0.0f : 0.65f * ripples);
-    return max(0.0f, 1.0f + variation * max(gEffect.worldColorVariationStrength, 0.0f));
+    return EvaluateSandColorVariation(worldPositionXZ, float3(gEffect.enableWorldColorVariation,
+        gEffect.worldColorVariationScale, gEffect.worldColorVariationStrength), gEffect.sandReliefStrength);
 }
 
 PixelShaderOutput main(VertexShaderOutput input)
@@ -247,24 +212,19 @@ PixelShaderOutput main(VertexShaderOutput input)
     }
 
     output.color = gMaterial.color * tex;
-    float worldColorVariationMultiplier =
-        EvaluateWorldColorVariationMultiplier(input.worldPosition.xz);
+    float worldColorVariationMultiplier = 1.0f;
+    if (gMaterial.enableLighting != 0 || gEffect.sandReliefStrength <= 0.0f) {
+        worldColorVariationMultiplier = EvaluateWorldColorVariationMultiplier(input.worldPosition.xz);
+    }
     output.color.rgb *= worldColorVariationMultiplier;
 
     if (gMaterial.enableLighting == 0) {
         if (gEffect.sandReliefStrength > 0.0f) {
-            SandDetail sand = EvaluateSandDetail(input.worldPosition.xz, gEffect.sandReliefStrength);
-            float3 lightDirection = -gDirectionalLight.direction;
-            lightDirection *= rsqrt(max(dot(lightDirection, lightDirection), 0.0001f));
-            float sun = saturate(dot(sand.normal, lightDirection));
-            float3 view = gCamera.worldPosition - input.worldPosition;
-            view *= rsqrt(max(dot(view, view), 0.0001f));
-            float3 halfway = view + lightDirection;
-            halfway *= rsqrt(max(dot(halfway, halfway), 0.0001f));
-            float sheen = pow(saturate(dot(sand.normal, halfway)), 28.0f)
-                * 0.018f * saturate(lightDirection.y);
-            output.color.rgb *= sand.albedo * sand.occlusion * (0.48f + 0.52f * sun);
-            output.color.rgb += sheen * gDirectionalLight.color.rgb;
+            output.color.rgb = EvaluateSandRadiance(gMaterial.color.rgb * tex.rgb,
+                input.worldPosition, normalize(input.normal), gCamera.worldPosition,
+                -gDirectionalLight.direction, gDirectionalLight.color.rgb, gEffect.sandReliefStrength,
+                float3(gEffect.enableWorldColorVariation, gEffect.worldColorVariationScale,
+                    gEffect.worldColorVariationStrength));
         }
         output.color.rgb += edgeFactor * gEffect.dissolveEdgeColor.rgb;
         output.color.rgb += EvaluateWorldSpaceCaustics(input);

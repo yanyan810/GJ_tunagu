@@ -5,6 +5,7 @@
 #include "SceneColorFormat.h"
 #include "SrvManager.h"
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -61,11 +62,14 @@ void ReefSceneRenderer::Initialize(DirectXCommon* dx, SrvManager* srvManager, Ca
     dx_ = dx;
     camera_ = camera;
     static_assert(sizeof(VertexData) == 48);
-    static_assert(sizeof(FrameData) == 112);
+    static_assert(sizeof(FrameData) == 160);
     static_assert(offsetof(FrameData, towardSun) == 64);
     static_assert(offsetof(FrameData, cameraPosition) == 80);
     static_assert(offsetof(FrameData, floorHeight) == 92);
     static_assert(offsetof(FrameData, sandAppearance) == 96);
+    static_assert(offsetof(FrameData, sandVariation) == 112);
+    static_assert(offsetof(FrameData, sandSunColor) == 128);
+    static_assert(offsetof(FrameData, sandAirSun) == 144);
     CreatePipeline_();
     CreateGeometry_();
     CreateShadowMap_(srvManager);
@@ -106,9 +110,15 @@ void ReefSceneRenderer::Update(float dt, float floorY, const Vector3& towardSun)
     shadowViewProjection_ = view * projection;
 }
 
-void ReefSceneRenderer::SetSandAppearance(const Vector3& color, float strength) {
+void ReefSceneRenderer::SetSandAppearance(const Vector3& color, float strength,
+    const Vector3& variation, const Vector3& sunColor, const Vector3& airTowardSun) {
     sandAppearance_ = { std::max(0.0f, color.x), std::max(0.0f, color.y),
-        std::max(0.0f, color.z), std::clamp(strength, 0.0f, 1.5f) };
+        std::max(0.0f, color.z), std::max(strength, 0.0f) };
+    sandVariation_ = { variation.x >= 0.5f ? 1.0f : 0.0f,
+        std::max(variation.y, 0.0f), std::max(variation.z, 0.0f), 0.0f };
+    sandSunColor_ = { std::max(sunColor.x, 0.0f), std::max(sunColor.y, 0.0f),
+        std::max(sunColor.z, 0.0f), 0.0f };
+    sandAirSun_ = { airTowardSun.x, airTowardSun.y, airTowardSun.z, 0.0f };
 }
 
 void ReefSceneRenderer::BindGeometry_() const {
@@ -122,7 +132,8 @@ void ReefSceneRenderer::BindGeometry_() const {
 void ReefSceneRenderer::Draw() const {
     if (!enabled_ || !dx_ || !camera_ || !frameData_) return;
     *frameData_ = { camera_->GetViewProjectionMatrix(), towardSun_, time_,
-        camera_->GetTranslate(), floorHeight_, sandAppearance_ };
+        camera_->GetTranslate(), floorHeight_, sandAppearance_,
+        sandVariation_, sandSunColor_, sandAirSun_ };
     BindGeometry_();
     auto* cmd = dx_->GetCommandList();
     cmd->SetPipelineState(pipelineState_.Get());
@@ -134,7 +145,8 @@ void ReefSceneRenderer::DrawShadow() {
     if (!enabled_ || !dx_ || !shadowMap_ || !shadowFrameData_ || !shadowDirty_) return;
     // Separate storage from the main camera CB: both draws can be in the same
     // submitted command list without one CPU update replacing the other's data.
-    *shadowFrameData_ = { shadowViewProjection_, towardSun_, 0.0f, {}, floorHeight_, sandAppearance_ };
+    *shadowFrameData_ = { shadowViewProjection_, towardSun_, 0.0f, {}, floorHeight_, sandAppearance_,
+        sandVariation_, sandSunColor_, sandAirSun_ };
     auto* cmd = dx_->GetCommandList();
     D3D12_RESOURCE_BARRIER barrier{};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -282,6 +294,48 @@ void ReefSceneRenderer::CreateGeometry_() {
     }
     normalsFrom(0, 0);
 
+    // The infinite floor owns the flat seabed. Clip buried/near-coplanar sand
+    // instead of letting two differently tessellated surfaces compete at y=0.
+    // Use this same clipped mesh for drawing, sunlight and collision below.
+    constexpr float kSandFloorSeparation = 0.02f;
+    std::vector<UINT> visibleSandIndices;
+    visibleSandIndices.reserve(indices.size());
+    for (size_t triangle = 0; triangle < indices.size(); triangle += 3) {
+        const std::array<UINT, 3> source{ indices[triangle], indices[triangle + 1], indices[triangle + 2] };
+        std::array<UINT, 4> polygon{};
+        size_t count = 0;
+        UINT previousIndex = source.back();
+        for (UINT currentIndex : source) {
+            // Copy before appending: push_back can invalidate vertex references.
+            const VertexData previous = vertices[previousIndex];
+            const VertexData current = vertices[currentIndex];
+            const bool previousInside = previous.position.y >= kSandFloorSeparation;
+            const bool currentInside = current.position.y >= kSandFloorSeparation;
+            if (previousInside != currentInside) {
+                const float t = (kSandFloorSeparation - previous.position.y) /
+                    (current.position.y - previous.position.y);
+                VertexData edge = previous;
+                edge.position = previous.position + (current.position - previous.position) * t;
+                edge.position.y = kSandFloorSeparation;
+                edge.normal = Unit(previous.normal + (current.normal - previous.normal) * t);
+                edge.uv = { edge.position.x, edge.position.z };
+                polygon[count++] = static_cast<UINT>(vertices.size());
+                vertices.push_back(edge);
+            }
+            if (currentInside) { polygon[count++] = currentIndex; }
+            previousIndex = currentIndex;
+        }
+        for (size_t corner = 1; corner + 1 < count; ++corner) {
+            const Vector3 cross = Cross(vertices[polygon[corner]].position - vertices[polygon[0]].position,
+                vertices[polygon[corner + 1]].position - vertices[polygon[0]].position);
+            if (cross.x * cross.x + cross.y * cross.y + cross.z * cross.z > 1.0e-12f) {
+                visibleSandIndices.insert(visibleSandIndices.end(),
+                    { polygon[0], polygon[corner], polygon[corner + 1] });
+            }
+        }
+    }
+    indices.swap(visibleSandIndices);
+
     const auto rock = [&](float x, float z, float sx, float sz, float height, float extraY = 0.0f) {
         constexpr UINT sides = 18, rings = 10;
         const UINT start = static_cast<UINT>(vertices.size());
@@ -378,11 +432,12 @@ void ReefSceneRenderer::CreateGeometry_() {
     }
     collisionWorld_.SetReefTriangles(std::move(collisionTriangles));
 
-    const auto leafClump = [&](float x, float z, float size, float variant) {
+    const auto leafClump = [&](float x, float z, float size, float variant, bool broadLeaf) {
         for (UINT blade = 0; blade < 8; ++blade) {
             constexpr UINT segments = 6;
             const float angle = random.Range(0, kTau), phase = random.Range(0, kTau);
-            const float h = size * random.Range(0.7f, 1.5f), bend = h * random.Range(0.15f, 0.5f);
+            const float h = size * random.Range(0.7f, broadLeaf ? 1.25f : 1.5f);
+            const float bend = h * random.Range(0.15f, broadLeaf ? 0.36f : 0.5f);
             const float bx = x + random.Range(-0.6f, 0.6f), bz = z + random.Range(-0.6f, 0.6f);
             const float by = BankHeight(bx, bz) - 0.10f;
             const UINT start = static_cast<UINT>(vertices.size());
@@ -391,7 +446,12 @@ void ReefSceneRenderer::CreateGeometry_() {
                 const float orientation = angle + t * 0.5f;
                 const Vector3 side{ std::cos(orientation), 0, std::sin(orientation) };
                 const Vector3 facing{ -std::sin(orientation), 0, std::cos(orientation) };
-                const float width = size * 0.11f * (0.2f + std::sqrt(t)) * (1.0f - t) + 0.005f;
+                // Broad blades retain a readable paddle silhouette at medium
+                // distance; only the final short segment rounds into the tip.
+                const float profile = broadLeaf
+                    ? std::sqrt(std::max(0.0f, std::sin(t * kTau * 0.5f)))
+                    : (0.2f + std::sqrt(t)) * (1.0f - t);
+                const float width = size * (broadLeaf ? 0.24f : 0.11f) * profile + 0.005f;
                 const Vector3 center{ bx - std::sin(angle) * bend * t * t, by + h * t,
                     bz + std::cos(angle) * bend * t * t };
                 for (UINT column = 0; column < 3; ++column) {
@@ -399,7 +459,7 @@ void ReefSceneRenderer::CreateGeometry_() {
                     vertices.push_back({ center + side * (across * width) +
                         facing * (column == 1 ? width * 0.2f : 0.0f),
                         Unit(facing + side * (across * 0.25f) + Vector3{ 0, -t * bend / h, 0 }),
-                        { 0.5f + across * 0.5f, t }, { 2, variant, h * t * t, phase } });
+                        { 0.5f + across * 0.5f, t }, { broadLeaf ? 2.2f : 2.0f, variant, h * t * t, phase } });
                 }
             }
             for (UINT row = 0; row < segments; ++row) {
@@ -414,13 +474,23 @@ void ReefSceneRenderer::CreateGeometry_() {
     // shorter leaves, while tall fronds stay on the outer banks.
     const Vector3 meadows[] = { {-22, 1.6f, 13}, {26, 1.8f, 28}, {-28, 2.3f, 49},
         {29, 2.8f, 78}, {-35, 3.4f, 96}, {57, 3.7f, 122}, {-40, 3.1f, 151}, {28, 2.4f, 165} };
-    for (const auto& meadow : meadows) {
-        for (UINT clump = 0; clump < 25; ++clump) {
-            const float angle = random.Range(0, kTau), radius = std::sqrt(random.Next()) * 9.5f;
+    for (UINT meadowIndex = 0; meadowIndex < _countof(meadows); ++meadowIndex) {
+        const auto& meadow = meadows[meadowIndex];
+        const bool warmMeadow = meadowIndex == 1 || meadowIndex == 2 || meadowIndex == 3;
+        const UINT clumps = warmMeadow ? 52 : 25;
+        for (UINT clump = 0; clump < clumps; ++clump) {
+            const float angle = random.Range(0, kTau), radial = std::sqrt(random.Next());
+            const float edge = 0.84f + 0.14f * std::sin(angle * 3.0f + static_cast<float>(meadowIndex));
+            const float radius = radial * (warmMeadow ? 7.0f : 9.5f) * edge;
             const float x = meadow.x + std::cos(angle) * radius;
-            if (std::abs(x) < 16.0f) continue;
+            // Include leaf width and bend in the route's clearance, not only roots.
+            if (std::abs(x) < 18.0f) continue;
+            const float heightFalloff = warmMeadow ? 1.0f - 0.30f * radial : 1.0f;
+            const float palette = warmMeadow
+                ? (meadowIndex == 3 ? 0.55f : 0.15f) + random.Range(-0.07f, 0.07f)
+                : random.Range(0.1f, 0.9f);
             leafClump(x, meadow.z + std::sin(angle) * radius * 1.35f,
-                meadow.y * random.Range(0.7f, 1.35f), random.Range(0.1f, 0.9f));
+                meadow.y * random.Range(0.7f, 1.15f) * heightFalloff, palette, warmMeadow);
         }
     }
 
@@ -474,6 +544,59 @@ void ReefSceneRenderer::CreateGeometry_() {
                 coralBranch(origin + (end - origin) * 0.6f,
                     end + Vector3{ std::sin(angle) * size * 0.3f, size * 0.32f, std::cos(angle) * size * 0.3f },
                     size * 0.032f, variant, 0.6f);
+            }
+        }
+    }
+
+    // Small soft colonies add a second, round silhouette at the edges of the
+    // three warm meadows. These deformable plants never enter the static shadow
+    // or collision mesh, and do not extend the playable area's boundary.
+    const auto softPolyp = [&](float x, float z, float height, float width, float palette) {
+        constexpr UINT sides = 7, rings = 6;
+        constexpr float elevations[rings] = { 0.0f, 0.28f, 0.58f, 0.83f, 0.96f, 1.0f };
+        constexpr float radii[rings] = { 0.80f, 0.96f, 1.0f, 0.95f, 0.70f, 0.27f };
+        const UINT start = static_cast<UINT>(vertices.size());
+        const size_t firstIndex = indices.size();
+        const float angle = random.Range(0.0f, kTau), phase = random.Range(0.0f, kTau);
+        const Vector3 lean{ std::cos(angle) * height * 0.16f, 0.0f, std::sin(angle) * height * 0.16f };
+        const float baseY = BankHeight(x, z) - 0.04f;
+        for (UINT row = 0; row < rings; ++row) {
+            const float t = elevations[row];
+            const Vector3 center = Vector3{ x, baseY + height * t, z } + lean * (t * t);
+            for (UINT side = 0; side < sides; ++side) {
+                const float theta = kTau * static_cast<float>(side) / sides;
+                const Vector3 position = center + Vector3{ std::cos(theta) * width * radii[row],
+                    0.0f, std::sin(theta) * width * radii[row] };
+                vertices.push_back({ position, {}, { static_cast<float>(side) / sides, t },
+                    { 3.3f, palette, height * t * t * 0.65f, phase } });
+            }
+        }
+        for (UINT row = 0; row + 1 < rings; ++row) {
+            for (UINT side = 0; side < sides; ++side) {
+                const UINT a = start + row * sides + side;
+                const UINT b = start + row * sides + (side + 1) % sides;
+                indices.insert(indices.end(), { a, a + sides, b, b, a + sides, b + sides });
+            }
+        }
+        const UINT tip = static_cast<UINT>(vertices.size());
+        vertices.push_back({ Vector3{ x, baseY + height * 1.01f, z } + lean, {}, { 0.5f, 1.0f },
+            { 3.3f, palette, height * 0.65f, phase } });
+        for (UINT side = 0; side < sides; ++side)
+            indices.insert(indices.end(), { start + (rings - 1) * sides + side, tip,
+                start + (rings - 1) * sides + (side + 1) % sides });
+        normalsFrom(start, firstIndex);
+    };
+    const Vector3 softBeds[] = { { 22.0f, 0.9f, 31.0f }, { -23.0f, 1.15f, 54.0f }, { 26.0f, 1.25f, 84.0f } };
+    for (UINT bed = 0; bed < _countof(softBeds); ++bed) {
+        const auto& center = softBeds[bed];
+        for (UINT colony = 0; colony < 11; ++colony) {
+            const float x = center.x + random.Range(-2.3f, 2.3f);
+            const float z = center.z + random.Range(-3.8f, 3.8f);
+            const float palette = (bed == 1 ? 0.68f : 0.15f) + random.Range(-0.06f, 0.06f);
+            for (UINT stalk = 0; stalk < 5; ++stalk) {
+                const float height = center.y * random.Range(0.50f, 1.30f);
+                softPolyp(x + random.Range(-0.50f, 0.50f), z + random.Range(-0.50f, 0.50f),
+                    height, random.Range(0.07f, 0.13f), palette);
             }
         }
     }

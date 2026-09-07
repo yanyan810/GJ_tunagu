@@ -21,7 +21,10 @@ public:
     // scene render targets, viewport and scissor after this call.
     void DrawShadow();
     void SetEnabled(bool enabled) { enabled_ = enabled; collisionWorld_.SetReefEnabled(enabled); }
-    void SetSandAppearance(const Vector3& color, float strength);
+    void SetSandAppearance(const Vector3& color, float strength,
+        const Vector3& variation = { 1.0f, 0.025f, 0.10f },
+        const Vector3& sunColor = { 1.0f, 0.97f, 0.90f },
+        const Vector3& airTowardSun = { 0.15f, 1.0f, 0.10f });
     bool IsEnabled() const { return enabled_; }
     D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSrvHandle() const { return shadowSrv_; }
     const Matrix4x4& GetShadowViewProjection() const { return shadowViewProjection_; }
@@ -47,6 +50,9 @@ private:
         Vector3 cameraPosition;
         float floorHeight;
         Vector4 sandAppearance;
+        Vector4 sandVariation;
+        Vector4 sandSunColor;
+        Vector4 sandAirSun;
     };
     void CreatePipeline_();
     void CreateGeometry_();
@@ -61,6 +67,9 @@ private:
     float floorHeight_ = -22.0f;
     Vector3 towardSun_{ 0.15f, 1.0f, 0.10f };
     Vector4 sandAppearance_{ 0.78f, 0.67f, 0.43f, 0.65f };
+    Vector4 sandVariation_{ 1.0f, 0.025f, 0.10f, 0.0f };
+    Vector4 sandSunColor_{ 1.0f, 0.97f, 0.90f, 0.0f };
+    Vector4 sandAirSun_{ 0.15f, 1.0f, 0.10f, 0.0f };
     ReefCollisionWorld collisionWorld_;
     Matrix4x4 shadowViewProjection_{};
     UINT vertexCount_ = 0;

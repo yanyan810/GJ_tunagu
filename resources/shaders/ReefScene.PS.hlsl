@@ -36,11 +36,11 @@ float4 main(ReefVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARGET
     const float variant = input.material.y;
     if (input.material.x < 0.5f)
     {
-        const SandDetail sand = EvaluateSandDetail(input.worldPosition.xz, gSandAppearance.w);
-        normal = normalize(normal + float3(sand.normal.x, 0, sand.normal.z));
-        const float patch = SandNoise(input.worldPosition.xz * 0.035f).x;
-        albedo = max(gSandAppearance.xyz, 0.0f) * (0.94f + 0.12f * patch) * sand.albedo;
-        occlusion = sand.occlusion;
+        // Exactly the same material as the infinite floor; the geometric normal
+        // is the only shading input that changes on the bank's sloping faces.
+        return float4(EvaluateSandRadiance(gSandAppearance.xyz, input.worldPosition,
+            normal, gCameraPosition, gSandAirSun.xyz, gSandSunColor.xyz,
+            gSandAppearance.w, gSandVariation.xyz), 1.0f);
     }
     else if (input.material.x < 1.5f)
     {
@@ -62,26 +62,34 @@ float4 main(ReefVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARGET
     else if (input.material.x < 2.5f)
     {
         if (!frontFace) normal = -normal;
+        const bool broadLeaf = input.material.x > 2.1f;
         const float tip = smoothstep(0.15f, 1.0f, input.uv.y);
-        const float3 rootColor = lerp(float3(0.045f, 0.14f, 0.075f),
-            float3(0.065f, 0.12f, 0.16f), variant);
-        const float3 tipColor = lerp(float3(0.30f, 0.48f, 0.15f),
-            float3(0.12f, 0.39f, 0.38f), variant);
+        const float3 rootColor = broadLeaf
+            ? lerp(float3(0.29f, 0.135f, 0.036f), float3(0.23f, 0.24f, 0.068f), saturate(variant))
+            : lerp(float3(0.045f, 0.14f, 0.075f), float3(0.065f, 0.12f, 0.16f), variant);
+        const float3 tipColor = broadLeaf
+            ? lerp(float3(0.90f, 0.64f, 0.19f), float3(0.71f, 0.76f, 0.31f), saturate(variant))
+            : lerp(float3(0.30f, 0.48f, 0.15f), float3(0.12f, 0.39f, 0.38f), variant);
         const float vein = 1.0f - smoothstep(0.01f, 0.045f, abs(input.uv.x - 0.5f));
         albedo = lerp(rootColor, tipColor, tip) * (1.0f + 0.12f * vein);
         occlusion = lerp(0.46f, 1.0f, smoothstep(0.0f, 0.40f, input.uv.y));
-        transmission = pow(saturate(dot(-normal, gTowardSun)), 2.0f) * tip * 0.30f;
+        const float wrap = broadLeaf ? 0.40f : 0.0f;
+        transmission = pow(saturate((dot(-normal, gTowardSun) + wrap) / (1.0f + wrap)), 2.0f)
+            * tip * (broadLeaf ? 0.48f : 0.30f);
     }
     else
     {
-        const float3 branchColor = lerp(float3(0.24f, 0.12f, 0.23f),
-            float3(0.16f, 0.24f, 0.29f), variant);
-        const float3 tipColor = lerp(float3(0.76f, 0.30f, 0.37f),
-            float3(0.25f, 0.61f, 0.68f), variant);
+        const bool softPolyp = input.material.x > 3.1f;
+        const float3 branchColor = softPolyp
+            ? lerp(float3(0.49f, 0.25f, 0.060f), float3(0.48f, 0.22f, 0.14f), saturate(variant))
+            : lerp(float3(0.24f, 0.12f, 0.23f), float3(0.16f, 0.24f, 0.29f), variant);
+        const float3 tipColor = softPolyp
+            ? lerp(float3(0.96f, 0.84f, 0.46f), float3(0.90f, 0.70f, 0.52f), saturate(variant))
+            : lerp(float3(0.76f, 0.30f, 0.37f), float3(0.25f, 0.61f, 0.68f), variant);
         const float tip = pow(saturate(input.uv.y), 3.0f);
         albedo = lerp(branchColor, tipColor, tip);
         occlusion = 0.82f + 0.18f * input.uv.y;
-        emission = tipColor * tip * 0.045f;
+        emission = tipColor * tip * (softPolyp ? 0.012f : 0.045f);
     }
     const float sunlight = saturate(dot(normal, normalize(gTowardSun)));
     const float sky = 0.43f + 0.17f * saturate(normal.y * 0.5f + 0.5f);
