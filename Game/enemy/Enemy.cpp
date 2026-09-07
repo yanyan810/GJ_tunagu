@@ -27,6 +27,7 @@ void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam
     shipModel_->Initialize(objCommon, dx);
     shipModel_->SetCamera(cam);
     shipModel_->SetModel("Boss_Ship/sip.gltf");
+    screwAnimation_.Initialize(*shipModel_);
     shipModel_->SetScale(scale_);
     // A multi-material GLTF must use a neutral instance tint. Otherwise the
     // first (dark) material color is multiplied into every ship material.
@@ -99,6 +100,8 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
         shipModel_->SetRotate(rot_);
         shipModel_->SetScale(scale_);
         shipModel_->SetEnableLighting(shipLightingEnabled_ ? 1 : 0);
+        screwAnimation_.Update(*shipModel_, dt, false,
+            movement.x * movement.x + movement.z * movement.z > 0.000001f);
         shipModel_->Update(dt);
     }
 

@@ -238,6 +238,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\scene\Main\GameScene.cpp" />
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp" />
     <ClCompile Include="Game\scene\Test\BossTestScene.cpp" />
+    <ClCompile Include="Game\boss\PingBeamAttack.cpp" />
     <ClCompile Include="Game\scene\Test\ShipScene.cpp" />
     <ClCompile Include="Game\scene\Flow\GameOverScene.cpp" />
     <ClCompile Include="main.cpp">
@@ -581,6 +582,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\scene\Main\GameScene.h" />
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h" />
     <ClInclude Include="Game\scene\Test\BossTestScene.h" />
+    <ClInclude Include="Game\boss\PingBeamAttack.h" />
     <ClInclude Include="Game\boss\BossBulletAttack.h" />
     <ClInclude Include="Game\boss\BossNetAttack.h" />
     <ClInclude Include="Game\scene\Test\ShipScene.h" />

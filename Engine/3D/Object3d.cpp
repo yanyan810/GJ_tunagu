@@ -176,7 +176,8 @@ void Object3d::EnsureInstanceMaterial_()
 }
 
 static Matrix4x4 ApplyMeshExplosionOffset(
-	const Matrix4x4& nodeWorld, const Vector3& translate, const Vector3& rotate) {
+	const Matrix4x4& nodeWorld, const Vector3& translate, const Vector3& rotate,
+	const Vector3& pivot, bool usePivot) {
 	Matrix4x4 localShape = nodeWorld;
 	const Vector3 nodePosition{ nodeWorld.m[3][0], nodeWorld.m[3][1], nodeWorld.m[3][2] };
 	localShape.m[3][0] = 0.0f;
@@ -184,9 +185,13 @@ static Matrix4x4 ApplyMeshExplosionOffset(
 	localShape.m[3][2] = 0.0f;
 	const Matrix4x4 fragmentRotation = Matrix4x4::MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, rotate, {});
 	Matrix4x4 result = Matrix4x4::Multiply(localShape, fragmentRotation);
-	result.m[3][0] = nodePosition.x + translate.x;
-	result.m[3][1] = nodePosition.y + translate.y;
-	result.m[3][2] = nodePosition.z + translate.z;
+	Vector3 resultPosition = nodePosition + translate;
+	if (usePivot) {
+		resultPosition = TransformPoint(nodePosition - pivot, fragmentRotation) + pivot + translate;
+	}
+	result.m[3][0] = resultPosition.x;
+	result.m[3][1] = resultPosition.y;
+	result.m[3][2] = resultPosition.z;
 	return result;
 }
 
@@ -236,6 +241,24 @@ void Object3d::SetMeshInstanceExplosionOffset(
 	if (instanceIndex >= meshInstanceExplosionOffsets_.size()) return;
 	meshInstanceExplosionOffsets_[instanceIndex].translate = translate;
 	meshInstanceExplosionOffsets_[instanceIndex].rotate = rotate;
+	meshInstanceExplosionOffsets_[instanceIndex].usePivot = false;
+}
+
+void Object3d::SetMeshInstanceRotationAroundPivot(
+	size_t instanceIndex, const Vector3& pivot, const Vector3& rotate)
+{
+	SetMeshInstanceTransformAroundPivot(instanceIndex, pivot, {}, rotate);
+}
+
+void Object3d::SetMeshInstanceTransformAroundPivot(
+	size_t instanceIndex, const Vector3& pivot, const Vector3& translate, const Vector3& rotate)
+{
+	if (instanceIndex >= meshInstanceExplosionOffsets_.size()) return;
+	auto& offset = meshInstanceExplosionOffsets_[instanceIndex];
+	offset.translate = translate;
+	offset.rotate = rotate;
+	offset.pivot = pivot;
+	offset.usePivot = true;
 }
 
 void Object3d::ResetMeshInstanceExplosionOffsets()
@@ -612,7 +635,7 @@ void Object3d::Draw()
 				Matrix4x4 nodeWorld = nodeGlobals[inst.nodeIndex];
 				if (instanceIndex < meshInstanceExplosionOffsets_.size()) {
 					const auto& offset = meshInstanceExplosionOffsets_[instanceIndex];
-					nodeWorld = ApplyMeshExplosionOffset(nodeWorld, offset.translate, offset.rotate);
+					nodeWorld = ApplyMeshExplosionOffset(nodeWorld, offset.translate, offset.rotate, offset.pivot, offset.usePivot);
 				}
 				Matrix4x4 world = Matrix4x4::Multiply(nodeWorld, baseWorld);
 				Matrix4x4 wvpM = Matrix4x4::Multiply(world, vp);
@@ -730,7 +753,7 @@ void Object3d::Draw()
 				Matrix4x4 nodeWorld = nodeGlobals[inst.nodeIndex];
 				if (instanceIndex < meshInstanceExplosionOffsets_.size()) {
 					const auto& offset = meshInstanceExplosionOffsets_[instanceIndex];
-					nodeWorld = ApplyMeshExplosionOffset(nodeWorld, offset.translate, offset.rotate);
+					nodeWorld = ApplyMeshExplosionOffset(nodeWorld, offset.translate, offset.rotate, offset.pivot, offset.usePivot);
 				}
 
 				Matrix4x4 world = Matrix4x4::Multiply(nodeWorld, baseWorld);

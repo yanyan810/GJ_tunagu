@@ -3,6 +3,7 @@
 #include <vector>
 #include "Vector3.h"
 #include "MathStruct.h"
+#include "boss/ShipScrewAnimation.h"
 
 class Object3d;
 class Object3dCommon;
@@ -38,6 +39,7 @@ public:
 
 private:
     std::unique_ptr<Object3d> shipModel_;
+    ShipScrewAnimation screwAnimation_;
     std::unique_ptr<Object3d> orbitDebugModel_;
     std::unique_ptr<Object3d> collisionDebugModel_;
     std::unique_ptr<BossBulletAttack> bulletAttack_;
