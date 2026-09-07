@@ -3,6 +3,7 @@
 #include <d3d12.h>
 #include <dxcapi.h>
 #include <assert.h>
+#include "SceneColorFormat.h"
 
 void SpriteCommon::Initialize(DirectXCommon* dx) {
     dx_ = dx;
@@ -118,7 +119,7 @@ void SpriteCommon::CreateGraphicsPipelineState() {
     psoDesc.RasterizerState = rast;
     psoDesc.DepthStencilState = ds;
     psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    psoDesc.RTVFormats[0] = kDisplayColorFormat;
     psoDesc.SampleDesc.Count = 1;
     psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -126,6 +127,17 @@ void SpriteCommon::CreateGraphicsPipelineState() {
 
     HRESULT hr = dx_->GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso_));
     assert(SUCCEEDED(hr));
+    psoDesc.RTVFormats[0] = kSceneColorFormat;
+    hr = dx_->GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&hdrPSO_));
+    assert(SUCCEEDED(hr));
+}
+
+ID3D12PipelineState* SpriteCommon::GetPipelineState() const
+{
+    // Scene sprites participate in HDR post effects; HUD sprites are drawn on
+    // the display target afterward and keep their original color/alpha behavior.
+    return dx_->GetCurrentRenderTargetFormat() == kSceneColorFormat
+        ? hdrPSO_.Get() : pso_.Get();
 }
 
 void SpriteCommon::SetGraphicsPipelineState() {
@@ -134,7 +146,7 @@ void SpriteCommon::SetGraphicsPipelineState() {
     // ルートシグネチャ
     cmd->SetGraphicsRootSignature(rootSignature_.Get());
     // グラフィックスパイプラインステート（PSO）
-    cmd->SetPipelineState(pso_.Get());
+    cmd->SetPipelineState(GetPipelineState());
     // プリミティブトポロジ（スプライトは三角形リスト）
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
@@ -193,11 +205,14 @@ void SpriteCommon::CreateCircleMaskPipeline_()
 
     pso.NumRenderTargets = 1;
     // あなたのRTVが SRGB を使ってるので合わせる
-    pso.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    pso.RTVFormats[0] = kDisplayColorFormat;
     pso.SampleDesc.Count = 1;
     pso.SampleMask = UINT_MAX;
 
     hr = dev->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&circleMaskPSO_));
+    assert(SUCCEEDED(hr));
+    pso.RTVFormats[0] = kSceneColorFormat;
+    hr = dev->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&circleMaskHdrPSO_));
     assert(SUCCEEDED(hr));
 
     // --- ConstantBuffer (Upload) ---
@@ -221,7 +236,8 @@ void SpriteCommon::DrawCircleMask(float radius01, float softness01)
 
     // PSO/RootSig
     cmd->SetGraphicsRootSignature(circleMaskRootSig_.Get());
-    cmd->SetPipelineState(circleMaskPSO_.Get());
+    cmd->SetPipelineState(dx_->GetCurrentRenderTargetFormat() == kSceneColorFormat
+        ? circleMaskHdrPSO_.Get() : circleMaskPSO_.Get());
 
     cmd->SetGraphicsRootConstantBufferView(0, circleMaskCB_->GetGPUVirtualAddress());
 

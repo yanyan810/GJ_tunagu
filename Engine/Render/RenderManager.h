@@ -10,6 +10,8 @@
 #include "OffscreenPass.h"
 #include "LightShaftParameters.h"
 #include "UnderwaterBackgroundParameters.h"
+#include "OceanShadowParameters.h"
+#include "SceneColorFormat.h"
 
 class DirectXCommon;
 class SrvManager;
@@ -79,8 +81,11 @@ struct OceanLightingParameters {
     float contactRadius = 1.8f;
     float contactBias = 0.12f;
     float contactEnabled = 0.0f;
+    float causticsDispersion = 0.0f; // Artistic RGB projection separation in atlas UV.
+    float _padding[3]{};
 };
-static_assert(sizeof(OceanLightingParameters) == 64);
+static_assert(sizeof(OceanLightingParameters) == 80);
+static_assert(offsetof(OceanLightingParameters, causticsDispersion) == 64);
 static_assert(offsetof(OceanLightingParameters, atlasColumns) == 32);
 static_assert(offsetof(OceanLightingParameters, contactStrength) == 48);
 
@@ -130,6 +135,10 @@ public:
         const UnderwaterMediumParameters& parameters);
     void SetOceanLightingParameters(const OceanLightingParameters& parameters,
         D3D12_GPU_DESCRIPTOR_HANDLE causticsTexture = {});
+    void SetOceanShadowParameters(const OceanShadowParameters& parameters,
+        D3D12_GPU_DESCRIPTOR_HANDLE shadowTexture = {});
+    void SetExposureEV(float exposureEV);
+    float GetExposureEV() const { return exposureEV_; }
     void SetUnderwaterFogParameters(float startDistance,
         const Vector3& extinctionDistanceRGB, float maxOpacity);
     void SetLightShaftParameters(
@@ -144,14 +153,14 @@ private:
     void CreateCopyImageRootSignature();
     void CreatePipelineState(
         const wchar_t* psPath,
-        Microsoft::WRL::ComPtr<ID3D12PipelineState>& outPSO);
+        Microsoft::WRL::ComPtr<ID3D12PipelineState>& outPSO,
+        DXGI_FORMAT targetFormat = kSceneColorFormat);
+    void DrawToneMapPass_(uint32_t srcSrvIndex);
     void DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* bloomCBOverride = nullptr);
-    void DrawFullscreenPassToBackBuffer(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* srcResource);
     void DrawFullscreenPassToBuffer(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* srcResource, OffscreenPass& dst, ID3D12Resource* bloomCBOverride = nullptr);
     void DrawAdditiveCompositePass(uint32_t baseSrvIndex, uint32_t addSrvIndex);
     int FindLastEnabledPostEffect_() const;
     uint32_t RenderPostEffectsToBuffer_(ID3D12Resource* srcResource, uint32_t srcSrvIndex);
-    void RenderPostEffectsToBackBuffer_(ID3D12Resource* srcResource, uint32_t srcSrvIndex);
     uint32_t RenderLayerPostEffectsToBuffer_(
         ID3D12Resource* srcResource,
         uint32_t srcSrvIndex,
@@ -166,9 +175,7 @@ private:
         bool luminanceOutline,
         OffscreenPass* tempCompositeBuffer = nullptr);
     uint32_t CompositeParticlePostToBuffer_(uint32_t baseSrvIndex);
-    void CompositeParticlePostToBackBuffer_(uint32_t baseSrvIndex);
     uint32_t CompositeObjectPostToBuffer_(uint32_t baseSrvIndex);
-    void CompositeObjectPostToBackBuffer_(uint32_t baseSrvIndex);
     DirectXCommon* dx_ = nullptr;
     SrvManager* srv_ = nullptr;
 
@@ -181,9 +188,14 @@ private:
     std::unique_ptr<OffscreenPass> previewBuffer_;
     std::unique_ptr<OffscreenPass> objectPostLayer_;
     std::unique_ptr<OffscreenPass> objectPostBuffer_;
+    std::unique_ptr<OffscreenPass> sceneDisplayBuffer_;
+    std::unique_ptr<OffscreenPass> previewDisplayBuffer_;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> copyImageRootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> additiveCompositePSO_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> toneMapPSO_;
+    float exposureEV_ = 0.0f;
+    float toneMapShoulderStart_ = 0.8f;
 
     static constexpr int kEffectCount = static_cast<int>(PostEffectMode::Count);
     std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kEffectCount> pipelineStates_;
@@ -263,18 +275,21 @@ private:
         float underwaterMediumEnabled;
         UnderwaterMediumParameters medium;
         OceanLightingParameters oceanLighting;
+        OceanShadowParameters oceanShadow;
     };
     static_assert(offsetof(DepthFogParameter, background) == 48);
     static_assert(offsetof(DepthFogParameter, extinctionDistanceRGB) == 176);
     static_assert(offsetof(DepthFogParameter, medium) == 192);
     static_assert(offsetof(DepthFogParameter, oceanLighting) == 256);
-    static_assert(sizeof(DepthFogParameter) == 320);
+    static_assert(offsetof(DepthFogParameter, oceanShadow) == 336);
+    static_assert(sizeof(DepthFogParameter) == 416);
     static_assert(sizeof(DepthFogParameter) % 16 == 0);
     Microsoft::WRL::ComPtr<ID3D12Resource> depthFogCB_;
     DepthFogParameter* depthFogCBData_ = nullptr;
     // Controls are edited on the CPU, then copied once when recording a draw.
     DepthFogParameter depthFogParameters_{};
     D3D12_GPU_DESCRIPTOR_HANDLE oceanCausticsTexture_{};
+    D3D12_GPU_DESCRIPTOR_HANDLE oceanShadowTexture_{};
 
     Vector3 depthFogColor_ = { 0.04f, 0.18f, 0.22f };
     float depthFogStartDistance_ = 25.0f;

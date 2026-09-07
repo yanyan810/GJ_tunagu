@@ -1,4 +1,5 @@
 #include "WaterSurfaceCommon.hlsli"
+#include "WaterSceneOptics.hlsli"
 
 Texture2D<float4> gNormalA : register(t0);
 Texture2D<float4> gNormalB : register(t1);
@@ -45,22 +46,50 @@ float SunGlint(float3 normal, float3 viewDirection, float normalVariance)
     return min(distribution * geometry * fresnel / (4.0f * nDotV), 1.5f);
 }
 
-float3 RollOffHighlights(float3 radiance)
-{
-    radiance = max(radiance, 0.0f);
-    // The surface renders into an LDR target. Preserve hue and midtones, then
-    // roll highlights smoothly into display range instead of clipping each channel.
-    const float peak = max(radiance.r, max(radiance.g, radiance.b));
-    const float shoulder = 0.55f;
-    const float mappedPeak = shoulder + (1.0f - shoulder) *
-        (1.0f - exp(-max(peak - shoulder, 0.0f) / (1.0f - shoulder)));
-    return radiance * (peak > shoulder ? mappedPeak / max(peak, 0.0001f) : 1.0f);
-}
-
 float FilteredWave(float phase)
 {
     // Fade features before their period becomes smaller than a few pixels.
     return sin(phase) * (1.0f - smoothstep(0.8f, 2.8f, fwidth(phase)));
+}
+
+float SkyNoise(float2 p)
+{
+    const float2 cell = floor(p);
+    const float2 f = frac(p);
+    const float2 u = f * f * (3.0f - 2.0f * f);
+    const float4 dots = float4(dot(cell, float2(127.1f, 311.7f)),
+        dot(cell + float2(1.0f, 0.0f), float2(127.1f, 311.7f)),
+        dot(cell + float2(0.0f, 1.0f), float2(127.1f, 311.7f)),
+        dot(cell + 1.0f, float2(127.1f, 311.7f)));
+    const float4 n = frac(sin(dots) * 43758.5453f);
+    return lerp(lerp(n.x, n.y, u.x), lerp(n.z, n.w, u.x), u.y);
+}
+
+float3 AirSkyRadiance(float3 direction, float normalVariance)
+{
+    // The shared legacy cubemap contains mirrored water images with face joins.
+    // A continuous sky dome represents air without changing that shared asset.
+    const float elevation = saturate(direction.y);
+    const float horizon = pow(1.0f - elevation, 3.0f);
+    float3 sky = lerp(float3(0.20f, 0.43f, 0.76f),
+        float3(0.68f, 0.83f, 0.94f), horizon);
+    const float cloudPhase = gTime * (17.0f * 6.2831853f / 4096.0f);
+    const float2 cloudDrift = float2(sin(cloudPhase), cos(cloudPhase)) * 0.22f;
+    const float2 cloudPosition = direction.xz / (elevation + 0.45f) * 3.8f + cloudDrift;
+    const float cloudNoise = SkyNoise(cloudPosition) * 0.60f +
+        SkyNoise(cloudPosition * 2.07f + 7.1f) * 0.28f +
+        SkyNoise(cloudPosition * 4.13f - 3.7f) * 0.12f;
+    const float clouds = smoothstep(0.48f, 0.72f, cloudNoise) *
+        smoothstep(0.0f, 0.16f, elevation) * 0.72f;
+    const float towardSun = saturate(dot(direction, gSunDirection));
+    const float daylight = smoothstep(0.0f, 0.12f, gSunDirection.y);
+    const float sunExponent = clamp(1150.0f / (1.0f + normalVariance * 80.0f),
+        100.0f, 1150.0f);
+    sky = lerp(sky, float3(0.90f, 0.95f, 1.0f), clouds);
+    sky += float3(1.0f, 0.88f, 0.68f) *
+        (pow(towardSun, 24.0f) * 0.10f +
+        pow(towardSun, sunExponent) * (2.5f * sunExponent / 1150.0f)) * daylight;
+    return sky;
 }
 
 float3 ReflectedWater(float3 surfacePosition, float3 reflectionDirection)
@@ -69,8 +98,7 @@ float3 ReflectedWater(float3 surfacePosition, float3 reflectionDirection)
     const float heightAboveFloor = max(surfacePosition.y - gReflectionFloorHeight, 0.0f);
     const float rayLength = min(heightAboveFloor / max(-reflectionDirection.y, 0.001f), 100000.0f);
     const float2 floorPosition = surfacePosition.xz + reflectionDirection.xz * rayLength;
-    // Analytic seabed-plane reflection, not a scene reflection: fish, rocks and
-    // other objects are deliberately absent until a reflection buffer is added.
+    // Analytic seabed-plane fallback when a real scene ray cannot find geometry.
     // Keep it broad and world-anchored; the normal waves distort its reflected shape.
     const float broadSand = FilteredWave(dot(floorPosition, float2(0.083f, 0.037f))) *
         FilteredWave(dot(floorPosition, float2(-0.025f, 0.064f)));
@@ -92,7 +120,7 @@ float3 ReflectedWater(float3 surfacePosition, float3 reflectionDirection)
 }
 
 float3 UnderwaterRay(float cosIncident, float3 normal, float3 viewTangent,
-    float3 reflectedWater, float normalVariance)
+    float3 reflectedWater, float4 transmittedScene, float normalVariance)
 {
     float cosTransmitted, totalInternalReflection;
     const float eta = 1.333f;
@@ -109,12 +137,9 @@ float3 UnderwaterRay(float cosIncident, float3 normal, float3 viewTangent,
     }
     const float3 refractedDirection = normalize(-eta * viewTangent *
         sqrt(saturate(1.0f - cosIncident * cosIncident)) - cosTransmitted * normal);
-    const float3 sky = gReflection.SampleLevel(gLinearWrapSampler,
-        refractedDirection, clamp(normalVariance * 16.0f, 0.0f, 3.0f)).rgb;
-    const float sunDisc = pow(saturate(dot(refractedDirection, gSunDirection)), 640.0f) *
-        smoothstep(0.0f, 0.12f, gSunDirection.y);
-    const float3 transmitted = RollOffHighlights((sky * float3(0.90f, 0.98f, 1.0f) +
-        float3(1.0f, 0.92f, 0.72f) * sunDisc * 0.5f) * gSkyExposure);
+    // Radiance stays HDR until the final display pass, shared with scene lighting.
+    const float3 skyTransmission = AirSkyRadiance(refractedDirection, normalVariance) * gSkyExposure;
+    const float3 transmitted = lerp(skyTransmission, transmittedScene.rgb, transmittedScene.a);
     return lerp(transmitted, reflectedWater, fresnel);
 }
 
@@ -128,17 +153,29 @@ float4 main(WaterVertexOutput input) : SV_TARGET0
     const float2 uvB = rotatedXZ * gNormalScaleB + speedB * gTime;
     const float2 uvADx = ddx(uvA), uvADy = ddy(uvA);
     const float2 uvBDx = ddx(uvB), uvBDy = ddy(uvB);
-    const float3 normalA = gNormalA.SampleGrad(gLinearWrapSampler, uvA, uvADx, uvADy).xyz * 2.0f - 1.0f;
-    const float3 normalB = gNormalB.SampleGrad(gLinearWrapSampler, uvB, uvBDx, uvBDy).xyz * 2.0f - 1.0f;
+    // Specular and transmitted rays share this slightly wider footprint. It
+    // resolves broad ripples while suppressing subpixel changes in ray direction.
+    const float3 normalA = gNormalA.SampleGrad(gLinearWrapSampler, uvA, uvADx * 1.35f, uvADy * 1.35f).xyz * 2.0f - 1.0f;
+    const float3 normalB = gNormalB.SampleGrad(gLinearWrapSampler, uvB, uvBDx * 1.35f, uvBDy * 1.35f).xyz * 2.0f - 1.0f;
     const float footprintA = max(length(uvADx), length(uvADy));
     const float footprintB = max(length(uvBDx), length(uvBDy));
     const float2 resolvedDetail = 1.0f - smoothstep(0.025f, 0.12f, float2(footprintA, footprintB));
     const float distanceXZ = length(gCameraPosition.xz - input.worldPosition.xz);
     const float detailFade = lerp(1.0f, 0.2f, smoothstep(30.0f, 220.0f, distanceXZ));
     // Rotate the second map's slopes back into world space as well as its UVs.
-    const float2 slope = (normalA.xy * resolvedDetail.x +
+    float2 slope = (normalA.xy * resolvedDetail.x +
         float2(-normalB.y, normalB.x) * resolvedDetail.y) *
         (0.5f * gNormalStrength * detailFade);
+    // Small capillary waves break up the broad Snell-window edge. They affect
+    // normals only and vanish before becoming subpixel, preserving depth parity.
+    float2 capillaryPhase = float2(
+        dot(input.worldPosition.xz, float2(2.1f, 0.9f)),
+        dot(input.worldPosition.xz, float2(-1.3f, 2.7f)))
+        + gTime * (6.2831853f / 4096.0f) * float2(-1171.0f, 1397.0f);
+    float2 capillary = sin(capillaryPhase) *
+        (1.0f - smoothstep(0.7f, 2.4f, fwidth(capillaryPhase)));
+    slope += (float2(0.9191f, 0.3939f) * capillary.x +
+        float2(-0.4338f, 0.9010f) * capillary.y) * (0.065f * gNormalStrength * detailFade);
     float3 normal = normalize(input.waveNormal + float3(slope.x, 0.0f, slope.y));
     const float3 viewDirection = normalize(gCameraPosition - input.worldPosition);
     // Use the mean water plane consistently with the environment's immersion state.
@@ -147,28 +184,47 @@ float4 main(WaterVertexOutput input) : SV_TARGET0
     const float cosIncident = clamp(dot(normal, viewDirection), 0.0001f, 1.0f);
     const float normalVariance = max(length(ddx(normal)), length(ddy(normal))) +
         (1.0f - min(resolvedDetail.x, resolvedDetail.y)) * 0.06f;
-    const float incidentFootprint = clamp(fwidth(cosIncident), 0.00001f, 0.08f);
+    const float unresolvedSlope = (1.0f - min(resolvedDetail.x, resolvedDetail.y)) * 0.016f;
+    const float incidentFootprint = clamp(max(fwidth(cosIncident),
+        0.006f + gNormalStrength * 0.020f + unresolvedSlope), 0.002f, 0.09f);
 
     const float3 reflectionDirection = reflect(-viewDirection, normal);
 
     if (underwater)
     {
-        const float3 reflectedWater = ReflectedWater(input.worldPosition, reflectionDirection);
+        const float3 reflectedFallback = ReflectedWater(input.worldPosition, reflectionDirection);
+        const float4 reflectedScene = TraceWaterScene(input.worldPosition, reflectionDirection, true);
+        const float3 reflectedWater = lerp(reflectedFallback, reflectedScene.rgb,
+            reflectedScene.a * gFloorReflectionStrength);
+        // Trace transmission once; the critical-angle integration below only
+        // filters Fresnel/sky and never multiplies the ray-marching workload.
+        float4 transmittedScene = 0.0f;
+        const float3 transmittedDirection = refract(-viewDirection, normal, 1.333f);
+        if (dot(transmittedDirection, transmittedDirection) > 0.5f)
+        {
+            transmittedScene = TraceWaterScene(input.worldPosition, transmittedDirection, false);
+        }
         const float3 tangent = viewDirection - normal * dot(normal, viewDirection);
         const float3 viewTangent = tangent / max(length(tangent), 0.0001f);
-        float3 color = UnderwaterRay(cosIncident, normal, viewTangent, reflectedWater, normalVariance);
+        float3 color = UnderwaterRay(cosIncident, normal, viewTangent, reflectedWater,
+            transmittedScene, normalVariance);
         const float criticalCosine = sqrt(1.0f - 1.0f / (1.333f * 1.333f));
-        const float edgeWeight = 1.0f - smoothstep(incidentFootprint * 0.5f,
-            incidentFootprint * 1.5f, abs(cosIncident - criticalCosine));
+        const float edgeWeight = 1.0f - smoothstep(incidentFootprint,
+            incidentFootprint * 2.0f, abs(cosIncident - criticalCosine));
         if (edgeWeight > 0.0f)
         {
             // Integrate both sides of the critical angle over the pixel footprint.
             // Each sample obeys Snell/Fresnel, so no sky leaks into full TIR pixels.
             const float3 edgeA = UnderwaterRay(clamp(cosIncident - incidentFootprint * 0.5f,
-                0.0001f, 1.0f), normal, viewTangent, reflectedWater, normalVariance);
+                0.0001f, 1.0f), normal, viewTangent, reflectedWater, transmittedScene, normalVariance);
             const float3 edgeB = UnderwaterRay(clamp(cosIncident + incidentFootprint * 0.5f,
-                0.0001f, 1.0f), normal, viewTangent, reflectedWater, normalVariance);
-            color = lerp(color, color * 0.5f + (edgeA + edgeB) * 0.25f, edgeWeight);
+                0.0001f, 1.0f), normal, viewTangent, reflectedWater, transmittedScene, normalVariance);
+            const float3 edgeC = UnderwaterRay(clamp(cosIncident - incidentFootprint,
+                0.0001f, 1.0f), normal, viewTangent, reflectedWater, transmittedScene, normalVariance);
+            const float3 edgeD = UnderwaterRay(clamp(cosIncident + incidentFootprint,
+                0.0001f, 1.0f), normal, viewTangent, reflectedWater, transmittedScene, normalVariance);
+            color = lerp(color, color * 0.375f + (edgeA + edgeB) * 0.25f +
+                (edgeC + edgeD) * 0.0625f, edgeWeight);
         }
         // Opaque here prevents the un-refracted background sky leaking through the window.
         return float4(color, 1.0f);
@@ -180,12 +236,22 @@ float4 main(WaterVertexOutput input) : SV_TARGET0
     const float artisticFresnel = 0.02037f + 0.97963f *
         pow(1.0f - saturate(cosIncident), gFresnelPower);
     const float fresnel = saturate(lerp(physicalFresnel, artisticFresnel, 0.35f) * gFresnelStrength);
-    const float3 reflectedSky = gReflection.SampleLevel(gLinearWrapSampler,
-        reflectionDirection, clamp(0.6f + normalVariance * 16.0f, 0.6f, 4.0f)).rgb * gSkyExposure;
+    const float3 reflectedSky = AirSkyRadiance(reflectionDirection, normalVariance) * gSkyExposure;
+    const float4 reflectedScene = TraceWaterScene(input.worldPosition, reflectionDirection, false);
+    const float3 reflection = lerp(reflectedSky, reflectedScene.rgb, reflectedScene.a);
+    const float3 refractedDirection = refract(-viewDirection, normal, 1.0f / 1.333f);
+    const float4 refractedScene = TraceWaterScene(input.worldPosition, refractedDirection, true);
+    const float3 transmittedFallback = ReflectedWater(input.worldPosition, refractedDirection);
+    const float3 transmission = lerp(transmittedFallback, refractedScene.rgb, refractedScene.a);
     const float reflectionAmount = fresnel * gReflectionStrength;
-    float3 color = lerp(gSurfaceTint.rgb, reflectedSky, reflectionAmount);
+    const float3 transmittedTint = lerp(transmission, gSurfaceTint.rgb, gSurfaceTint.a * 0.18f);
+    float3 color = lerp(gSceneOpticsEnabled > 0.5f ? transmittedTint : gSurfaceTint.rgb,
+        reflection, reflectionAmount);
     color += float3(1.0f, 0.94f, 0.80f) * SunGlint(normal, viewDirection, normalVariance) *
         gReflectionStrength * gSkyExposure;
-    const float alpha = saturate(gSurfaceTint.a + fresnel * (1.0f - gSurfaceTint.a));
-    return float4(RollOffHighlights(color), alpha);
+    // Scene transmission is already composited here. Do not blend a second,
+    // unrefracted copy of the framebuffer underneath it.
+    const float alpha = gSceneOpticsEnabled > 0.5f ? 1.0f :
+        saturate(gSurfaceTint.a + fresnel * (1.0f - gSurfaceTint.a));
+    return float4(max(color, 0.0f), alpha);
 }

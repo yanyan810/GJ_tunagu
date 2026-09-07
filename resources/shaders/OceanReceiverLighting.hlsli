@@ -1,6 +1,6 @@
 // Depth-reconstructed receiver lighting, evaluated in linear color before fog.
-// This is projected artwork + local screen-space obscurance, not photon tracing
-// or a shadow map. It intentionally has no dependency on individual materials.
+// Projected caustics, local obscurance and the static reef sunlight shadow share
+// the same receiver, without a dependency on individual material shaders.
 Texture2D<float4> gOceanCaustics : register(t2);
 
 float3 RefractedTowardSun(float3 airDirection)
@@ -28,11 +28,17 @@ float AtlasCaustic(float2 patternUV, uint frame)
     return gOceanCaustics.SampleLevel(gSampler, atlasUV, 0.0f).r;
 }
 
+float AnimatedOceanCaustic(float2 uv)
+{
+    return lerp(AtlasCaustic(uv, (uint)gFog.currentFrame),
+        AtlasCaustic(uv, (uint)gFog.nextFrame), saturate(gFog.frameBlend));
+}
+
 float3 ApplyOceanReceiverLighting(float3 color, float2 uv, float depth, float3 position)
 {
     float waterDepth = gFog.waterLevelY - position.y;
     if (waterDepth <= gFog.surfaceExclusion ||
-        (gFog.causticsEnabled < 0.5f && gFog.contactEnabled < 0.5f))
+        (gFog.causticsEnabled < 0.5f && gFog.contactEnabled < 0.5f && gFog.shadowSettings.w < 0.5f))
     {
         return color;
     }
@@ -54,6 +60,15 @@ float3 ApplyOceanReceiverLighting(float3 color, float2 uv, float depth, float3 p
     if (normalLength < 0.000001f) { return color; }
     normal /= normalLength;
     if (dot(normal, gFog.cameraPosition - position) < 0.0f) { normal = -normal; }
+
+    float3 airSun = gFog.sunDirection / max(length(gFog.sunDirection), 0.0001f);
+    float3 waterSun = RefractedTowardSun(airSun);
+    float sunlightVisibility = OceanSunVisibility(position, normal, false);
+    // Keep the ambient contribution in the shade; this post pass approximates
+    // the direct-light portion because the existing scene has no lighting G-buffer.
+    float directWeight = 0.64f * saturate(dot(normal, waterSun))
+        * smoothstep(0.0f, 0.15f, airSun.y);
+    color *= 1.0f - (1.0f - sunlightVisibility) * directWeight;
 
     // Fade rather than alias once the world-space contact radius is subpixel.
     float pixelSize = length(RestoreWorldPosition(uv + float2(1.0f / width, 0.0f), depth) - position);
@@ -87,8 +102,6 @@ float3 ApplyOceanReceiverLighting(float3 color, float2 uv, float depth, float3 p
 
     if (gFog.causticsEnabled >= 0.5f && gFog.causticsIntensity > 0.0f)
     {
-        float3 airSun = gFog.sunDirection / max(length(gFog.sunDirection), 0.0001f);
-        float3 waterSun = RefractedTowardSun(airSun);
         float2 surfacePosition = position.xz + waterSun.xz * (waterDepth / max(waterSun.y, 0.1f));
         float2 patternUV = surfacePosition * gFog.causticsScale;
         // Atlas has no mip chain. Suppress detail once its thin lines become
@@ -96,15 +109,27 @@ float3 ApplyOceanReceiverLighting(float3 color, float2 uv, float depth, float3 p
         float2 footprintX = (dx.xz - waterSun.xz * dx.y / waterSun.y) * gFog.causticsScale;
         float2 footprintY = (dy.xz - waterSun.xz * dy.y / waterSun.y) * gFog.causticsScale;
         float detailFade = 1.0f - smoothstep(0.008f, 0.045f, max(length(footprintX), length(footprintY)));
-        float mask = lerp(AtlasCaustic(patternUV, (uint)gFog.currentFrame),
-            AtlasCaustic(patternUV, (uint)gFog.nextFrame), saturate(gFog.frameBlend));
+        float centerMask = AnimatedOceanCaustic(patternUV);
+        float3 mask = centerMask.xxx;
+        if (gFog.causticsDispersion > 0.00001f && detailFade > 0.0f)
+        {
+            // Offset the same animated pattern, rather than tinting the whole
+            // seabed or shifting the screen image. Overlapping cores stay white.
+            // This is an artistic dispersion approximation, not spectral tracing.
+            float2 separation = float2(0.8944f, 0.4472f) * gFog.causticsDispersion
+                * smoothstep(0.0f, 8.0f, waterDepth) * detailFade;
+            mask = float3(AnimatedOceanCaustic(patternUV + separation),
+                centerMask, AnimatedOceanCaustic(patternUV - separation));
+            // Retain a neutral core and avoid neon single-channel highlights.
+            mask = lerp(centerMask.xxx, mask, 0.78f);
+        }
         float receiver = saturate(dot(normal, waterSun)) * smoothstep(0.0f, 0.15f, airSun.y);
         receiver *= smoothstep(gFog.surfaceExclusion, gFog.surfaceExclusion + 1.0f, waterDepth);
         // The following medium pass supplies depth/RGB absorption exactly once.
         // Keep very dark materials dark and soften light at local creases.
         color += sqrt(max(color, 0.0f)) * max(gFog.causticsColor, 0.0f)
             * max(gFog.sunColor, 0.0f) * (2.0f * gFog.causticsIntensity)
-            * mask * receiver * detailFade * (1.0f - contact * 0.6f);
+            * mask * receiver * detailFade * (1.0f - contact * 0.6f) * sunlightVisibility;
     }
     return color;
 }

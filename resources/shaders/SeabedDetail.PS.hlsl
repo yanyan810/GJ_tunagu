@@ -44,7 +44,7 @@ float4 main(SeabedVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARG
         const float broad = Noise(input.worldPosition * 0.42f);
         const float grain = Noise(input.worldPosition * 2.3f);
         const float variation = saturate(broad * 0.68f + grain * 0.22f + input.material.y * 0.10f);
-        albedo = lerp(float3(0.115f, 0.13f, 0.105f), float3(0.29f, 0.275f, 0.20f), variation);
+        albedo = lerp(float3(0.25f, 0.23f, 0.18f), float3(0.46f, 0.41f, 0.29f), variation);
         const float growth = smoothstep(0.38f, 0.70f, broad) * smoothstep(0.1f, 0.7f, normal.y);
         albedo = lerp(albedo, albedo * float3(0.58f, 0.80f, 0.41f), growth * 0.6f);
         ambientOcclusion = lerp(0.57f, 1.0f,

@@ -1,4 +1,5 @@
 ﻿#include "Object3dCommon.h"
+#include "SceneColorFormat.h"
 
 void Object3dCommon::Initialize(DirectXCommon* dxCommon) {
 	// 初期化処理
@@ -225,7 +226,7 @@ void Object3dCommon::CreateGraphicsPipelineState() {
         psoDesc.RasterizerState = rast;
         psoDesc.DepthStencilState = ds;
         psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+        psoDesc.RTVFormats[0] = kSceneColorFormat;
         psoDesc.SampleDesc.Count = 1;
         psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
         psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -343,7 +344,7 @@ void Object3dCommon::CreateEnvMapGraphicsPipelineState() {
         psoDesc.RasterizerState = rast;
         psoDesc.DepthStencilState = ds;
         psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+        psoDesc.RTVFormats[0] = kSceneColorFormat;
         psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
         psoDesc.SampleDesc.Count = 1;
         psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
@@ -399,7 +400,7 @@ void Object3dCommon::CreateOutlineGraphicsPipelineState() {
     psoDesc.RasterizerState = rast;
     psoDesc.DepthStencilState = ds;
     psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    psoDesc.RTVFormats[0] = kSceneColorFormat;
     psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
     psoDesc.SampleDesc.Count = 1;
     psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
@@ -407,11 +408,16 @@ void Object3dCommon::CreateOutlineGraphicsPipelineState() {
 
     HRESULT hr = dx_->GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&outlinePso_));
     assert(SUCCEEDED(hr));
+    // Mirrored GLTF nodes invert triangle winding. The pixel-width shader
+    // chooses the correct back face using the node determinant instead.
+    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    hr = dx_->GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pixelOutlinePso_));
+    assert(SUCCEEDED(hr));
 }
 
-void Object3dCommon::SetGraphicsPipelineStateOutline() {
+void Object3dCommon::SetGraphicsPipelineStateOutline(bool pixelWidth) {
     auto* cmd = dx_->GetCommandList();
     cmd->SetGraphicsRootSignature(rootSignature_.Get());
-    cmd->SetPipelineState(outlinePso_.Get());
+    cmd->SetPipelineState(pixelWidth ? pixelOutlinePso_.Get() : outlinePso_.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }

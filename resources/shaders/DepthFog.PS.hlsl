@@ -57,6 +57,11 @@ struct DepthFogParameter
     float contactRadius;
     float contactBias;
     float contactEnabled;
+    float causticsDispersion;
+    float3 oceanLightingPadding;
+
+    float4x4 shadowViewProjection;
+    float4 shadowSettings;
 };
 
 ConstantBuffer<DepthFogParameter> gFog : register(b6);
@@ -90,6 +95,7 @@ float3 RestoreWorldPosition(float2 uv, float depth)
     return world.xyz / max(world.w, 0.00001f);
 }
 
+#include "OceanSunShadow.hlsli"
 #include "OceanReceiverLighting.hlsli"
 
 // Intersect the camera-to-fragment segment with the water half-space. Neither
@@ -174,7 +180,8 @@ float3 IntegrateWaterLight(float3 rayDirection, float2 interval,
         float sunPathLength = sampleDepth / max(toSun.y, 0.15f);
         float3 transmission = exp(-(sunPathLength + waterDistance) / extinctionDistance);
         transmission *= exp(-sampleDepth / max(gFog.depthLightRange, 1.0f));
-        scatteredLight += pattern * transmission * segmentWeight;
+        float sunlightVisibility = OceanSunVisibility(position, 0.0f, true);
+        scatteredLight += pattern * transmission * segmentWeight * sunlightVisibility;
     }
     return scatteredLight * max(gFog.sunColor, 0.0f)
         * gFog.shaftIntensity * (0.35f + 0.65f * phase) * daylight;

@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <algorithm>
+#include <cmath>
 
 #ifdef USE_IMGUI
 #include "imgui.h"
@@ -68,6 +69,8 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
     previewBuffer_ = std::make_unique<OffscreenPass>();
     objectPostLayer_ = std::make_unique<OffscreenPass>();
     objectPostBuffer_ = std::make_unique<OffscreenPass>();
+    sceneDisplayBuffer_ = std::make_unique<OffscreenPass>();
+    previewDisplayBuffer_ = std::make_unique<OffscreenPass>();
 
     Vector4 clearColor = { 0.08f, 0.085f, 0.09f, 1.0f };
     offscreen_->Initialize(
@@ -75,7 +78,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         clearColor,
         2
     );
@@ -86,7 +89,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         postClearColor,
         3
     );
@@ -95,7 +98,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         postClearColor,
         4
     );
@@ -105,7 +108,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         particleLayerClearColor,
         5
     );
@@ -114,7 +117,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         postClearColor,
         6
     );
@@ -123,7 +126,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         postClearColor,
         7
     );
@@ -132,7 +135,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         postClearColor,
         8
     );
@@ -141,7 +144,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         clearColor,
         9
     );
@@ -150,7 +153,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         particleLayerClearColor,
         10
     );
@@ -159,12 +162,17 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         srv_,
         WinApp::kClientWidth,
         WinApp::kClientHeight,
-        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        kSceneColorFormat,
         postClearColor,
         11
     );
 
     CreateCopyImageRootSignature();
+
+    sceneDisplayBuffer_->Initialize(dx_, srv_, WinApp::kClientWidth,
+        WinApp::kClientHeight, kDisplayColorFormat, postClearColor, 12);
+    previewDisplayBuffer_->Initialize(dx_, srv_, WinApp::kClientWidth,
+        WinApp::kClientHeight, kDisplayColorFormat, clearColor, 13);
 
     gaussianFilterCB_ = dx_->CreateBufferResource((sizeof(GaussianFilterParameter) + 0xff) & ~0xff);
     gaussianFilterCB_->Map(0, nullptr, reinterpret_cast<void**>(&gaussianFilterCBData_));
@@ -282,6 +290,7 @@ void RenderManager::Initialize(DirectXCommon* dx, SrvManager* srv)
         CreatePipelineState(kEffectPSPaths[i], pipelineStates_[i]);
     }
     CreatePipelineState(L"resources/shaders/AdditiveComposite.PS.hlsl", additiveCompositePSO_);
+    CreatePipelineState(L"resources/shaders/ToneMap.PS.hlsl", toneMapPSO_, kDisplayColorFormat);
 }
 
 void RenderManager::SetClearColor(const Vector4& color)
@@ -412,7 +421,26 @@ void RenderManager::SetOceanLightingParameters(
     lighting.contactRadius = std::clamp(lighting.contactRadius, 0.1f, 5.0f);
     lighting.contactBias = std::max(lighting.contactBias, 0.02f);
     lighting.surfaceExclusion = std::max(lighting.surfaceExclusion, 0.1f);
+    lighting.causticsDispersion = std::clamp(lighting.causticsDispersion, 0.0f, 0.012f);
     oceanCausticsTexture_ = causticsTexture;
+}
+
+void RenderManager::SetOceanShadowParameters(const OceanShadowParameters& parameters,
+    D3D12_GPU_DESCRIPTOR_HANDLE shadowTexture)
+{
+    depthFogParameters_.oceanShadow = parameters;
+    auto& settings = depthFogParameters_.oceanShadow.settings;
+    settings.x = std::max(settings.x, 1.0f / 16384.0f);
+    settings.y = std::max(settings.y, 0.0f);
+    settings.z = std::clamp(settings.z, 0.0f, 1.0f);
+    oceanShadowTexture_ = shadowTexture;
+}
+
+void RenderManager::SetExposureEV(float exposureEV)
+{
+    if (std::isfinite(exposureEV)) {
+        exposureEV_ = std::clamp(exposureEV, -4.0f, 4.0f);
+    }
 }
 
 void RenderManager::SetUnderwaterFogParameters(float startDistance,
@@ -452,6 +480,9 @@ void RenderManager::EndPreview()
 {
     assert(previewBuffer_);
     previewBuffer_->End();
+    previewDisplayBuffer_->BeginForPostEffect();
+    DrawToneMapPass_(previewBuffer_->GetSrvIndex());
+    previewDisplayBuffer_->End();
 }
 
 void RenderManager::BeginParticlePostLayer(PostEffectMode mode)
@@ -478,6 +509,7 @@ void RenderManager::EndParticlePostLayer()
     if (!hasParticlePostLayer_) {
         return;
     }
+    particlePostLayer_->End();
 }
 
 void RenderManager::ClearParticlePostLayer()
@@ -502,6 +534,9 @@ void RenderManager::BeginObjectPostLayer(bool bloom, bool outlineBloom, bool lum
 
 void RenderManager::EndObjectPostLayer()
 {
+    if (hasObjectPostLayer_) {
+        objectPostLayer_->End();
+    }
 }
 
 void RenderManager::ClearObjectPostLayer()
@@ -520,8 +555,8 @@ uint32_t RenderManager::GetOffscreenSrvIndex() const
 
 uint32_t RenderManager::GetPreviewSrvIndex() const
 {
-    assert(previewBuffer_);
-    return previewBuffer_->GetSrvIndex();
+    assert(previewDisplayBuffer_);
+    return previewDisplayBuffer_->GetSrvIndex();
 }
 
 void RenderManager::BeginBackBuffer()
@@ -549,7 +584,15 @@ void RenderManager::CreateCopyImageRootSignature()
     range2.BaseShaderRegister = 2; // t2: Light Shaft water transmission
     range2.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER rootParams[11]{};
+    D3D12_DESCRIPTOR_RANGE range3{};
+    range3.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    range3.NumDescriptors = 1;
+    range3.BaseShaderRegister = 3;
+    range3.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    // 8 root CBVs (16 DWORD), 4 descriptor tables (4), 4 tone-map constants.
+    // Total 24 DWORD, comfortably inside the D3D12 64-DWORD limit.
+    D3D12_ROOT_PARAMETER rootParams[13]{};
     // [0]: SRV (t0) Color
     rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -616,6 +659,16 @@ void RenderManager::CreateCopyImageRootSignature()
     rootParams[10].DescriptorTable.NumDescriptorRanges = 1;
     rootParams[10].DescriptorTable.pDescriptorRanges = &range2;
 
+    rootParams[11].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParams[11].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParams[11].DescriptorTable.NumDescriptorRanges = 1;
+    rootParams[11].DescriptorTable.pDescriptorRanges = &range3;
+
+    rootParams[12].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    rootParams[12].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParams[12].Constants.ShaderRegister = 8;
+    rootParams[12].Constants.Num32BitValues = 4;
+
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -653,7 +706,8 @@ void RenderManager::CreateCopyImageRootSignature()
 
 void RenderManager::CreatePipelineState(
     const wchar_t* psPath,
-    Microsoft::WRL::ComPtr<ID3D12PipelineState>& outPSO)
+    Microsoft::WRL::ComPtr<ID3D12PipelineState>& outPSO,
+    DXGI_FORMAT targetFormat)
 {
     auto vs = dx_->CompileShader(L"resources/shaders/Fullscreen.VS.hlsl", L"vs_6_0");
     auto ps = dx_->CompileShader(psPath, L"ps_6_0");
@@ -670,7 +724,7 @@ void RenderManager::CreatePipelineState(
     desc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
     desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     desc.NumRenderTargets = 1;
-    desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    desc.RTVFormats[0] = targetFormat;
     desc.SampleDesc.Count = 1;
     desc.InputLayout.pInputElementDescs = nullptr;
     desc.InputLayout.NumElements = 0;
@@ -679,6 +733,19 @@ void RenderManager::CreatePipelineState(
         &desc,
         IID_PPV_ARGS(&outPSO));
     assert(SUCCEEDED(hr));
+}
+
+void RenderManager::DrawToneMapPass_(uint32_t srcSrvIndex)
+{
+    auto* cmd = dx_->GetCommandList();
+    assert(dx_->GetCurrentRenderTargetFormat() == kDisplayColorFormat);
+    cmd->SetGraphicsRootSignature(copyImageRootSignature_.Get());
+    cmd->SetPipelineState(toneMapPSO_.Get());
+    cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    cmd->SetGraphicsRootDescriptorTable(0, srv_->GetGPUDescriptionHandle(srcSrvIndex));
+    const float parameters[4] = { exposureEV_, toneMapShoulderStart_, 0.0f, 0.0f };
+    cmd->SetGraphicsRoot32BitConstants(12, 4, parameters, 0);
+    cmd->DrawInstanced(3, 1, 0, 0);
 }
 
 void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* bloomCBOverride)
@@ -727,6 +794,13 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
         }
         cmd->SetGraphicsRootDescriptorTable(10, hasCaustics
             ? oceanCausticsTexture_ : srv_->GetGPUDescriptionHandle(srcSrvIndex));
+        const bool hasShadow = oceanShadowTexture_.ptr != 0;
+        if (!hasShadow) {
+            depthFogCBData_->oceanShadow.settings.w = 0.0f;
+        }
+        // A scalar-compatible valid t3 is bound even before an environment exists.
+        cmd->SetGraphicsRootDescriptorTable(11, hasShadow
+            ? oceanShadowTexture_ : srv_->GetGPUDescriptionHandle(depthSrvIndex_));
         cmd->SetGraphicsRootConstantBufferView(8, depthFogCB_->GetGPUVirtualAddress());
     } else if (mode == PostEffectMode::LightShaft) {
         LightShaftParameters effectiveParameters = lightShaftParameters_;
@@ -763,27 +837,6 @@ void RenderManager::DrawAdditiveCompositePass(uint32_t baseSrvIndex, uint32_t ad
     cmd->SetGraphicsRootDescriptorTable(0, srv_->GetGPUDescriptionHandle(baseSrvIndex));
     cmd->SetGraphicsRootDescriptorTable(2, srv_->GetGPUDescriptionHandle(addSrvIndex));
     cmd->DrawInstanced(3, 1, 0, 0);
-}
-
-void RenderManager::DrawFullscreenPassToBackBuffer(
-    PostEffectMode mode,
-    uint32_t srcSrvIndex,
-    ID3D12Resource* srcResource)
-{
-    dx_->TransitionResource(
-        srcResource,
-        D3D12_RESOURCE_STATE_RENDER_TARGET,
-        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-    );
-
-    dx_->SetBackBufferRenderTargetForPostEffect();
-    DrawFullscreenPass(mode, srcSrvIndex);
-
-    dx_->TransitionResource(
-        srcResource,
-        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-        D3D12_RESOURCE_STATE_RENDER_TARGET
-    );
 }
 
 void RenderManager::DrawFullscreenPassToBuffer(
@@ -876,56 +929,6 @@ uint32_t RenderManager::RenderPostEffectsToBuffer_(ID3D12Resource* srcResource, 
     }
 
     return srcSrvIndex;
-}
-
-void RenderManager::RenderPostEffectsToBackBuffer_(ID3D12Resource* srcResource, uint32_t srcSrvIndex)
-{
-    const int lastEffect = FindLastEnabledPostEffect_();
-    int bufferIndex = 0;
-
-    if (lastEffect < 0) {
-        DrawFullscreenPassToBackBuffer(PostEffectMode::FullScreen, srcSrvIndex, srcResource);
-        return;
-    }
-
-    for (int i = 1; i < kEffectCount; ++i) {
-        if (i == static_cast<int>(PostEffectMode::GaussianBlurX) ||
-            i == static_cast<int>(PostEffectMode::GaussianBlurY)) {
-            continue;
-        }
-        if (!enabledEffects_[i]) {
-            continue;
-        }
-
-        const PostEffectMode mode = static_cast<PostEffectMode>(i);
-        if (mode == PostEffectMode::GaussianBlur) {
-            OffscreenPass& dstX = *postBuffers_[bufferIndex];
-            DrawFullscreenPassToBuffer(PostEffectMode::GaussianBlurX, srcSrvIndex, srcResource, dstX);
-            srcResource = dstX.GetResource();
-            srcSrvIndex = dstX.GetSrvIndex();
-            bufferIndex = 1 - bufferIndex;
-
-            if (i == lastEffect) {
-                DrawFullscreenPassToBackBuffer(PostEffectMode::GaussianBlurY, srcSrvIndex, srcResource);
-            } else {
-                OffscreenPass& dstY = *postBuffers_[bufferIndex];
-                DrawFullscreenPassToBuffer(PostEffectMode::GaussianBlurY, srcSrvIndex, srcResource, dstY);
-                srcResource = dstY.GetResource();
-                srcSrvIndex = dstY.GetSrvIndex();
-                bufferIndex = 1 - bufferIndex;
-            }
-        } else {
-            if (i == lastEffect) {
-                DrawFullscreenPassToBackBuffer(mode, srcSrvIndex, srcResource);
-            } else {
-                OffscreenPass& dst = *postBuffers_[bufferIndex];
-                DrawFullscreenPassToBuffer(mode, srcSrvIndex, srcResource, dst);
-                srcResource = dst.GetResource();
-                srcSrvIndex = dst.GetSrvIndex();
-                bufferIndex = 1 - bufferIndex;
-            }
-        }
-    }
 }
 
 uint32_t RenderManager::RenderLayerPostEffectsToBuffer_(
@@ -1074,34 +1077,6 @@ uint32_t RenderManager::CompositeParticlePostToBuffer_(uint32_t baseSrvIndex)
     return compositeBuffer2_->GetSrvIndex();
 }
 
-void RenderManager::CompositeParticlePostToBackBuffer_(uint32_t baseSrvIndex)
-{
-    if (!hasParticlePostLayer_) {
-        return;
-    }
-
-    const uint32_t effectSrvIndex = RenderLayerPostEffectsToBuffer_(
-        particlePostLayer_->GetResource(),
-        particlePostLayer_->GetSrvIndex(),
-        particlePostBloom_,
-        particlePostOutlineBloom_,
-        particleLayerBloomColor_,
-        particleBloomCB_.Get(),
-        particleBloomCBData_,
-        particleLayerOutlineBloomColor_,
-        particleOutlineBloomCB_.Get(),
-        particleOutlineBloomCBData_,
-        false,
-        compositeBuffer_.get());
-
-    if (effectSrvIndex == particlePostLayer_->GetSrvIndex()) {
-        return;
-    }
-
-    dx_->SetBackBufferRenderTargetForPostEffect();
-    DrawAdditiveCompositePass(baseSrvIndex, effectSrvIndex);
-}
-
 uint32_t RenderManager::CompositeObjectPostToBuffer_(uint32_t baseSrvIndex)
 {
     if (!hasObjectPostLayer_) {
@@ -1133,34 +1108,6 @@ uint32_t RenderManager::CompositeObjectPostToBuffer_(uint32_t baseSrvIndex)
     return compositeBuffer_->GetSrvIndex();
 }
 
-void RenderManager::CompositeObjectPostToBackBuffer_(uint32_t baseSrvIndex)
-{
-    if (!hasObjectPostLayer_) {
-        return;
-    }
-
-    const uint32_t effectSrvIndex = RenderLayerPostEffectsToBuffer_(
-        objectPostLayer_->GetResource(),
-        objectPostLayer_->GetSrvIndex(),
-        objectPostBloom_,
-        objectPostOutlineBloom_,
-        objectLayerBloomColor_,
-        objectBloomCB_.Get(),
-        objectBloomCBData_,
-        objectLayerOutlineBloomColor_,
-        objectOutlineBloomCB_.Get(),
-        objectOutlineBloomCBData_,
-        objectPostLuminanceOutline_,
-        compositeBuffer2_.get());
-
-    if (effectSrvIndex == objectPostLayer_->GetSrvIndex()) {
-        return;
-    }
-
-    dx_->SetBackBufferRenderTargetForPostEffect();
-    DrawAdditiveCompositePass(baseSrvIndex, effectSrvIndex);
-}
-
 void RenderManager::DrawOffscreenToBackBuffer()
 {
     assert(offscreen_);
@@ -1178,23 +1125,14 @@ void RenderManager::DrawOffscreenToBackBuffer()
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
     );
 
-    if (hasObjectPostLayer_ || hasParticlePostLayer_) {
-        uint32_t baseSrvIndex = RenderPostEffectsToBuffer_(offscreen_->GetResource(), offscreen_->GetSrvIndex());
-        if (hasObjectPostLayer_) {
-            baseSrvIndex = CompositeObjectPostToBuffer_(baseSrvIndex);
-        }
-        if (hasParticlePostLayer_) {
-            baseSrvIndex = CompositeParticlePostToBuffer_(baseSrvIndex);
-        }
-
-        ID3D12Resource* finalResource =
-            hasParticlePostLayer_ ? compositeBuffer2_->GetResource() :
-            hasObjectPostLayer_ ? compositeBuffer_->GetResource() :
-            offscreen_->GetResource();
-        DrawFullscreenPassToBackBuffer(PostEffectMode::FullScreen, baseSrvIndex, finalResource);
-    } else {
-        RenderPostEffectsToBackBuffer_(offscreen_->GetResource(), offscreen_->GetSrvIndex());
-    }
+    uint32_t finalSrvIndex = RenderPostEffectsToBuffer_(
+        offscreen_->GetResource(), offscreen_->GetSrvIndex());
+    finalSrvIndex = CompositeObjectPostToBuffer_(finalSrvIndex);
+    finalSrvIndex = CompositeParticlePostToBuffer_(finalSrvIndex);
+    // Every returned source is already in PIXEL_SHADER_RESOURCE state.
+    // All lighting and layer composites finish in HDR before this single conversion.
+    dx_->SetBackBufferRenderTargetForPostEffect();
+    DrawToneMapPass_(finalSrvIndex);
 
     dx_->TransitionResource(
         dx_->GetDepthStencilResource(),
@@ -1225,6 +1163,10 @@ uint32_t RenderManager::RenderPostEffectsForSceneTexture()
     previewSrvIndex_ = RenderPostEffectsToBuffer_(offscreen_->GetResource(), offscreen_->GetSrvIndex());
     previewSrvIndex_ = CompositeObjectPostToBuffer_(previewSrvIndex_);
     previewSrvIndex_ = CompositeParticlePostToBuffer_(previewSrvIndex_);
+    sceneDisplayBuffer_->BeginForPostEffect();
+    DrawToneMapPass_(previewSrvIndex_);
+    sceneDisplayBuffer_->End();
+    previewSrvIndex_ = sceneDisplayBuffer_->GetSrvIndex();
 
     dx_->TransitionResource(
         dx_->GetDepthStencilResource(),
@@ -1238,26 +1180,12 @@ uint32_t RenderManager::RenderPostEffectsForSceneTexture()
 
 bool RenderManager::BeginSceneTextureOverlay()
 {
-    OffscreenPass* candidates[] = {
-        postBuffers_[0].get(),
-        postBuffers_[1].get(),
-        compositeBuffer_.get(),
-        compositeBuffer2_.get(),
-        previewBuffer_.get()
-    };
-
-    sceneTextureOverlayTarget_ = nullptr;
-    for (OffscreenPass* pass : candidates) {
-        if (pass && pass->GetSrvIndex() == previewSrvIndex_) {
-            sceneTextureOverlayTarget_ = pass;
-            break;
-        }
-    }
-
-    if (!sceneTextureOverlayTarget_) {
+    // HUD is added after tone mapping in both Development and Release.
+    sceneTextureOverlayTarget_ = sceneDisplayBuffer_.get();
+    if (!sceneTextureOverlayTarget_ || previewSrvIndex_ != sceneTextureOverlayTarget_->GetSrvIndex()) {
+        sceneTextureOverlayTarget_ = nullptr;
         return false;
     }
-
     sceneTextureOverlayTarget_->BeginForPostEffect();
     return true;
 }
@@ -1277,6 +1205,8 @@ void RenderManager::DrawImGui()
 {
 #ifdef USE_IMGUI
     ImGui::Begin("Post Effect");
+    ImGui::SliderFloat("Scene exposure (EV)", &exposureEV_, -2.0f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Highlight shoulder", &toneMapShoulderStart_, 0.5f, 0.9f, "%.2f");
 
     if (ImGui::Button("Clear Effects")) {
         SetMode(PostEffectMode::FullScreen);

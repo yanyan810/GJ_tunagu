@@ -9,7 +9,7 @@ public:
     void Initialize(DirectXCommon* dx);
 
     ID3D12RootSignature* GetRootSignature() const { return rootSignature_.Get(); }
-    ID3D12PipelineState* GetPipelineState() const { return pso_.Get(); }
+    ID3D12PipelineState* GetPipelineState() const;
 
     DirectXCommon* GetDxCommon() const { return dx_; }
 
@@ -33,6 +33,7 @@ private:
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pso_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> hdrPSO_;
 
     // ※ 今の頂点構造(VertexData)に合わせて POSITION/TEXCOORD/NORMAL の3要素
     D3D12_INPUT_ELEMENT_DESC inputElems_[3] = {
@@ -48,6 +49,7 @@ private:
     // ===== ここから追加（円マスク） =====
     Microsoft::WRL::ComPtr<ID3D12RootSignature> circleMaskRootSig_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> circleMaskPSO_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> circleMaskHdrPSO_;
 
     struct MaskCB {
         float radius;    // 0..1

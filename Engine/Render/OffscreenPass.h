@@ -2,6 +2,7 @@
 #include <d3d12.h>
 #include <wrl.h>
 #include "MathStruct.h"
+#include "SceneColorFormat.h"
 
 class DirectXCommon;
 class SrvManager;
@@ -42,7 +43,7 @@ private:
     uint32_t srvIndex_ = 0;
     uint32_t rtvIndex_ = 0;
 
-    DXGI_FORMAT format_ = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    DXGI_FORMAT format_ = kSceneColorFormat;
     Vector4 clearColor_{ 0.0f, 0.0f, 0.0f, 1.0f };
     D3D12_RESOURCE_STATES currentState_ = D3D12_RESOURCE_STATE_RENDER_TARGET;
 };

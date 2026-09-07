@@ -1,4 +1,5 @@
 ﻿#include "ParticleCommon.h"
+#include "SceneColorFormat.h"
 #include <cassert>
 
 void ParticleCommon::Initialize(DirectXCommon* dxCommon)
@@ -314,7 +315,7 @@ void ParticleCommon::CreateGraphicsPipelineState(BlendMode mode, bool depthTestE
     psoDesc.RasterizerState = rast;
     psoDesc.DepthStencilState = ds;
     psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    psoDesc.RTVFormats[0] = kSceneColorFormat;
     psoDesc.SampleDesc.Count = 1;
     psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;

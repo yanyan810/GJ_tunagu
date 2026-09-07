@@ -5,7 +5,10 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "ParticleManager.h"
+#include "Player.h"
+#include "ReefCollisionWorld.h"
 #include "RenderManager.h"
+#include "ReefSceneRenderer.h"
 #include "SeabedDetailRenderer.h"
 #include "TextureManager.h"
 #include "UnderwaterBackgroundRenderer.h"
@@ -32,6 +35,7 @@ constexpr float kLightShaftVirtualSourceDistance = 500.0f;
 constexpr float kLightShaftWaterSurfaceTolerance = 1.5f;
 constexpr float kLightShaftOffscreenFadeDistance = 0.35f;
 constexpr float kLightShaftUnderwaterFadeDistance = 1.5f;
+constexpr float kReefFovY = 55.0f * 3.14159265359f / 180.0f;
 
 float Smoothstep(float edge0, float edge1, float value) {
     const float range = std::max(edge1 - edge0, 0.0001f);
@@ -56,14 +60,20 @@ void UnderwaterEnvironment::Initialize(
     Object3dCommon* object3dCommon, DirectXCommon* dx,
     Camera* camera, RenderManager* renderManager) {
     camera_ = camera;
+    dx_ = dx;
     renderManager_ = renderManager;
+    if (camera_) {
+        previousCameraFovY_ = camera_->GetFovY();
+        camera_->SetFovY(wideReefView_ ? kReefFovY : previousCameraFovY_);
+        camera_->Update();
+    }
     if (renderManager_) {
         previousDepthFogEnabled_ = renderManager_->IsEffectEnabled(PostEffectMode::DepthFog);
         previousFogStart_ = renderManager_->GetUnderwaterFogStartDistance();
         previousFogExtinction_ = renderManager_->GetUnderwaterFogExtinctionDistanceRGB();
         previousFogOpacity_ = renderManager_->GetUnderwaterFogMaxOpacity();
         renderManager_->SetEffectEnabled(PostEffectMode::DepthFog, true);
-        renderManager_->SetUnderwaterFogParameters(2.0f, {40.0f, 95.0f, 130.0f}, 1.0f);
+        ApplyWaterVisibilityPreset_(true);
     }
 
     background_ = std::make_unique<UnderwaterBackgroundRenderer>();
@@ -87,8 +97,14 @@ void UnderwaterEnvironment::Initialize(
     seabedDetails_->Initialize(dx, camera);
     seabedDetails_->Update(0.0f, floorHeight_, lightShaftDirection_);
 
+    reefScene_ = std::make_unique<ReefSceneRenderer>();
+    reefScene_->Initialize(dx, object3dCommon->GetSrvManager(), camera);
+    reefScene_->Update(0.0f, floorHeight_, lightShaftDirection_);
+    reefScene_->GetCollisionWorld().SetSeabedTileTriangles(seabedDetails_->GetCollisionTriangles());
+    SyncCollisionSettings_();
+
     waterSurface_ = std::make_unique<WaterSurfaceRenderer>();
-    waterSurface_->Initialize(dx, camera);
+    waterSurface_->Initialize(dx, object3dCommon->GetSrvManager(), camera);
     ApplyWaterSurfaceSettings_();
     waterSurface_->Update(0.0f);
     ApplyLightShaftSettings_();
@@ -98,6 +114,9 @@ void UnderwaterEnvironment::Initialize(
 }
 
 void UnderwaterEnvironment::Shutdown() {
+    if (camera_) {
+        camera_->SetFovY(previousCameraFovY_);
+    }
     if (renderManager_) {
         UnderwaterBackgroundParameters disabledParameters{};
         disabledParameters.enabled = 0.0f;
@@ -105,6 +124,7 @@ void UnderwaterEnvironment::Shutdown() {
         renderManager_->SetEffectEnabled(PostEffectMode::LightShaft, false);
         renderManager_->SetUnderwaterMediumParameters(UnderwaterMediumParameters{});
         renderManager_->SetOceanLightingParameters(OceanLightingParameters{});
+        renderManager_->SetOceanShadowParameters(OceanShadowParameters{}, {});
         renderManager_->SetEffectEnabled(PostEffectMode::DepthFog, previousDepthFogEnabled_);
         renderManager_->SetUnderwaterFogParameters(
             previousFogStart_, previousFogExtinction_, previousFogOpacity_);
@@ -118,6 +138,35 @@ void UnderwaterEnvironment::SetPlayerSnapshot(
     playerSnapshotYaw_ = yaw;
     playerSnapshotPitch_ = pitch;
     hasPlayerSnapshot_ = true;
+}
+
+void UnderwaterEnvironment::BindPlayer(Player& player) {
+    // The scene destroys its player before this environment. Resolve movement
+    // before Player updates the model, attached items and the camera target.
+    player.SetMotionResolver([this](const Vector3& start, const Vector3& desired) {
+        return ResolvePlayerMotion_(start, desired);
+    });
+}
+
+void UnderwaterEnvironment::SyncCollisionSettings_() {
+    if (!reefScene_) { return; }
+    auto& world = reefScene_->GetCollisionWorld();
+    world.SetFloorHeight(floorHeight_);
+    world.SetFloorEnabled(true);
+    world.SetReefEnabled(reefSceneEnabled_);
+    world.SetSeabedEnabled(seabedDetailsEnabled_);
+}
+
+Vector3 UnderwaterEnvironment::ResolvePlayerMotion_(const Vector3& start, const Vector3& desired) {
+    if (!environmentCollisionEnabled_ || !reefScene_) { return desired; }
+    SyncCollisionSettings_();
+    return reefScene_->GetCollisionWorld().MoveSphere(start, desired, playerCollisionRadius_);
+}
+
+Vector3 UnderwaterEnvironment::ConstrainCamera(const Vector3& target, const Vector3& desired) {
+    if (!cameraCollisionEnabled_ || !reefScene_) { return desired; }
+    SyncCollisionSettings_();
+    return reefScene_->GetCollisionWorld().ConstrainCamera(target, desired, cameraCollisionRadius_);
 }
 
 void UnderwaterEnvironment::Update(float dt) {
@@ -144,6 +193,9 @@ void UnderwaterEnvironment::Update(float dt) {
 
     if (seabedDetails_) {
         seabedDetails_->Update(dt, floorHeight_, lightShaftDirection_);
+    }
+    if (reefScene_) {
+        reefScene_->Update(dt, floorHeight_, lightShaftDirection_);
     }
 
     if (waterSurface_) {
@@ -177,6 +229,7 @@ void UnderwaterEnvironment::DrawBackground() {
     // while paused and still move its camera. Do not advance clocks or emit here.
     ApplyBackgroundSettings_();
     ApplyOceanLightingSettings_();
+    DrawReefShadow_();
     if (waterSurface_) {
         ApplyWaterSurfaceSettings_();
         waterSurface_->Update(0.0f);
@@ -201,10 +254,40 @@ void UnderwaterEnvironment::Draw() {
         seabedDetails_->Update(0.0f, floorHeight_, lightShaftDirection_);
         seabedDetails_->Draw();
     }
+    if (reefScene_) {
+        reefScene_->Draw();
+    }
+}
+
+void UnderwaterEnvironment::DrawReefShadow_() {
+    if (!renderManager_) { return; }
+    OceanShadowParameters parameters{};
+    if (reefScene_) {
+        reefScene_->SetEnabled(reefSceneEnabled_);
+        reefScene_->SetSandAppearance({ floorColor_.x, floorColor_.y, floorColor_.z },
+            sandReliefStrength_);
+        reefScene_->Update(0.0f, floorHeight_, lightShaftDirection_);
+    }
+    if (reefScene_ && reefSceneEnabled_ && reefSunShadowEnabled_ && dx_
+        && lightShaftDirection_.y > 0.0f && renderManager_->GetOffscreen()) {
+        reefScene_->DrawShadow();
+        dx_->BindRenderTextureWithDepthNoClear(renderManager_->GetOffscreen()->GetRtvIndex());
+        parameters.viewProjection = reefScene_->GetShadowViewProjection();
+        parameters.settings = {
+            1.0f / static_cast<float>(reefScene_->GetShadowMapSize()),
+            reefScene_->GetShadowWorldTexelSize() * 1.2f,
+            reefSunShadowStrength_, 1.0f };
+    }
+    renderManager_->SetOceanShadowParameters(parameters,
+        reefScene_ ? reefScene_->GetShadowSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE{});
 }
 
 void UnderwaterEnvironment::DrawWaterDepth() {
     if (waterSurface_) {
+        if (dx_ && renderManager_ && renderManager_->GetOffscreen()) {
+            waterSurface_->CaptureScene(renderManager_->GetOffscreen()->GetResource(),
+                dx_->GetDepthStencilResource());
+        }
         waterSurface_->DrawDepth();
     }
 }
@@ -218,10 +301,23 @@ void UnderwaterEnvironment::DrawWaterSurface() {
 void UnderwaterEnvironment::DrawImGui() {
 #ifdef USE_IMGUI
     ImGui::Begin("Underwater Environment");
+    ImGui::Checkbox("Reef Scenery", &reefSceneEnabled_);
+    ImGui::Checkbox("Environment Collision", &environmentCollisionEnabled_);
+    ImGui::Checkbox("Camera Environment Collision", &cameraCollisionEnabled_);
+    ImGui::Checkbox("Reef Sun Shadows", &reefSunShadowEnabled_);
+    ImGui::SliderFloat("Reef Shadow Strength", &reefSunShadowStrength_, 0.0f, 1.0f);
+    if (ImGui::Checkbox("Wide Reef View (55 deg)", &wideReefView_) && camera_) {
+        // The scene's next camera update refreshes all object matrices together.
+        camera_->SetFovY(wideReefView_ ? kReefFovY : previousCameraFovY_);
+    }
+    ImGui::Checkbox("Scene Water Reflection / Refraction", &sceneWaterOpticsEnabled_);
+    ImGui::SliderFloat("Scene Water Optics Strength", &sceneWaterOpticsStrength_, 0.0f, 1.0f);
+    ImGui::SliderInt("Scene Water Ray Steps", &sceneWaterOpticsSteps_, 12, 40);
     ImGui::Checkbox("Seabed Rocks / Seagrass", &seabedDetailsEnabled_);
     ImGui::DragFloat("Sand Relief", &sandReliefStrength_, 0.02f, 0.0f, 1.5f, "%.2f");
     ImGui::DragFloat("Water Sky Exposure", &waterSkyExposure_, 0.01f, 0.1f, 2.0f, "%.2f");
     ImGui::DragFloat("Seabed Reflection Approximation", &seabedReflectionStrength_, 0.01f, 0.0f, 1.0f, "%.2f");
+    ImGui::ColorEdit3("Underwater Reflection Tint", &waterReflectionTint_.x);
     ImGui::Checkbox("Depth / Sunlight Optics", &underwaterOpticsEnabled_);
     ImGui::DragFloat("Sunlit Water Strength", &underwaterShaftIntensity_, 0.005f, 0.0f, 0.3f, "%.3f");
     ImGui::DragFloat("Ocean Swell Strength", &waterWaveStrength_, 0.02f, 0.0f, 2.0f, "%.2f");
@@ -255,6 +351,10 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::DragFloat("Sand Variation Strength", &sandVariationStrength_, 0.005f, 0.0f, 0.20f, "%.3f");
     ImGui::Separator();
     ImGui::Checkbox("Caustics Enable", &causticsEnabled_);
+    if (ImGui::Button("Clear Water Visibility")) { ApplyWaterVisibilityPreset_(true); }
+    ImGui::SameLine();
+    if (ImGui::Button("Deep Water Visibility")) { ApplyWaterVisibilityPreset_(false); }
+    ImGui::SliderFloat("Caustics Rainbow Fringe", &causticsDispersion_, 0.0f, 0.012f, "%.4f");
     ImGui::Checkbox("Project Caustics on Scene", &projectedCausticsEnabled_);
     ImGui::Checkbox("Underwater Contact Shading", &contactShadingEnabled_);
     ImGui::SliderFloat("Contact Strength", &contactShadingStrength_, 0.0f, 0.6f);
@@ -593,6 +693,7 @@ void UnderwaterEnvironment::ApplyOceanLightingSettings_() {
     OceanLightingParameters parameters{};
     parameters.causticsColor = causticsColor_;
     parameters.causticsIntensity = std::max(causticsIntensity_, 0.0f);
+    parameters.causticsDispersion = causticsDispersion_;
     parameters.causticsScale = std::max(causticsScale_, 0.001f);
     parameters.causticsEnabled = causticsEnabled_ && UsesProjectedCaustics_() ? 1.0f : 0.0f;
     parameters.atlasColumns = kCausticsAtlasColumns;
@@ -613,6 +714,20 @@ void UnderwaterEnvironment::ApplyOceanLightingSettings_() {
     renderManager_->SetOceanLightingParameters(parameters,
         floor_ ? TextureManager::GetInstance()->GetSrvHandleGPU(GetCausticsTexturePath_())
                : D3D12_GPU_DESCRIPTOR_HANDLE{});
+}
+
+void UnderwaterEnvironment::ApplyWaterVisibilityPreset_(bool clearWater) {
+    if (renderManager_) {
+        renderManager_->SetUnderwaterFogParameters(clearWater ? 4.0f : 2.0f,
+            clearWater ? Vector3{110.0f, 190.0f, 250.0f} : Vector3{40.0f, 95.0f, 130.0f}, 1.0f);
+    }
+    backgroundSurfaceColor_ = clearWater ? Vector4{0.12f, 0.48f, 0.68f, 1.0f}
+                                        : Vector4{0.08f, 0.38f, 0.46f, 1.0f};
+    backgroundHorizonColor_ = clearWater ? Vector4{0.025f, 0.20f, 0.40f, 1.0f}
+                                        : Vector4{0.018f, 0.115f, 0.16f, 1.0f};
+    backgroundLowerColor_ = clearWater ? Vector4{0.012f, 0.065f, 0.16f, 1.0f}
+                                      : Vector4{0.012f, 0.055f, 0.085f, 1.0f};
+    waterSkyExposure_ = clearWater ? 1.15f : 0.65f;
 }
 
 void UnderwaterEnvironment::ApplyBackgroundSettings_() {
@@ -650,6 +765,8 @@ void UnderwaterEnvironment::ApplyBackgroundSettings_() {
 
 void UnderwaterEnvironment::ApplyWaterSurfaceSettings_() {
     waterSurface_->SetEnabled(waterSurfaceEnabled_);
+    waterSurface_->SetSceneOpticsSettings(sceneWaterOpticsEnabled_, sceneWaterOpticsStrength_,
+        sceneWaterOpticsSteps_, 160.0f);
     waterSurface_->SetWaterLevel(waterLevelY_);
     waterSurface_->SetSurfaceTint(waterSurfaceTint_);
     waterSurface_->SetNormalSettings(
@@ -663,7 +780,7 @@ void UnderwaterEnvironment::ApplyWaterSurfaceSettings_() {
     waterSurface_->SetUnderwaterAppearance(waterSkyExposure_, floorHeight_,
         { floorColor_.x, floorColor_.y, floorColor_.z },
         renderManager_ ? renderManager_->GetUnderwaterFogExtinctionDistanceRGB() : Vector3{40.0f, 95.0f, 130.0f},
-        { backgroundHorizonColor_.x, backgroundHorizonColor_.y, backgroundHorizonColor_.z },
+        waterReflectionTint_,
         seabedReflectionStrength_);
 }
 

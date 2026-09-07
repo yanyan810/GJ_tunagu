@@ -84,6 +84,7 @@ public:
 	D3D12_DEPTH_STENCIL_DESC GetDepthStencilDesc() const;
 
 	DXGI_FORMAT GetRTVFormat() const { return rtvDesc.Format; }
+	DXGI_FORMAT GetCurrentRenderTargetFormat() const { return currentRenderTargetFormat_; }
 	DXGI_FORMAT GetDSVFormat() const { return dsvDesc.Format; }
 
 	Microsoft::WRL::ComPtr <ID3D12DescriptorHeap>CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE heapType,
@@ -134,6 +135,7 @@ public:
 
 	void PreDrawRenderTexture(uint32_t rtvIndex, const Vector4& clearColor);
 	void PreDrawRenderTextureNoDepthClear(uint32_t rtvIndex, const Vector4& clearColor);
+	void BindRenderTextureWithDepthNoClear(uint32_t rtvIndex);
 	void SetBackBufferRenderTarget();
 
 	// RenderTexture用DSVの作成
@@ -205,6 +207,9 @@ private:
 
 	//設定するRTV
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+	static constexpr uint32_t kRenderTargetCapacity = 16;
+	std::array<DXGI_FORMAT, kRenderTargetCapacity> renderTargetFormats_{};
+	DXGI_FORMAT currentRenderTargetFormat_ = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	std::array<D3D12_CPU_DESCRIPTOR_HANDLE, 2> rtvHandles;
 
 	//フェンスの設定

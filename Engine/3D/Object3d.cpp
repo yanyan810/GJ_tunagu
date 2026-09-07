@@ -1,6 +1,8 @@
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "PrimitiveCommon.h"
+#include "WinApp.h"
+#include <cmath>
 
 
 //Vector3 Normalize(const Vector3& v) {
@@ -47,6 +49,10 @@ static Vector3 TransformPoint(const Vector3& point, const Matrix4x4& matrix) {
 		point.x * matrix.m[0][1] + point.y * matrix.m[1][1] + point.z * matrix.m[2][1] + matrix.m[3][1],
 		point.x * matrix.m[0][2] + point.y * matrix.m[1][2] + point.z * matrix.m[2][2] + matrix.m[3][2],
 	};
+}
+
+void Object3d::SetOutlinePixelWidth(float widthPixels) {
+	outlineThickness_ = std::isfinite(widthPixels) ? -std::clamp(widthPixels, 0.0f, 16.0f) : 0.0f;
 }
 
 void Object3d::Initialize(Object3dCommon* object3dCommon, DirectXCommon* dx) {
@@ -112,6 +118,8 @@ void Object3d::Initialize(Object3dCommon* object3dCommon, DirectXCommon* dx, Srv
 		effectParamData_->outlineColor = outlineColor_;
 		effectParamData_->outlineThickness = outlineThickness_;
 		effectParamData_->enableOutline = enableOutline_ ? 1.0f : 0.0f;
+		effectParamData_->outlineInverseViewport[0] = 1.0f / WinApp::kClientWidth;
+		effectParamData_->outlineInverseViewport[1] = 1.0f / WinApp::kClientHeight;
 		effectParamData_->dissolveThreshold = dissolveThreshold_;
 		effectParamData_->enableDissolve = enableDissolve_ ? 1.0f : 0.0f;
 		effectParamData_->dissolveEdgeWidth = dissolveEdgeWidth_;
@@ -363,6 +371,8 @@ void Object3d::Update(float dt)
 		effectParamData_->outlineColor = outlineColor_;
 		effectParamData_->outlineThickness = outlineThickness_;
 		effectParamData_->enableOutline = enableOutline_ ? 1.0f : 0.0f;
+		effectParamData_->outlineInverseViewport[0] = 1.0f / WinApp::kClientWidth;
+		effectParamData_->outlineInverseViewport[1] = 1.0f / WinApp::kClientHeight;
 		effectParamData_->dissolveThreshold = dissolveThreshold_;
 		effectParamData_->enableDissolve = enableDissolve_ ? 1.0f : 0.0f;
 		effectParamData_->dissolveEdgeWidth = dissolveEdgeWidth_;
@@ -517,7 +527,7 @@ void Object3d::Draw()
 
 		if (animator_ && animator_->IsPoseReady()) {
 			if (enableOutline_ && object3dCommon) {
-				object3dCommon->SetGraphicsPipelineStateOutline();
+				object3dCommon->SetGraphicsPipelineStateOutline(outlineThickness_ < 0.0f);
 				cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 				model_->DrawSkinnedCompute(cmd, animator_->GetSkinCluster(), overrideTexture);
 				SetNormalPipelineState();
@@ -628,7 +638,7 @@ void Object3d::Draw()
 				cmd->SetGraphicsRootConstantBufferView(1, nodeResource->GetGPUVirtualAddress());
 				
 				if (enableOutline_ && object3dCommon) {
-					object3dCommon->SetGraphicsPipelineStateOutline();
+					object3dCommon->SetGraphicsPipelineStateOutline(outlineThickness_ < 0.0f);
 					cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 					model_->DrawOneMesh(cmd, inst.meshIndex, 2, overrideTexture);
 					SetNormalPipelineState();
@@ -747,7 +757,7 @@ void Object3d::Draw()
 				cmd->SetGraphicsRootConstantBufferView(1, nodeResource->GetGPUVirtualAddress());
 
 				if (enableOutline_ && object3dCommon) {
-					object3dCommon->SetGraphicsPipelineStateOutline();
+					object3dCommon->SetGraphicsPipelineStateOutline(outlineThickness_ < 0.0f);
 					cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 					model_->DrawOneMesh(cmd, inst.meshIndex, 2, overrideTexture);
 					SetNormalPipelineState();
@@ -779,7 +789,7 @@ void Object3d::Draw()
 					auto handle = TextureManager::GetInstance()->GetSrvHandleGPU(texturePath_);
 					
 					if (enableOutline_ && object3dCommon) {
-						object3dCommon->SetGraphicsPipelineStateOutline();
+						object3dCommon->SetGraphicsPipelineStateOutline(outlineThickness_ < 0.0f);
 						cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 						model_->Draw(cmd, 1, &handle);
 						SetNormalPipelineState();
@@ -789,7 +799,7 @@ void Object3d::Draw()
 					model_->Draw(cmd, 1, &handle);
 				} else {
 					if (enableOutline_ && object3dCommon) {
-						object3dCommon->SetGraphicsPipelineStateOutline();
+						object3dCommon->SetGraphicsPipelineStateOutline(outlineThickness_ < 0.0f);
 						cmd->SetGraphicsRootConstantBufferView(8, effectParamResource_->GetGPUVirtualAddress());
 						model_->Draw(cmd);
 						SetNormalPipelineState();

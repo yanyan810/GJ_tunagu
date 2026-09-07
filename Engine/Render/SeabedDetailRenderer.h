@@ -2,13 +2,14 @@
 
 #include "Matrix4x4.h"
 #include "Vector3.h"
+#include "ReefCollisionWorld.h"
 #include <d3d12.h>
 #include <wrl.h>
 
 class Camera;
 class DirectXCommon;
 
-// Decorative seabed geometry. It has no collision or dependency on gameplay state.
+// Seabed geometry with immutable rock triangles exposed for independent collision.
 // One mesh is reused by visible tiles from a fixed 3x3 world grid. The origin's
 // central 20 m stays clear, and entering tiles fade in beyond the useful fog range.
 class SeabedDetailRenderer final {
@@ -17,6 +18,8 @@ public:
     void Update(float dt, float floorHeight, const Vector3& towardSun);
     void Draw() const;
     void SetEnabled(bool enabled) { enabled_ = enabled; }
+    bool IsEnabled() const { return enabled_; }
+    const std::vector<ReefCollisionWorld::Triangle>& GetCollisionTriangles() const { return collisionTriangles_; }
     void SetLocalCausticsEnabled(bool enabled) { localCausticsEnabled_ = enabled; }
 
 private:
@@ -50,6 +53,7 @@ private:
     float floorHeight_ = -22.0f;
     Vector3 towardSun_{ 0.15f, 1.0f, 0.10f };
     UINT indexCount_ = 0;
+    std::vector<ReefCollisionWorld::Triangle> collisionTriangles_;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;

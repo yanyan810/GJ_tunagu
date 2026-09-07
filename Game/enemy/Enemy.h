@@ -3,6 +3,7 @@
 #include <vector>
 #include "Vector3.h"
 #include "MathStruct.h"
+#include "boss/BossReadability.h"
 
 class Object3d;
 class Object3dCommon;
@@ -34,11 +35,13 @@ public:
     float GetHpRatio() const { return (maxHp_ > 0.0f) ? (hp_ / maxHp_) : 0.0f; }
     bool IsDead() const { return isDead_; }
     const Vector3& GetPosition() const { return pos_; }
+    void SetReadabilityEnabled(bool enabled) { readability_.SetEnabled(enabled); }
 
     void TakeDamage(float damage);
 
 private:
     std::unique_ptr<Object3d> shipModel_;
+    BossReadability readability_;
     std::unique_ptr<Object3d> orbitDebugModel_;
     std::unique_ptr<Object3d> collisionDebugModel_;
     std::unique_ptr<BossBulletAttack> bulletAttack_;

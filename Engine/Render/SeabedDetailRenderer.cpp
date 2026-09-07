@@ -1,4 +1,5 @@
 #include "SeabedDetailRenderer.h"
+#include "SceneColorFormat.h"
 
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -14,7 +15,7 @@ namespace {
 constexpr float kTau = 6.28318530718f;
 constexpr float kTileSpacing = 384.0f;
 // The generator's conservative horizontal bound plus the shader's fade end.
-constexpr float kTileCullDistance = 173.0f + 210.0f;
+constexpr float kTileCullDistance = 173.0f + 340.0f;
 
 // Private seed keeps the environment reproducible without changing gameplay RNG.
 class DetailRandom {
@@ -167,7 +168,7 @@ void SeabedDetailRenderer::CreatePipeline_() {
     desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
     desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
     desc.NumRenderTargets = 1;
-    desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    desc.RTVFormats[0] = kSceneColorFormat;
     desc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
     desc.SampleDesc.Count = 1;
     desc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
@@ -317,6 +318,14 @@ void SeabedDetailRenderer::CreateGeometry_() {
     }
 
     indexCount_ = static_cast<UINT>(indices.size());
+    collisionTriangles_.clear();
+    collisionTriangles_.reserve(indices.size() / 3);
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        const auto& a = vertices[indices[i]];
+        // Leaves sway and remain non-solid; use exactly the rendered rock mesh.
+        if (a.detail.x < 0.5f) collisionTriangles_.push_back({ a.position,
+            vertices[indices[i + 1]].position, vertices[indices[i + 2]].position, false });
+    }
     const UINT vertexBytes = static_cast<UINT>(vertices.size() * sizeof(VertexData));
     const UINT indexBytes = static_cast<UINT>(indices.size() * sizeof(UINT));
     vertexResource_ = dx_->CreateBufferResource(vertexBytes);

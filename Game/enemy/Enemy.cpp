@@ -113,6 +113,7 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
 
         shipModel_->SetScale(scale_);
         shipModel_->SetEnableLighting(shipLightingEnabled_ ? 1 : 0);
+        readability_.Apply(*shipModel_, camera_, damageFlashTimer_ > 0.0f);
         shipModel_->Update(dt);
     }
 
@@ -211,6 +212,7 @@ void Enemy::DrawImGui() {
         ImGui::Checkbox("Enable Movement", &movementEnabled_);
         ImGui::Checkbox("Enable Attacks", &attacksEnabled_);
         ImGui::Checkbox("Ship Lighting", &shipLightingEnabled_);
+        readability_.DrawImGui();
         ImGui::DragFloat3("Boss Position", &pos_.x, 0.1f);
         ImGui::DragFloat3("Boss Scale", &scale_.x, 0.05f, 0.05f, 20.0f);
         ImGui::DragFloat3("Visual Offset", &visualOffset_.x, 0.1f);
