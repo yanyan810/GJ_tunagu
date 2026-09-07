@@ -1,0 +1,100 @@
+[
+  {
+    "model": "Archerfish",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "halfbeak",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "suckfish",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "marlin",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "dolphin",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "orca",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "shark",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "pufferfish",
+    "animation": "Swim",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "crab",
+    "animation": "Walk",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "mantis_shrimp",
+    "animation": "Walk",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "jellyfish",
+    "animation": "Pulse",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "Starfish",
+    "animation": "Crawl",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "sea_urchin",
+    "animation": "Idle",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  },
+  {
+    "model": "shell",
+    "animation": "OpenClose",
+    "duration_seconds": 1.6,
+    "loop_verified": true,
+    "skin_weights_verified": true
+  }
+]
