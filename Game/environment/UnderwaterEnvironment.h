@@ -11,6 +11,7 @@ class DirectXCommon;
 class Object3d;
 class Object3dCommon;
 class RenderManager;
+class SeabedDetailRenderer;
 class UnderwaterBackgroundRenderer;
 class WaterSurfaceRenderer;
 
@@ -57,6 +58,11 @@ private:
     std::unique_ptr<Object3d> floor_;
     std::unique_ptr<UnderwaterBackgroundRenderer> background_;
     std::unique_ptr<WaterSurfaceRenderer> waterSurface_;
+    std::unique_ptr<SeabedDetailRenderer> seabedDetails_;
+    bool seabedDetailsEnabled_ = true;
+    float sandReliefStrength_ = 0.85f;
+    float waterSkyExposure_ = 0.65f;
+    float seabedReflectionStrength_ = 1.0f;
 
     bool backgroundEnabled_ = true;
     Vector4 backgroundSurfaceColor_{ 0.08f, 0.38f, 0.46f, 1.0f };

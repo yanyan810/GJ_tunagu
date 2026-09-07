@@ -1,7 +1,7 @@
 #ifndef WATER_SURFACE_COMMON_HLSLI
 #define WATER_SURFACE_COMMON_HLSLI
 
-// Keep this 80-byte layout in sync with WaterSurfaceRenderer::WaterParameters.
+// Keep this 128-byte layout in sync with WaterSurfaceRenderer::WaterParameters.
 // Shared by the color shader and the exact same VS used by both surface passes.
 cbuffer WaterParameters : register(b1)
 {
@@ -18,6 +18,12 @@ cbuffer WaterParameters : register(b1)
     float gWaveStrength;
     float3 gSunDirection;
     float gWaterLevel;
+    float3 gReflectionFloorColor;
+    float gReflectionFloorHeight;
+    float3 gExtinctionDistanceRGB;
+    float gSkyExposure;
+    float3 gDeepWaterColor;
+    float gFloorReflectionStrength;
 };
 
 struct WaterVertexOutput

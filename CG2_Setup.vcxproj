@@ -189,6 +189,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Engine\Render\RenderManager.cpp" />
     <ClCompile Include="Engine\Render\UnderwaterBackgroundRenderer.cpp" />
     <ClCompile Include="Engine\Render\WaterSurfaceRenderer.cpp" />
+    <ClCompile Include="Engine\Render\SeabedDetailRenderer.cpp" />
     <ClCompile Include="externals\imgui\imgui.cpp" />
     <ClCompile Include="externals\imgui\imgui_demo.cpp" />
     <ClCompile Include="externals\imgui\imgui_draw.cpp" />
@@ -483,6 +484,12 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="resources\shaders\SeabedDetail.VS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\SeabedDetail.PS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\2D\Sprite.h" />
@@ -513,6 +520,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Render\UnderwaterBackgroundParameters.h" />
     <ClInclude Include="Engine\Render\UnderwaterBackgroundRenderer.h" />
     <ClInclude Include="Engine\Render\WaterSurfaceRenderer.h" />
+    <ClInclude Include="Engine\Render\SeabedDetailRenderer.h" />
+    <ClInclude Include="resources\shaders\SandSurface.hlsli" />
+    <ClInclude Include="resources\shaders\SeabedDetail.hlsli" />
     <ClInclude Include="resources\shaders\WaterSurfaceCommon.hlsli" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />

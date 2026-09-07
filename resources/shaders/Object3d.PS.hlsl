@@ -1,4 +1,5 @@
 #include "Object3d.hlsli"
+#include "SandSurface.hlsli"
 
 // =====================
 // Constant Buffers
@@ -75,7 +76,7 @@ struct EffectParam {
     float enableWorldColorVariation;
     float worldColorVariationScale;
     float worldColorVariationStrength;
-    float pad3;
+    float sandReliefStrength;
 };
 
 struct CausticsParams
@@ -137,9 +138,14 @@ float SampleCausticsAtlasFrame(float2 worldSpaceUV, uint frameIndex)
     uint frameRow = safeFrameIndex / atlasColumns;
 
     float2 frameUVSize = 1.0f / float2(atlasColumns, atlasRows);
-    float2 localFrameUV = frac(worldSpaceUV);
+    uint width, height;
+    gCausticsMap.GetDimensions(width, height);
+    // Atlas is loaded without mips; never blend with a neighbouring animation frame.
+    float2 inset = min(0.5f * float2(atlasColumns, atlasRows)
+        / max(float2(width, height), 1.0f), 0.5f);
+    float2 localFrameUV = clamp(frac(worldSpaceUV), inset, 1.0f - inset);
     float2 atlasUV = (float2(frameColumn, frameRow) + localFrameUV) * frameUVSize;
-    return gCausticsMap.Sample(gSampler, atlasUV).r;
+    return gCausticsMap.SampleLevel(gSampler, atlasUV, 0.0f).r;
 }
 
 float SampleAnimatedCaustics(float2 worldSpaceUV)
@@ -218,7 +224,7 @@ float EvaluateWorldColorVariationMultiplier(float2 worldPositionXZ)
     float rippleVisibility = 1.0f - smoothstep(0.6f, 2.5f, fwidth(ripplePhase));
     float ripples = (sin(ripplePhase) + 0.28f * sin(2.0f * ripplePhase))
         * rippleVisibility;
-    float variation = centeredNoise + 0.65f * ripples;
+    float variation = centeredNoise + (gEffect.sandReliefStrength > 0.0f ? 0.0f : 0.65f * ripples);
     return max(0.0f, 1.0f + variation * max(gEffect.worldColorVariationStrength, 0.0f));
 }
 
@@ -246,6 +252,20 @@ PixelShaderOutput main(VertexShaderOutput input)
     output.color.rgb *= worldColorVariationMultiplier;
 
     if (gMaterial.enableLighting == 0) {
+        if (gEffect.sandReliefStrength > 0.0f) {
+            SandDetail sand = EvaluateSandDetail(input.worldPosition.xz, gEffect.sandReliefStrength);
+            float3 lightDirection = -gDirectionalLight.direction;
+            lightDirection *= rsqrt(max(dot(lightDirection, lightDirection), 0.0001f));
+            float sun = saturate(dot(sand.normal, lightDirection));
+            float3 view = gCamera.worldPosition - input.worldPosition;
+            view *= rsqrt(max(dot(view, view), 0.0001f));
+            float3 halfway = view + lightDirection;
+            halfway *= rsqrt(max(dot(halfway, halfway), 0.0001f));
+            float sheen = pow(saturate(dot(sand.normal, halfway)), 28.0f)
+                * 0.018f * saturate(lightDirection.y);
+            output.color.rgb *= sand.albedo * sand.occlusion * (0.48f + 0.52f * sun);
+            output.color.rgb += sheen * gDirectionalLight.color.rgb;
+        }
         output.color.rgb += edgeFactor * gEffect.dissolveEdgeColor.rgb;
         output.color.rgb += EvaluateWorldSpaceCaustics(input);
         return output;
