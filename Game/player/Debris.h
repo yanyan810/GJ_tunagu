@@ -105,7 +105,11 @@ public:
     const Vector4& GetColor() const { return color_; }
 
 private:
+    void ApplyModelTransform_(const Vector3& rotation);
     std::unique_ptr<Object3d> model_;
+    Vector3 modelCenter_{};
+    Vector3 modelRotation_{};
+    bool marineModel_ = false;
     DebrisType type_;
     DebrisState state_ = DebrisState::Floating;
 
