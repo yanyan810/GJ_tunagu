@@ -48,12 +48,12 @@ private:
     DirectXCommon* dx_ = nullptr;
 
     // トランスフォーム
-    Vector3 pos_ = { 0.0f, 35.0f, 0.0f }; // 高い上空・水上高度
+    Vector3 pos_ = { 0.0f, 14.0f, 0.0f }; // 水上・戦闘高度
     Vector3 rot_ = { 0.0f, 0.0f, 0.0f };
-    Vector3 scale_ = { 1.5f, 1.5f, 1.5f };
-    Vector3 visualOffset_ = { 0.0f, 0.0f, 12.0f };
+    Vector3 scale_ = { 6.0f, 6.0f, 6.0f }; // 大型のボス船サイズ
+    Vector3 visualOffset_ = { 0.0f, 0.0f, 0.0f };
     Vector3 lastTargetPosition_{};
-    float radius_ = 7.0f;
+    float radius_ = 12.0f;
 
     // ステータス
     float maxHp_ = 1000.0f;
