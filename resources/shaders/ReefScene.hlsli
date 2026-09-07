@@ -8,6 +8,9 @@ cbuffer ReefFrame : register(b0)
     float3 gCameraPosition;
     float gFloorHeight;
     float4 gSandAppearance; // Existing floor color RGB and sand relief strength.
+    float4 gSandVariation; // Enabled, world scale, strength, padding.
+    float4 gSandSunColor;
+    float4 gSandAirSun; // Unrefracted direction, shared with the infinite floor.
 };
 struct ReefVertexOutput
 {

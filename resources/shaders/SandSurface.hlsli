@@ -69,4 +69,61 @@ SandDetail EvaluateSandDetail(float2 worldXZ, float strength)
     return detail;
 }
 
+float SandVariationHash(float2 cell)
+{
+    return frac(sin(dot(cell, float2(127.1f, 311.7f))) * 43758.5453f);
+}
+
+// The existing floor controls use this same world-space pattern on every sand
+// receiver. A different hash or lighting model would expose intersecting meshes.
+float EvaluateSandColorVariation(float2 worldXZ, float3 settings, float reliefStrength)
+{
+    if (settings.x < 0.5f) { return 1.0f; }
+    float2 p = worldXZ * max(settings.y, 0.000001f);
+    float2 cell = floor(p), local = frac(p);
+    float2 weight = local * local * (3.0f - 2.0f * local);
+    float noise = lerp(
+        lerp(SandVariationHash(cell), SandVariationHash(cell + float2(1, 0)), weight.x),
+        lerp(SandVariationHash(cell + float2(0, 1)), SandVariationHash(cell + 1.0f), weight.x),
+        weight.y);
+    float ripplePhase = dot(worldXZ, float2(0.85f, 0.32f)) * 6.2831853f
+        + 1.8f * sin(worldXZ.y * 0.15f) + 0.6f * sin(worldXZ.x * 0.23f);
+    float rippleVisibility = 1.0f - smoothstep(0.6f, 2.5f, fwidth(ripplePhase));
+    float ripples = (sin(ripplePhase) + 0.28f * sin(2.0f * ripplePhase)) * rippleVisibility;
+    float variation = noise * 2.0f - 1.0f
+        + (reliefStrength > 0.0f ? 0.0f : 0.65f * ripples);
+    return max(0.0f, 1.0f + variation * max(settings.z, 0.0f));
+}
+
+float3 EvaluateSandRadiance(float3 baseColor, float3 worldPosition, float3 geometricNormal,
+    float3 cameraPosition, float3 airTowardSun, float3 sunColor,
+    float reliefStrength, float3 variationSettings)
+{
+    float3 albedo = max(baseColor, 0.0f) * EvaluateSandColorVariation(
+        worldPosition.xz, variationSettings, reliefStrength);
+    // Preserve the existing floor's relief-disabled appearance as well as its
+    // colour/variation controls. Other unlit objects never opt into this helper.
+    if (reliefStrength <= 0.0f) { return albedo; }
+    SandDetail sand = EvaluateSandDetail(worldPosition.xz, reliefStrength);
+    float3 normal = normalize(geometricNormal + sand.normal - float3(0, 1, 0));
+    float airLengthSquared = dot(airTowardSun, airTowardSun);
+    float3 airSun = airLengthSquared > 0.000001f
+        ? airTowardSun * rsqrt(airLengthSquared) : float3(0, 0, 0);
+    // Both renderers supply the air direction; refraction happens exactly once.
+    float2 horizontalSun = airSun.xz / 1.333f;
+    float3 waterSun = float3(horizontalSun.x,
+        sqrt(saturate(1.0f - dot(horizontalSun, horizontalSun))), horizontalSun.y);
+    float daylight = smoothstep(0.0f, 0.12f, airSun.y);
+    float sun = saturate(dot(normal, waterSun)) * daylight;
+    float3 view = cameraPosition - worldPosition;
+    view *= rsqrt(max(dot(view, view), 0.0001f));
+    float3 halfway = view + waterSun;
+    halfway *= rsqrt(max(dot(halfway, halfway), 0.0001f));
+    float sheen = pow(saturate(dot(normal, halfway)), 28.0f) * 0.018f * daylight;
+    // Keep the established bright floor midtones; water absorption and shared
+    // receiver shadow/caustics remain in the later medium pass.
+    return albedo * sand.albedo * sand.occlusion * (0.48f + 0.52f * sun * max(sunColor, 0.0f))
+        + sheen * max(sunColor, 0.0f);
+}
+
 #endif
