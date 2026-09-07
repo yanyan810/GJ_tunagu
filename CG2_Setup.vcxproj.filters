@@ -655,6 +655,9 @@
     <None Include="resources\shaders\UnderwaterBackground.hlsli">
       <Filter>shaders</Filter>
     </None>
+    <None Include="resources\shaders\OceanReceiverLighting.hlsli">
+      <Filter>shaders</Filter>
+    </None>
     <None Include="resources\shaders\Object3d.hlsli">
       <Filter>shaders</Filter>
     </None>

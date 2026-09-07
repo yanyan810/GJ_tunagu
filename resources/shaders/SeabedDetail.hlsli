@@ -6,6 +6,7 @@ cbuffer SeabedFrame : register(b0)
     float3 gCameraPosition;
     float gFloorHeight;
     float4 gTiles[9]; // World X/Z, quarter-turn rotation, reserved.
+    float4 gLocalLighting; // X: legacy caustics, disabled when projected globally.
 };
 
 struct SeabedVertexOutput

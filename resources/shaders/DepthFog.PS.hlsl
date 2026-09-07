@@ -42,6 +42,21 @@ struct DepthFogParameter
     float shaftScale;
     int shaftSamples;
     float worldMediumEnabled;
+
+    float3 causticsColor;
+    float causticsIntensity;
+    float causticsScale;
+    float currentFrame;
+    float nextFrame;
+    float frameBlend;
+    float atlasColumns;
+    float atlasRows;
+    float causticsEnabled;
+    float surfaceExclusion;
+    float contactStrength;
+    float contactRadius;
+    float contactBias;
+    float contactEnabled;
 };
 
 ConstantBuffer<DepthFogParameter> gFog : register(b6);
@@ -74,6 +89,8 @@ float3 RestoreWorldPosition(float2 uv, float depth)
         gFog.backgroundInverseViewProjection);
     return world.xyz / max(world.w, 0.00001f);
 }
+
+#include "OceanReceiverLighting.hlsli"
 
 // Intersect the camera-to-fragment segment with the water half-space. Neither
 // air in front of water nor air beyond the surface contributes to extinction.
@@ -135,6 +152,7 @@ float3 IntegrateWaterLight(float3 rayDirection, float2 interval,
     {
         return 0.0f;
     }
+    toSun = RefractedTowardSun(toSun);
     int samples = clamp(gFog.shaftSamples, 4, 12);
     float volumeLength = min(max(interval.y - interval.x, 0.0f), 160.0f);
     float stepLength = volumeLength / (float)samples;
@@ -189,6 +207,7 @@ float4 EvaluateWorldWater(float4 sceneColor, float2 uv, float depth,
     else
     {
         float targetDepth = max(gFog.waterLevelY - worldPosition.y, 0.0f);
+        sceneColor.rgb = ApplyOceanReceiverLighting(sceneColor.rgb, uv, depth, worldPosition);
         float3 illuminatedScene = sceneColor.rgb * lerp(1.0f,
             DepthIllumination(targetDepth, extinctionDistance),
             saturate(waterLength / 6.0f) * saturate(gFog.maxOpacity));

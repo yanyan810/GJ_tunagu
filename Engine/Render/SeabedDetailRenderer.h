@@ -17,6 +17,7 @@ public:
     void Update(float dt, float floorHeight, const Vector3& towardSun);
     void Draw() const;
     void SetEnabled(bool enabled) { enabled_ = enabled; }
+    void SetLocalCausticsEnabled(bool enabled) { localCausticsEnabled_ = enabled; }
 
 private:
     struct VertexData {
@@ -35,6 +36,7 @@ private:
         float floorHeight;
         // World X/Z, quarter-turn rotation, reserved. Only visible tiles are sent.
         Vector4 tiles[9];
+        Vector4 localLighting;
     };
 
     void CreatePipeline_();
@@ -43,6 +45,7 @@ private:
     DirectXCommon* dx_ = nullptr;
     Camera* camera_ = nullptr;
     bool enabled_ = true;
+    bool localCausticsEnabled_ = true;
     float time_ = 0.0f;
     float floorHeight_ = -22.0f;
     Vector3 towardSun_{ 0.15f, 1.0f, 0.10f };
