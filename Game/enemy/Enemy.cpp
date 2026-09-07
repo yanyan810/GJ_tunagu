@@ -55,7 +55,7 @@ void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam
     netAttack_ = std::make_unique<BossNetAttack>();
     netAttack_->Initialize(objCommon, dx, cam);
 
-    pos_ = { 0.0f, 35.0f, 0.0f }; // 高い上空・水上高度
+    pos_ = { 0.0f, 14.0f, 0.0f }; // 水上・戦闘高度
     hp_ = maxHp_;
     isDead_ = false;
     damageFlashTimer_ = 0.0f;
@@ -78,7 +78,7 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
         float targetZ = playerPos.z + std::sin(moveAngle_) * orbitRadius_;
         const float follow = std::clamp(orbitFollowSpeed_ * dt, 0.0f, 1.0f);
         pos_.x += (targetX - pos_.x) * follow;
-        pos_.y = 35.0f;
+        pos_.y = 14.0f;
         pos_.z += (targetZ - pos_.z) * follow;
     }
 
@@ -161,10 +161,10 @@ bool Enemy::CheckCollisionWithDebris(Debris* debris) {
     float dz = pos_.z - dPos.z;
     float distXZSq = dx * dx + dz * dz;
 
-    // ボスのスケール (scale_ = {8.0, 3.0, 14.0}) および球・直方体での立体ヒット判定
-    float hitRadius = radius_ + 5.0f; // より当てやすいように半径に余裕を持たせる
-    bool hitXZ = (distXZSq <= hitRadius * hitRadius) || (std::abs(dx) <= (scale_.x + 4.0f) && std::abs(dz) <= (scale_.z + 4.0f));
-    bool hitY = std::abs(dy) <= 12.0f;
+    // ボスのスケール (scale_ = {6.0, 6.0, 6.0}) および球・直方体での立体ヒット判定
+    float hitRadius = radius_ + 6.0f; // より当てやすいように半径に余裕を持たせる
+    bool hitXZ = (distXZSq <= hitRadius * hitRadius) || (std::abs(dx) <= (scale_.x + 8.0f) && std::abs(dz) <= (scale_.z + 8.0f));
+    bool hitY = std::abs(dy) <= 15.0f;
 
     if (hitXZ && hitY) {
         // ヒット！ボスのHPを減らす
