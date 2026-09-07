@@ -402,6 +402,19 @@ void RenderManager::SetUnderwaterMediumParameters(
         ? 0 : std::clamp(medium.shaftSamples, 4, 12);
 }
 
+void RenderManager::SetOceanLightingParameters(
+    const OceanLightingParameters& parameters,
+    D3D12_GPU_DESCRIPTOR_HANDLE causticsTexture)
+{
+    depthFogParameters_.oceanLighting = parameters;
+    auto& lighting = depthFogParameters_.oceanLighting;
+    lighting.contactStrength = std::clamp(lighting.contactStrength, 0.0f, 0.6f);
+    lighting.contactRadius = std::clamp(lighting.contactRadius, 0.1f, 5.0f);
+    lighting.contactBias = std::max(lighting.contactBias, 0.02f);
+    lighting.surfaceExclusion = std::max(lighting.surfaceExclusion, 0.1f);
+    oceanCausticsTexture_ = causticsTexture;
+}
+
 void RenderManager::SetUnderwaterFogParameters(float startDistance,
     const Vector3& extinctionDistanceRGB, float maxOpacity)
 {
@@ -708,6 +721,12 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
         // out of the upload memory referenced by this draw. PostDraw fences
         // each submitted frame before this buffer is reused.
         *depthFogCBData_ = depthFogParameters_;
+        const bool hasCaustics = oceanCausticsTexture_.ptr != 0;
+        if (!hasCaustics) {
+            depthFogCBData_->oceanLighting.causticsEnabled = 0.0f;
+        }
+        cmd->SetGraphicsRootDescriptorTable(10, hasCaustics
+            ? oceanCausticsTexture_ : srv_->GetGPUDescriptionHandle(srcSrvIndex));
         cmd->SetGraphicsRootConstantBufferView(8, depthFogCB_->GetGPUVirtualAddress());
     } else if (mode == PostEffectMode::LightShaft) {
         LightShaftParameters effectiveParameters = lightShaftParameters_;

@@ -104,6 +104,7 @@ void UnderwaterEnvironment::Shutdown() {
         renderManager_->SetUnderwaterBackgroundParameters(disabledParameters);
         renderManager_->SetEffectEnabled(PostEffectMode::LightShaft, false);
         renderManager_->SetUnderwaterMediumParameters(UnderwaterMediumParameters{});
+        renderManager_->SetOceanLightingParameters(OceanLightingParameters{});
         renderManager_->SetEffectEnabled(PostEffectMode::DepthFog, previousDepthFogEnabled_);
         renderManager_->SetUnderwaterFogParameters(
             previousFogStart_, previousFogExtinction_, previousFogOpacity_);
@@ -175,6 +176,7 @@ void UnderwaterEnvironment::DrawBackground() {
     // View-dependent parameters belong to drawing: the scene can skip Update
     // while paused and still move its camera. Do not advance clocks or emit here.
     ApplyBackgroundSettings_();
+    ApplyOceanLightingSettings_();
     if (waterSurface_) {
         ApplyWaterSurfaceSettings_();
         waterSurface_->Update(0.0f);
@@ -189,11 +191,13 @@ void UnderwaterEnvironment::DrawBackground() {
 void UnderwaterEnvironment::Draw() {
     if (floor_) {
         ApplyFloorSettings_();
+        ApplyCausticsSettings_();
         floor_->Update(0.0f);
         floor_->Draw();
     }
     if (seabedDetails_) {
         seabedDetails_->SetEnabled(seabedDetailsEnabled_);
+        seabedDetails_->SetLocalCausticsEnabled(causticsEnabled_ && !UsesProjectedCaustics_());
         seabedDetails_->Update(0.0f, floorHeight_, lightShaftDirection_);
         seabedDetails_->Draw();
     }
@@ -251,6 +255,10 @@ void UnderwaterEnvironment::DrawImGui() {
     ImGui::DragFloat("Sand Variation Strength", &sandVariationStrength_, 0.005f, 0.0f, 0.20f, "%.3f");
     ImGui::Separator();
     ImGui::Checkbox("Caustics Enable", &causticsEnabled_);
+    ImGui::Checkbox("Project Caustics on Scene", &projectedCausticsEnabled_);
+    ImGui::Checkbox("Underwater Contact Shading", &contactShadingEnabled_);
+    ImGui::SliderFloat("Contact Strength", &contactShadingStrength_, 0.0f, 0.6f);
+    ImGui::SliderFloat("Contact Radius", &contactShadingRadius_, 0.1f, 5.0f, "%.1f m");
 
     int preset = causticsPreset_ == CausticsPreset::DeepBroad ? 1 : 0;
     if (ImGui::Combo("Caustics Preset", &preset, "Shallow / Fine\0Deep / Broad\0")) {
@@ -560,7 +568,7 @@ void UnderwaterEnvironment::ApplyFloorSettings_() {
 
 void UnderwaterEnvironment::ApplyCausticsSettings_() {
     floor_->SetCausticsSettings(
-        causticsEnabled_,
+        causticsEnabled_ && !UsesProjectedCaustics_(),
         std::max(causticsScale_, 0.0f),
         std::max(causticsIntensity_, 0.0f),
         causticsColor_);
@@ -571,6 +579,40 @@ void UnderwaterEnvironment::ApplyCausticsSettings_() {
         kCausticsFrameCount,
         kCausticsAtlasColumns,
         kCausticsAtlasRows);
+}
+
+bool UnderwaterEnvironment::UsesProjectedCaustics_() const {
+    return projectedCausticsEnabled_ && underwaterOpticsEnabled_ && camera_ && floor_
+        && renderManager_ && renderManager_->IsEffectEnabled(PostEffectMode::DepthFog)
+        && renderManager_->IsUnderwaterMediumEnabled()
+        && TextureManager::GetInstance()->GetSrvHandleGPU(GetCausticsTexturePath_()).ptr != 0;
+}
+
+void UnderwaterEnvironment::ApplyOceanLightingSettings_() {
+    if (!renderManager_) { return; }
+    OceanLightingParameters parameters{};
+    parameters.causticsColor = causticsColor_;
+    parameters.causticsIntensity = std::max(causticsIntensity_, 0.0f);
+    parameters.causticsScale = std::max(causticsScale_, 0.001f);
+    parameters.causticsEnabled = causticsEnabled_ && UsesProjectedCaustics_() ? 1.0f : 0.0f;
+    parameters.atlasColumns = kCausticsAtlasColumns;
+    parameters.atlasRows = kCausticsAtlasRows;
+    if (causticsAnimationEnabled_) {
+        const float frame = causticsPlaybackTime_ /
+            std::max(causticsLoopDuration_, 0.0001f) * kCausticsFrameCount;
+        const float base = std::floor(frame);
+        parameters.currentFrame = std::fmod(base, static_cast<float>(kCausticsFrameCount));
+        parameters.nextFrame = std::fmod(base + 1.0f, static_cast<float>(kCausticsFrameCount));
+        parameters.frameBlend = frame - base;
+    }
+    parameters.contactEnabled = contactShadingEnabled_ ? 1.0f : 0.0f;
+    parameters.contactStrength = contactShadingStrength_;
+    parameters.contactRadius = contactShadingRadius_;
+    // Covers the displaced water mesh so its depth never becomes a receiver.
+    parameters.surfaceExclusion = 0.6f * std::max(waterWaveStrength_, 0.0f) + 0.25f;
+    renderManager_->SetOceanLightingParameters(parameters,
+        floor_ ? TextureManager::GetInstance()->GetSrvHandleGPU(GetCausticsTexturePath_())
+               : D3D12_GPU_DESCRIPTOR_HANDLE{});
 }
 
 void UnderwaterEnvironment::ApplyBackgroundSettings_() {

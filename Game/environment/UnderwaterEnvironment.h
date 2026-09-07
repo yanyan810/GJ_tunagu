@@ -40,6 +40,8 @@ private:
 
     void ApplyFloorSettings_();
     void ApplyCausticsSettings_();
+    bool UsesProjectedCaustics_() const;
+    void ApplyOceanLightingSettings_();
     void ApplyBackgroundSettings_();
     void ApplyWaterSurfaceSettings_();
     void ApplyLightShaftSettings_();
@@ -80,6 +82,10 @@ private:
     float sandVariationStrength_ = 0.14f;
 
     bool causticsEnabled_ = true;
+    bool projectedCausticsEnabled_ = true;
+    bool contactShadingEnabled_ = true;
+    float contactShadingStrength_ = 0.30f;
+    float contactShadingRadius_ = 1.8f;
     CausticsPreset causticsPreset_ = CausticsPreset::DeepBroad;
     CausticsPreset appliedCausticsPreset_ = CausticsPreset::DeepBroad;
     float causticsScale_ = 0.035f;

@@ -62,6 +62,28 @@ static_assert(offsetof(UnderwaterMediumParameters, sunColor) == 32);
 static_assert(offsetof(UnderwaterMediumParameters, depthLightRange) == 48);
 static_assert(sizeof(UnderwaterMediumParameters) == 64);
 
+// Receiver lighting evaluated before water absorption. Zero enabled flags are
+// safe for scenes that do not own an underwater environment.
+struct OceanLightingParameters {
+    Vector3 causticsColor{ 0.75f, 0.92f, 1.0f };
+    float causticsIntensity = 0.18f;
+    float causticsScale = 0.035f;
+    float currentFrame = 0.0f;
+    float nextFrame = 0.0f;
+    float frameBlend = 0.0f;
+    float atlasColumns = 6.0f;
+    float atlasRows = 4.0f;
+    float causticsEnabled = 0.0f;
+    float surfaceExclusion = 1.5f;
+    float contactStrength = 0.3f;
+    float contactRadius = 1.8f;
+    float contactBias = 0.12f;
+    float contactEnabled = 0.0f;
+};
+static_assert(sizeof(OceanLightingParameters) == 64);
+static_assert(offsetof(OceanLightingParameters, atlasColumns) == 32);
+static_assert(offsetof(OceanLightingParameters, contactStrength) == 48);
+
 class RenderManager {
 public:
     void Initialize(DirectXCommon* dx, SrvManager* srv);
@@ -106,6 +128,8 @@ public:
         const UnderwaterBackgroundParameters& parameters);
     void SetUnderwaterMediumParameters(
         const UnderwaterMediumParameters& parameters);
+    void SetOceanLightingParameters(const OceanLightingParameters& parameters,
+        D3D12_GPU_DESCRIPTOR_HANDLE causticsTexture = {});
     void SetUnderwaterFogParameters(float startDistance,
         const Vector3& extinctionDistanceRGB, float maxOpacity);
     void SetLightShaftParameters(
@@ -238,16 +262,19 @@ private:
         Vector3 extinctionDistanceRGB;
         float underwaterMediumEnabled;
         UnderwaterMediumParameters medium;
+        OceanLightingParameters oceanLighting;
     };
     static_assert(offsetof(DepthFogParameter, background) == 48);
     static_assert(offsetof(DepthFogParameter, extinctionDistanceRGB) == 176);
     static_assert(offsetof(DepthFogParameter, medium) == 192);
-    static_assert(sizeof(DepthFogParameter) == 256);
+    static_assert(offsetof(DepthFogParameter, oceanLighting) == 256);
+    static_assert(sizeof(DepthFogParameter) == 320);
     static_assert(sizeof(DepthFogParameter) % 16 == 0);
     Microsoft::WRL::ComPtr<ID3D12Resource> depthFogCB_;
     DepthFogParameter* depthFogCBData_ = nullptr;
     // Controls are edited on the CPU, then copied once when recording a draw.
     DepthFogParameter depthFogParameters_{};
+    D3D12_GPU_DESCRIPTOR_HANDLE oceanCausticsTexture_{};
 
     Vector3 depthFogColor_ = { 0.04f, 0.18f, 0.22f };
     float depthFogStartDistance_ = 25.0f;

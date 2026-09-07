@@ -68,7 +68,7 @@ float4 main(SeabedVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARG
     const float caustic = pow(saturate(bands), 9.0f) * sunlight;
     const float detailFade = 1.0f - smoothstep(0.35f, 1.2f,
         max(length(ddx(projected)), length(ddy(projected))));
-    color += albedo * float3(0.55f, 0.9f, 1.0f) * caustic * detailFade * 0.20f;
+    color += albedo * float3(0.55f, 0.9f, 1.0f) * caustic * detailFade * 0.20f * gLocalLighting.x;
     // The normal post-processing path applies water absorption and in-scattering once.
     return float4(color, 1.0f);
 }

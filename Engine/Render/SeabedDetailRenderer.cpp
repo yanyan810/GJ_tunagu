@@ -49,7 +49,8 @@ void SeabedDetailRenderer::Initialize(DirectXCommon* dx, Camera* camera) {
     CreatePipeline_();
     CreateGeometry_();
     static_assert(sizeof(VertexData) == 48);
-    static_assert(sizeof(FrameData) == 240);
+    static_assert(sizeof(FrameData) == 256);
+    static_assert(offsetof(FrameData, localLighting) == 240);
     static_assert(offsetof(FrameData, towardSun) == 64);
     static_assert(offsetof(FrameData, floorHeight) == 92);
     static_assert(offsetof(FrameData, tiles) == 96);
@@ -77,6 +78,7 @@ void SeabedDetailRenderer::Draw() const {
     frame.time = time_;
     frame.cameraPosition = camera_->GetTranslate();
     frame.floorHeight = floorHeight_;
+    frame.localLighting.x = localCausticsEnabled_ ? 1.0f : 0.0f;
     const int32_t cameraCellX = static_cast<int32_t>(std::floor(frame.cameraPosition.x / kTileSpacing));
     const int32_t cameraCellZ = static_cast<int32_t>(std::floor(frame.cameraPosition.z / kTileSpacing));
     UINT instanceCount = 0;
