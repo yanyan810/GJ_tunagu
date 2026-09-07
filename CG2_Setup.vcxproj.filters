@@ -724,4 +724,21 @@
       <Filter>externals\imgui</Filter>
     </Text>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Game\boss\PingBeamEffects.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClInclude Include="Game\boss\PingBeamEffects.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <FxCompile Include="resources\shaders\PingBeamEffects.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\PingBeamEffects.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <None Include="resources\shaders\PingBeamEffects.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+  </ItemGroup>
 </Project>

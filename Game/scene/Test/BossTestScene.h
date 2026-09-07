@@ -20,6 +20,7 @@
 class Camera;
 class DebugCamera;
 class Object3d;
+class PingBeamEffects;
 
 // Boss attacks are only hosted and invoked here. Their implementations belong
 // to reusable gameplay classes so they can later be used by GameScene as-is.
@@ -140,6 +141,7 @@ private:
     ShipScrewAnimation screwAnimation_;
     PingBeamAttackSettings pingBeamSettings_{};
     PingBeamAttack pingBeamAttack_{};
+    std::unique_ptr<PingBeamEffects> pingBeamEffects_;
     Vector3 pingBeamTargetPosition_{ 0.0f, -5.0f, 25.0f };
     std::array<Vector3, 4> pingBeamCannonLocalPositions_{{
         { -3.5465f, -0.2577f, 0.5730f }, { -3.5465f, -0.5821f, 0.5730f },

@@ -8,6 +8,8 @@
 #include "Object3dCommon.h"
 #include "GeometryGenerator.h"
 #include "ModelManager.h"
+#include "boss/PingBeamEffects.h"
+#include "RenderManager.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cmath>
@@ -202,6 +204,8 @@ void BossTestScene::OnEnter(GameApp& app) {
 
     CreateTestField_(app);
     CreateTemporaryBoss_(app);
+    pingBeamEffects_ = std::make_unique<PingBeamEffects>();
+    pingBeamEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
     screwAnimation_.Initialize(*boss_);
     pingBeamTestPlayer_ = CreateObject(app, camera_.get(), "cube/cube.obj",
         pingBeamTargetPosition_, {}, { 1.0f, 1.0f, 1.0f });
@@ -338,6 +342,7 @@ void BossTestScene::OnEnter(GameApp& app) {
 }
 
 void BossTestScene::OnExit(GameApp& app) {
+    pingBeamEffects_.reset();
     if (app.GetInput()) {
         app.GetInput()->SetCameraControlEnabled(false);
     }
@@ -1104,10 +1109,12 @@ void BossTestScene::ApplyExplosionSettingsToMines_() {
 }
 
 void BossTestScene::TriggerPingBeam_() {
+    if (pingBeamEffects_) pingBeamEffects_->Begin(pingBeamSettings_);
     pingBeamAttack_.Trigger(pingBeamSettings_);
 }
 
 void BossTestScene::ResetPingBeam_() {
+    if (pingBeamEffects_) pingBeamEffects_->Reset();
     pingBeamAttack_.Reset();
     pingBeamCannonRotations_.fill({});
     std::array<float, 2> angles{};
@@ -1201,17 +1208,19 @@ void BossTestScene::UpdatePingBeam_(float dt) {
         marker->Update(dt);
     }
 
+    std::array<Vector3, 2> muzzlePositions{};
     for (size_t group = 0; group < pingBeamVisuals_.size(); ++group) {
+        const Vector3 pivot = pingBeamSourceUnitLocalPositions_[group];
+        const Matrix4x4 aimRotation = Matrix4x4::MakeAffineMatrix(
+            { 1.0f, 1.0f, 1.0f }, pingBeamCannonRotations_[group * 2], {});
+        const Vector3 rotatedTipLocal = TransformPoint(
+            pingBeamTipLocalPositions_[group] - pivot, aimRotation) + unitLocalPositions[group];
+        const Vector3 origin = TransformPoint(rotatedTipLocal, bossWorld);
+        muzzlePositions[group] = origin;
         auto& beam = pingBeamVisuals_[group];
         if (!beam) continue;
         if (pingBeamAttack_.IsBeamVisible()) {
             const int index = pingBeamAttack_.GetCurrentBeamIndex();
-            const Vector3 pivot = pingBeamSourceUnitLocalPositions_[group];
-            const Matrix4x4 aimRotation = Matrix4x4::MakeAffineMatrix(
-                { 1.0f, 1.0f, 1.0f }, pingBeamCannonRotations_[group * 2], {});
-            const Vector3 rotatedTipLocal = TransformPoint(
-                pingBeamTipLocalPositions_[group] - pivot, aimRotation) + unitLocalPositions[group];
-            const Vector3 origin = TransformPoint(rotatedTipLocal, bossWorld);
             const Vector3 target = pingBeamAttack_.GetPingPosition(index);
             const Vector3 delta = target - origin;
             beam->SetTranslate((origin + target) * 0.5f);
@@ -1226,6 +1235,7 @@ void BossTestScene::UpdatePingBeam_(float dt) {
         }
         beam->Update(dt);
     }
+    if (pingBeamEffects_) pingBeamEffects_->Update(dt, pingBeamAttack_, muzzlePositions, pingBeamTargetPosition_);
 }
 
 bool BossTestScene::SaveMineSettings_() {
@@ -1789,8 +1799,13 @@ void BossTestScene::Update(GameApp& app, float dt) {
     ProcessMineExplosions_();
 }
 
-void BossTestScene::Draw(GameApp& /*app*/) {
+void BossTestScene::Draw(GameApp& app) {
     if (floor_) floor_->Draw();
+    if (pingBeamEffects_ && pingBeamEffects_->IsEnabled() && pingBeamEffects_->IsSoloPreview()) {
+        if (boss_) boss_->Draw();
+        pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+        return;
+    }
     if (originMarker_) originMarker_->Draw();
     for (const auto& marker : distanceMarkers_) marker->Draw();
     if (boss_) boss_->Draw();
@@ -1827,18 +1842,22 @@ void BossTestScene::Draw(GameApp& /*app*/) {
         if (screwGatherPointDebug_) screwGatherPointDebug_->Draw();
         for (const auto& marker : screwReleaseDirectionDebug_) marker->Draw();
     }
-    if (pingBeamTestPlayer_) pingBeamTestPlayer_->Draw();
-    for (int i = 0; i < PingBeamAttack::kPingCount; ++i) {
-        if (pingBeamAttack_.IsMarkerVisible(i) && pingBeamMarkers_[i]) pingBeamMarkers_[i]->Draw();
+    const bool showPingDebug = !pingBeamEffects_ || !pingBeamEffects_->IsEnabled() || pingBeamEffects_->ShowDebugGeometry();
+    if (showPingDebug) {
+        if (pingBeamTestPlayer_) pingBeamTestPlayer_->Draw();
+        for (int i = 0; i < PingBeamAttack::kPingCount; ++i) {
+            if (pingBeamAttack_.IsMarkerVisible(i) && pingBeamMarkers_[i]) pingBeamMarkers_[i]->Draw();
+        }
+        if (pingBeamAttack_.IsBeamVisible()) {
+            for (const auto& beam : pingBeamVisuals_) if (beam) beam->Draw();
+        }
+        for (const auto& rail : pingBeamRailDebug_) if (rail) rail->Draw();
+        for (const auto& marker : pingBeamPivotDebug_) if (marker) marker->Draw();
+        for (const auto& marker : pingBeamCurrentAngleDebug_) if (marker) marker->Draw();
+        for (const auto& marker : pingBeamTargetAngleDebug_) if (marker) marker->Draw();
+        for (const auto& marker : pingBeamUnitPositionDebug_) if (marker) marker->Draw();
     }
-    if (pingBeamAttack_.IsBeamVisible()) {
-        for (const auto& beam : pingBeamVisuals_) if (beam) beam->Draw();
-    }
-    for (const auto& rail : pingBeamRailDebug_) if (rail) rail->Draw();
-    for (const auto& marker : pingBeamPivotDebug_) if (marker) marker->Draw();
-    for (const auto& marker : pingBeamCurrentAngleDebug_) if (marker) marker->Draw();
-    for (const auto& marker : pingBeamTargetAngleDebug_) if (marker) marker->Draw();
-    for (const auto& marker : pingBeamUnitPositionDebug_) if (marker) marker->Draw();
+    if (pingBeamEffects_) pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 }
 
 void BossTestScene::DrawImGui(GameApp& app) {
@@ -2208,6 +2227,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
             if (ImGui::Button("Trigger Ping Beam")) pendingTriggerPingBeam_ = true;
             ImGui::SameLine();
             if (ImGui::Button("Reset Ping Beam")) pendingResetPingBeam_ = true;
+            if (pingBeamEffects_) pingBeamEffects_->DrawImGui();
             ImGui::Text("State: %s", PingBeamAttack::StateName(pingBeamAttack_.GetState()));
             ImGui::Text("Current Ping: %d / 3", pingBeamAttack_.GetPingCount());
             ImGui::Text("Current Beam: %d", pingBeamAttack_.GetCurrentBeamIndex() + 1);
