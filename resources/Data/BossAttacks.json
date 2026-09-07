@@ -76,6 +76,29 @@
             "triggerAllFuseJitter": 0.15000000596046448
         }
     },
+    "pingBeam": {
+        "trackingTime": 1.0,
+        "trackingRotationSpeed": 3.0,
+        "pingFlashTime": 0.15,
+        "markerScale": [
+            3.0,
+            0.2,
+            3.0
+        ],
+        "chargeTime": 0.8,
+        "beamWidth": 3.0,
+        "beamHeight": 3.0,
+        "beamDuration": 0.4,
+        "beamInterval": 0.25,
+        "damage": 30.0,
+        "moveSpeedDamage": 10.0,
+        "rail": {
+            "orbitRadius": 0.4878,
+            "heightOffset": -0.0309,
+            "trackingAngularSpeed": 2.0,
+            "modelRotationOffset": [0.0, 0.0, 0.0]
+        }
+    },
     "shockwave": {
         "areaScale": [
             1.0,

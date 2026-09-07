@@ -85,6 +85,28 @@ Vector3 TorusRotation(const Vector3& direction, const Vector3& normal) {
     }
     return { std::atan2(-localZ.y, localY.y), rotateY, 0.0f };
 }
+
+float MoveAngleToward(float current, float target, float maxStep) {
+    constexpr float twoPi = 6.28318530718f;
+    float delta = std::fmod(target - current + 3.14159265359f, twoPi);
+    if (delta < 0.0f) delta += twoPi;
+    delta -= 3.14159265359f;
+    return current + std::clamp(delta, -maxStep, maxStep);
+}
+
+Vector3 BoxForwardRotation(const Vector3& direction) {
+    const Vector3 d = Normalize(direction);
+    const float horizontal = std::sqrt(d.x * d.x + d.z * d.z);
+    return { -std::atan2(d.y, std::max(0.00001f, horizontal)), std::atan2(d.x, d.z), 0.0f };
+}
+
+// The imported sip triangles face +X. This rotation is applied around the
+// unit center after its orbit position has been calculated.
+Vector3 TriangleAimRotation(const Vector3& direction) {
+    const Vector3 d = Normalize(direction);
+    // Imported sip vertices face +X after the loader's handedness conversion.
+    return { 0.0f, -std::asin(std::clamp(d.z, -1.0f, 1.0f)), std::atan2(d.y, d.x) };
+}
 constexpr const char* kMineSettingsPath = "resources/Data/BossAttacks.json";
 
 Model::ModelData MakeBossTestPrimitiveModelData(const std::vector<Model::VertexData>& vertices) {
@@ -180,6 +202,73 @@ void BossTestScene::OnEnter(GameApp& app) {
 
     CreateTestField_(app);
     CreateTemporaryBoss_(app);
+    screwAnimation_.Initialize(*boss_);
+    pingBeamTestPlayer_ = CreateObject(app, camera_.get(), "cube/cube.obj",
+        pingBeamTargetPosition_, {}, { 1.0f, 1.0f, 1.0f });
+    pingBeamTestPlayer_->SetMaterialColor({ 0.15f, 1.0f, 0.35f, 1.0f });
+    Model* pingBeamBox = GetBossTestBoxModel("BossTest_PingBeamBox");
+    for (auto& marker : pingBeamMarkers_) {
+        marker = CreatePrimitiveObject(app, camera_.get(), pingBeamBox, {}, {}, { 0.0f, 0.0f, 0.0f });
+        marker->SetMaterialColor({ 1.0f, 0.25f, 0.08f, 0.55f });
+    }
+    for (auto& beam : pingBeamVisuals_) {
+        beam = CreatePrimitiveObject(app, camera_.get(), pingBeamBox, {}, {}, { 0.0f, 0.0f, 0.0f });
+        beam->SetMaterialColor({ 0.1f, 0.75f, 1.0f, 0.8f });
+    }
+    Model* railModel = GetBossTestPrimitiveModel("BossTest_PingBeamRail", true);
+    for (size_t i = 0; i < pingBeamRailDebug_.size(); ++i) {
+        pingBeamRailDebug_[i] = CreatePrimitiveObject(app, camera_.get(), railModel, {}, {}, { 1.0f, 1.0f, 1.0f });
+        pingBeamRailDebug_[i]->SetMaterialColor({ 0.15f, 0.8f, 1.0f, 0.8f });
+        pingBeamPivotDebug_[i] = CreatePrimitiveObject(app, camera_.get(), pingBeamBox, {}, {}, { 0.12f, 0.12f, 0.12f });
+        pingBeamPivotDebug_[i]->SetMaterialColor({ 1.0f, 1.0f, 0.1f, 1.0f });
+        pingBeamCurrentAngleDebug_[i] = CreatePrimitiveObject(app, camera_.get(), pingBeamBox, {}, {}, { 0.16f, 0.16f, 0.16f });
+        pingBeamCurrentAngleDebug_[i]->SetMaterialColor({ 0.2f, 1.0f, 0.3f, 1.0f });
+        pingBeamTargetAngleDebug_[i] = CreatePrimitiveObject(app, camera_.get(), pingBeamBox, {}, {}, { 0.16f, 0.16f, 0.16f });
+        pingBeamTargetAngleDebug_[i]->SetMaterialColor({ 1.0f, 0.2f, 0.9f, 1.0f });
+    }
+    for (auto& marker : pingBeamUnitPositionDebug_) {
+        marker = CreatePrimitiveObject(app, camera_.get(), pingBeamBox, {}, {}, { 0.1f, 0.1f, 0.1f });
+        marker->SetMaterialColor({ 1.0f, 0.55f, 0.1f, 1.0f });
+    }
+    const char* cannonNames[] = { "beam_canon1", "beam_canon2", "beam_canon3", "beam_canon4" };
+    const char* pivotNames[] = { "beam_cargeBall1", "beam_chaegeBall2" };
+    Model* shipModel = boss_->GetModel();
+    pingBeamCannonMeshCount_ = 0;
+    std::array<float, 2> initialAngles{};
+    for (size_t group = 0; group < 2; ++group) {
+        const Matrix4x4 pivotMatrix = shipModel->GetNodeWorldMatrix(shipModel->FindNodeIndexByName(pivotNames[group]));
+        pingBeamSourcePivotLocalPositions_[group] = TransformPoint({}, pivotMatrix);
+        Vector3 center{};
+        for (size_t part = 0; part < 2; ++part) {
+            const size_t slot = group * 2 + part;
+            for (size_t i = 0; i < boss_->GetMeshInstanceCount(); ++i) {
+                if (boss_->GetMeshInstanceNodeName(i) != cannonNames[slot]) continue;
+                pingBeamCannonMeshIndices_[slot] = i;
+                ++pingBeamCannonMeshCount_;
+                const auto& instance = shipModel->GetNodeInstances()[i];
+                const Matrix4x4 nodeMatrix = shipModel->GetNodeWorldMatrix(instance.nodeIndex);
+                center += TransformPoint({}, nodeMatrix) * 0.5f;
+                // Use the actual pointed end of the upper triangle, not the
+                // empty space between the two triangles or an estimated box.
+                if (part == 0) {
+                    float maxX = -1.0e30f;
+                    Vector3 tip{};
+                    int count = 0;
+                    for (const auto& vertex : shipModel->GetModelData().meshes[instance.meshIndex].vertices) {
+                        const Vector3 p = TransformPoint({ vertex.position.x, vertex.position.y, vertex.position.z }, nodeMatrix);
+                        if (p.x > maxX + 0.00001f) { maxX = p.x; tip = {}; count = 0; }
+                        if (std::abs(p.x - maxX) <= 0.00001f) { tip += p; ++count; }
+                    }
+                    if (count > 0) pingBeamTipLocalPositions_[group] = tip * (1.0f / count);
+                }
+                break;
+            }
+        }
+        pingBeamSourceUnitLocalPositions_[group] = center;
+        const Vector3 offset = center - pingBeamSourcePivotLocalPositions_[group];
+        initialAngles[group] = std::atan2(offset.z, offset.x);
+    }
+    pingBeamAttack_.SetOrbitAngles(initialAngles);
     shockwaveVisual_ = CreateObject(app, camera_.get(), "ring.obj", {}, {}, { 1.0f, 1.0f, 1.0f });
     shockwaveVisual_->SetMaterialColor({ 0.1f, 0.8f, 1.0f, 0.8f });
     Model* anchorOrbitTorus = GetBossTestPrimitiveModel("BossTest_AnchorOrbitTorus", true);
@@ -253,6 +342,14 @@ void BossTestScene::OnExit(GameApp& app) {
         app.GetInput()->SetCameraControlEnabled(false);
     }
     boss_.reset();
+    for (auto& beam : pingBeamVisuals_) beam.reset();
+    for (auto& marker : pingBeamUnitPositionDebug_) marker.reset();
+    for (auto& marker : pingBeamTargetAngleDebug_) marker.reset();
+    for (auto& marker : pingBeamCurrentAngleDebug_) marker.reset();
+    for (auto& marker : pingBeamPivotDebug_) marker.reset();
+    for (auto& rail : pingBeamRailDebug_) rail.reset();
+    for (auto& marker : pingBeamMarkers_) marker.reset();
+    pingBeamTestPlayer_.reset();
     shockwaveRocks_.clear();
     shockwaveVisual_.reset();
     anchorCollisionDebug_.clear();
@@ -357,6 +454,7 @@ void BossTestScene::ResetTestObjects_() {
     ResetShockwave_();
     ResetAnchor_();
     ResetScrew_();
+    ResetPingBeam_();
     screwTestTargets_.clear();
     screwTestTargetGroupOffset_ = {};
 }
@@ -1005,6 +1103,131 @@ void BossTestScene::ApplyExplosionSettingsToMines_() {
     }
 }
 
+void BossTestScene::TriggerPingBeam_() {
+    pingBeamAttack_.Trigger(pingBeamSettings_);
+}
+
+void BossTestScene::ResetPingBeam_() {
+    pingBeamAttack_.Reset();
+    pingBeamCannonRotations_.fill({});
+    std::array<float, 2> angles{};
+    for (size_t i = 0; i < 2; ++i) {
+        const Vector3 offset = pingBeamSourceUnitLocalPositions_[i] - pingBeamSourcePivotLocalPositions_[i];
+        angles[i] = std::atan2(offset.z, offset.x);
+    }
+    pingBeamAttack_.SetOrbitAngles(angles);
+    if (boss_) boss_->ResetMeshInstanceExplosionOffsets();
+}
+
+void BossTestScene::UpdatePingBeam_(float dt) {
+    if (!boss_) return;
+    const Matrix4x4 bossWorld = Matrix4x4::MakeAffineMatrix(boss_->GetScale(), boss_->GetRotate(), boss_->GetTranslate());
+    const Vector3 targetLocal = TransformPoint(pingBeamTargetPosition_, Matrix4x4::Inverse(bossWorld));
+    pingBeamAttack_.SetRailSettings(pingBeamSettings_.rail);
+    pingBeamAttack_.Update(
+        dt, pingBeamTargetPosition_, targetLocal, pingBeamSourcePivotLocalPositions_);
+
+    auto orbitPosition = [&](size_t group, float angle) {
+        const float radius = std::max(0.0f, pingBeamSettings_.rail.orbitRadius);
+        return pingBeamSourcePivotLocalPositions_[group] + Vector3{
+            std::cos(angle) * radius,
+            pingBeamSettings_.rail.heightOffset,
+            std::sin(angle) * radius
+        };
+    };
+    std::array<Vector3, 2> unitLocalPositions{};
+    for (size_t group = 0; group < unitLocalPositions.size(); ++group) {
+        unitLocalPositions[group] = orbitPosition(group, pingBeamAttack_.GetCurrentRailAngle(static_cast<int>(group)));
+
+        if (pingBeamAttack_.IsRunning()) {
+            Vector3 desired = TriangleAimRotation(targetLocal - unitLocalPositions[group]);
+            desired += pingBeamSettings_.rail.modelRotationOffset;
+            auto& groupRotation = pingBeamCannonRotations_[group * 2];
+            const float maxStep = std::max(0.0f, pingBeamSettings_.trackingRotationSpeed) * std::max(0.0f, dt);
+            if (pingBeamAttack_.IsTracking()) {
+                groupRotation.x = MoveAngleToward(groupRotation.x, desired.x, maxStep);
+                groupRotation.y = MoveAngleToward(groupRotation.y, desired.y, maxStep);
+                groupRotation.z = MoveAngleToward(groupRotation.z, desired.z, maxStep);
+            }
+            pingBeamCannonRotations_[group * 2 + 1] = groupRotation;
+            const Vector3 translation = unitLocalPositions[group] - pingBeamSourceUnitLocalPositions_[group];
+            for (size_t part = 0; part < 2; ++part) {
+                const size_t cannonIndex = group * 2 + part;
+                if (cannonIndex < pingBeamCannonMeshCount_) {
+                    boss_->SetMeshInstanceTransformAroundPivot(
+                        pingBeamCannonMeshIndices_[cannonIndex],
+                        pingBeamSourceUnitLocalPositions_[group], translation, groupRotation);
+                }
+            }
+        }
+    }
+
+    for (size_t group = 0; group < unitLocalPositions.size(); ++group) {
+        const Vector3 pivot = pingBeamSourcePivotLocalPositions_[group];
+        const Matrix4x4 railLocal = Matrix4x4::MakeAffineMatrix(
+            { pingBeamSettings_.rail.orbitRadius, pingBeamSettings_.rail.orbitRadius, pingBeamSettings_.rail.orbitRadius },
+            {}, pivot + Vector3{ 0.0f, pingBeamSettings_.rail.heightOffset, 0.0f });
+        if (pingBeamRailDebug_[group]) {
+            pingBeamRailDebug_[group]->SetWorldMatrixOverride(Matrix4x4::Multiply(railLocal, bossWorld));
+            pingBeamRailDebug_[group]->Update(dt);
+        }
+        auto updateDebugMarker = [&](Object3d* marker, const Vector3& localPosition) {
+            if (!marker) return;
+            marker->SetTranslate(TransformPoint(localPosition, bossWorld));
+            marker->Update(dt);
+        };
+        updateDebugMarker(pingBeamPivotDebug_[group].get(), pivot);
+        updateDebugMarker(pingBeamCurrentAngleDebug_[group].get(),
+            orbitPosition(group, pingBeamAttack_.GetCurrentRailAngle(static_cast<int>(group))));
+        updateDebugMarker(pingBeamTargetAngleDebug_[group].get(),
+            orbitPosition(group, pingBeamAttack_.GetTargetRailAngle(static_cast<int>(group))));
+        updateDebugMarker(pingBeamUnitPositionDebug_[group].get(), unitLocalPositions[group]);
+    }
+
+    if (pingBeamTestPlayer_) {
+        pingBeamTestPlayer_->SetTranslate(pingBeamTargetPosition_);
+        pingBeamTestPlayer_->Update(dt);
+    }
+    for (int i = 0; i < PingBeamAttack::kPingCount; ++i) {
+        auto& marker = pingBeamMarkers_[i];
+        if (!marker) continue;
+        if (pingBeamAttack_.IsMarkerVisible(i)) {
+            const float pulse = pingBeamAttack_.GetPingFlashScale(i);
+            marker->SetTranslate(pingBeamAttack_.GetPingPosition(i));
+            marker->SetScale(pingBeamSettings_.markerScale * pulse);
+        } else {
+            marker->SetScale({ 0.0f, 0.0f, 0.0f });
+        }
+        marker->Update(dt);
+    }
+
+    for (size_t group = 0; group < pingBeamVisuals_.size(); ++group) {
+        auto& beam = pingBeamVisuals_[group];
+        if (!beam) continue;
+        if (pingBeamAttack_.IsBeamVisible()) {
+            const int index = pingBeamAttack_.GetCurrentBeamIndex();
+            const Vector3 pivot = pingBeamSourceUnitLocalPositions_[group];
+            const Matrix4x4 aimRotation = Matrix4x4::MakeAffineMatrix(
+                { 1.0f, 1.0f, 1.0f }, pingBeamCannonRotations_[group * 2], {});
+            const Vector3 rotatedTipLocal = TransformPoint(
+                pingBeamTipLocalPositions_[group] - pivot, aimRotation) + unitLocalPositions[group];
+            const Vector3 origin = TransformPoint(rotatedTipLocal, bossWorld);
+            const Vector3 target = pingBeamAttack_.GetPingPosition(index);
+            const Vector3 delta = target - origin;
+            beam->SetTranslate((origin + target) * 0.5f);
+            beam->SetRotate(BoxForwardRotation(delta));
+            beam->SetScale({
+                pingBeamSettings_.beamWidth * 0.5f,
+                pingBeamSettings_.beamHeight * 0.5f,
+                Length(delta) * 0.5f
+            });
+        } else {
+            beam->SetScale({ 0.0f, 0.0f, 0.0f });
+        }
+        beam->Update(dt);
+    }
+}
+
 bool BossTestScene::SaveMineSettings_() {
     try {
         const std::filesystem::path path(kMineSettingsPath);
@@ -1128,6 +1351,25 @@ bool BossTestScene::SaveMineSettings_() {
             } },
             { "releaseMinPowerMultiplier", screwSettings_.releaseMinPowerMultiplier },
             { "testGroundY", screwSettings_.testGroundY }
+        };
+        root["pingBeam"] = {
+            { "trackingTime", pingBeamSettings_.trackingTime },
+            { "trackingRotationSpeed", pingBeamSettings_.trackingRotationSpeed },
+            { "pingFlashTime", pingBeamSettings_.pingFlashTime },
+            { "markerScale", { pingBeamSettings_.markerScale.x, pingBeamSettings_.markerScale.y, pingBeamSettings_.markerScale.z } },
+            { "chargeTime", pingBeamSettings_.chargeTime },
+            { "beamWidth", pingBeamSettings_.beamWidth },
+            { "beamHeight", pingBeamSettings_.beamHeight },
+            { "beamDuration", pingBeamSettings_.beamDuration },
+            { "beamInterval", pingBeamSettings_.beamInterval },
+            { "damage", pingBeamSettings_.damage },
+            { "moveSpeedDamage", pingBeamSettings_.moveSpeedDamage },
+            { "rail", {
+                { "orbitRadius", pingBeamSettings_.rail.orbitRadius },
+                { "heightOffset", pingBeamSettings_.rail.heightOffset },
+                { "trackingAngularSpeed", pingBeamSettings_.rail.trackingAngularSpeed },
+                { "modelRotationOffset", { pingBeamSettings_.rail.modelRotationOffset.x, pingBeamSettings_.rail.modelRotationOffset.y, pingBeamSettings_.rail.modelRotationOffset.z } }
+            } }
         };
         std::ofstream output(path, std::ios::trunc);
         if (!output) throw std::runtime_error("could not open output file");
@@ -1372,6 +1614,37 @@ bool BossTestScene::LoadMineSettings_() {
         screwSettings_.releaseMinPowerMultiplier = std::clamp(
             screw.value("releaseMinPowerMultiplier", screwSettings_.releaseMinPowerMultiplier), 0.0f, 1.0f);
         screwSettings_.testGroundY = screw.value("testGroundY", screwSettings_.testGroundY);
+        const auto pingBeam = root.value("pingBeam", nlohmann::json::object());
+        pingBeamSettings_.trackingTime = std::max(0.0f, pingBeam.value("trackingTime", pingBeamSettings_.trackingTime));
+        pingBeamSettings_.trackingRotationSpeed = std::max(0.0f, pingBeam.value("trackingRotationSpeed", pingBeamSettings_.trackingRotationSpeed));
+        pingBeamSettings_.pingFlashTime = std::max(0.0f, pingBeam.value("pingFlashTime", pingBeamSettings_.pingFlashTime));
+        const auto markerScale = pingBeam.value("markerScale", nlohmann::json::array());
+        if (markerScale.is_array() && markerScale.size() >= 3) {
+            pingBeamSettings_.markerScale = {
+                std::max(0.01f, markerScale[0].get<float>()),
+                std::max(0.01f, markerScale[1].get<float>()),
+                std::max(0.01f, markerScale[2].get<float>())
+            };
+        }
+        pingBeamSettings_.chargeTime = std::max(0.0f, pingBeam.value("chargeTime", pingBeamSettings_.chargeTime));
+        pingBeamSettings_.beamWidth = std::max(0.01f, pingBeam.value("beamWidth", pingBeamSettings_.beamWidth));
+        pingBeamSettings_.beamHeight = std::max(0.01f, pingBeam.value("beamHeight", pingBeamSettings_.beamHeight));
+        pingBeamSettings_.beamDuration = std::max(0.0f, pingBeam.value("beamDuration", pingBeamSettings_.beamDuration));
+        pingBeamSettings_.beamInterval = std::max(0.0f, pingBeam.value("beamInterval", pingBeamSettings_.beamInterval));
+        pingBeamSettings_.damage = std::max(0.0f, pingBeam.value("damage", pingBeamSettings_.damage));
+        pingBeamSettings_.moveSpeedDamage = std::max(0.0f, pingBeam.value("moveSpeedDamage", pingBeamSettings_.moveSpeedDamage));
+        const auto rail = pingBeam.value("rail", nlohmann::json::object());
+        pingBeamSettings_.rail.orbitRadius = std::max(
+            0.0f, rail.value("orbitRadius", rail.value("radius", pingBeamSettings_.rail.orbitRadius)));
+        pingBeamSettings_.rail.heightOffset = rail.value("heightOffset", pingBeamSettings_.rail.heightOffset);
+        pingBeamSettings_.rail.trackingAngularSpeed = std::max(
+            0.0f, rail.value("trackingAngularSpeed", pingBeamSettings_.rail.trackingAngularSpeed));
+        const auto modelRotationOffset = rail.value("modelRotationOffset", nlohmann::json::array());
+        if (modelRotationOffset.is_array() && modelRotationOffset.size() >= 3) {
+            pingBeamSettings_.rail.modelRotationOffset = {
+                modelRotationOffset[0].get<float>(), modelRotationOffset[1].get<float>(), modelRotationOffset[2].get<float>()
+            };
+        }
         ApplyExplosionSettingsToMines_();
         mineSettingsStatus_ = "Loaded: " + path.generic_string();
         return true;
@@ -1454,6 +1727,14 @@ void BossTestScene::Update(GameApp& app, float dt) {
         ResetScrew_();
         pendingResetScrew_ = false;
     }
+    if (pendingTriggerPingBeam_) {
+        TriggerPingBeam_();
+        pendingTriggerPingBeam_ = false;
+    }
+    if (pendingResetPingBeam_) {
+        ResetPingBeam_();
+        pendingResetPingBeam_ = false;
+    }
     if (pendingReleaseOnly_) {
         ReleaseScrewTargets_(false);
         pendingReleaseOnly_ = false;
@@ -1493,6 +1774,10 @@ void BossTestScene::Update(GameApp& app, float dt) {
     UpdateScrew_(dt);
     UpdateScrewTestTargets_(dt);
     UpdateScrewDebug_(dt);
+    UpdatePingBeam_(dt);
+    // Preview the gameplay cruising spin even while the test ship is stationary.
+    if (boss_) screwAnimation_.Update(*boss_, dt, screwAttack_.IsRunning(), true,
+        screwAttack_.GetSettings().previewTime);
     if (floor_) {
         floor_->SetTranslate({ 0.0f, screwSettings_.testGroundY, 25.0f });
         floor_->Update(dt);
@@ -1542,6 +1827,18 @@ void BossTestScene::Draw(GameApp& /*app*/) {
         if (screwGatherPointDebug_) screwGatherPointDebug_->Draw();
         for (const auto& marker : screwReleaseDirectionDebug_) marker->Draw();
     }
+    if (pingBeamTestPlayer_) pingBeamTestPlayer_->Draw();
+    for (int i = 0; i < PingBeamAttack::kPingCount; ++i) {
+        if (pingBeamAttack_.IsMarkerVisible(i) && pingBeamMarkers_[i]) pingBeamMarkers_[i]->Draw();
+    }
+    if (pingBeamAttack_.IsBeamVisible()) {
+        for (const auto& beam : pingBeamVisuals_) if (beam) beam->Draw();
+    }
+    for (const auto& rail : pingBeamRailDebug_) if (rail) rail->Draw();
+    for (const auto& marker : pingBeamPivotDebug_) if (marker) marker->Draw();
+    for (const auto& marker : pingBeamCurrentAngleDebug_) if (marker) marker->Draw();
+    for (const auto& marker : pingBeamTargetAngleDebug_) if (marker) marker->Draw();
+    for (const auto& marker : pingBeamUnitPositionDebug_) if (marker) marker->Draw();
 }
 
 void BossTestScene::DrawImGui(GameApp& app) {
@@ -1882,6 +2179,39 @@ void BossTestScene::DrawImGui(GameApp& app) {
                 ScrewAttack::StateName(screwAttack_.GetState()),
                 screwAttack_.GetStateTime(), static_cast<int>(screwGatheredMines_.size()));
             ImGui::TextDisabled("Cyan: final gather point / Yellow-Pink-Purple: force stages / Orange: release");
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNodeEx("Ping Beam", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::DragFloat3("Test Player Position##PingBeam", &pingBeamTargetPosition_.x, 0.1f, -1000.0f, 1000.0f);
+            ImGui::TextDisabled("Green cube is the Player proxy passed into PingBeamAttack::Update.");
+            ImGui::DragFloat("Tracking Time##PingBeam", &pingBeamSettings_.trackingTime, 0.02f, 0.0f, 20.0f);
+            ImGui::DragFloat("Tracking Rotation Speed##PingBeam", &pingBeamSettings_.trackingRotationSpeed, 0.05f, 0.0f, 50.0f);
+            ImGui::SeparatorText("Per-sphere Orbit (sip local XZ plane)");
+            ImGui::DragFloat("Orbit Radius##PingBeam", &pingBeamSettings_.rail.orbitRadius, 0.01f, 0.0f, 100.0f);
+            ImGui::DragFloat("Height Offset##PingBeam", &pingBeamSettings_.rail.heightOffset, 0.01f, -100.0f, 100.0f);
+            ImGui::DragFloat("Tracking Angular Speed##PingBeam", &pingBeamSettings_.rail.trackingAngularSpeed, 0.02f, 0.0f, 50.0f);
+            ImGui::DragFloat3("Model Rotation Offset##PingBeam", &pingBeamSettings_.rail.modelRotationOffset.x, 0.01f, -6.283f, 6.283f);
+            ImGui::Text("Left Current / Target: %.3f / %.3f rad",
+                pingBeamAttack_.GetCurrentRailAngle(0), pingBeamAttack_.GetTargetRailAngle(0));
+            ImGui::Text("Right Current / Target: %.3f / %.3f rad",
+                pingBeamAttack_.GetCurrentRailAngle(1), pingBeamAttack_.GetTargetRailAngle(1));
+            ImGui::TextDisabled("Cyan: orbit / Yellow: sphere pivot / Green: current / Pink: target / Orange: units");
+            ImGui::DragFloat("Ping Flash Time##PingBeam", &pingBeamSettings_.pingFlashTime, 0.01f, 0.0f, 5.0f);
+            ImGui::DragFloat3("Marker Scale##PingBeam", &pingBeamSettings_.markerScale.x, 0.05f, 0.01f, 100.0f);
+            ImGui::DragFloat("Charge Time##PingBeam", &pingBeamSettings_.chargeTime, 0.02f, 0.0f, 20.0f);
+            ImGui::DragFloat("Beam Width##PingBeam", &pingBeamSettings_.beamWidth, 0.05f, 0.01f, 100.0f);
+            ImGui::DragFloat("Beam Height##PingBeam", &pingBeamSettings_.beamHeight, 0.05f, 0.01f, 100.0f);
+            ImGui::DragFloat("Beam Duration##PingBeam", &pingBeamSettings_.beamDuration, 0.02f, 0.0f, 20.0f);
+            ImGui::DragFloat("Beam Interval##PingBeam", &pingBeamSettings_.beamInterval, 0.02f, 0.0f, 20.0f);
+            ImGui::DragFloat("Damage##PingBeam", &pingBeamSettings_.damage, 0.5f, 0.0f, 10000.0f);
+            ImGui::DragFloat("Move Speed Damage##PingBeam", &pingBeamSettings_.moveSpeedDamage, 0.1f, 0.0f, 10000.0f);
+            if (ImGui::Button("Trigger Ping Beam")) pendingTriggerPingBeam_ = true;
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Ping Beam")) pendingResetPingBeam_ = true;
+            ImGui::Text("State: %s", PingBeamAttack::StateName(pingBeamAttack_.GetState()));
+            ImGui::Text("Current Ping: %d / 3", pingBeamAttack_.GetPingCount());
+            ImGui::Text("Current Beam: %d", pingBeamAttack_.GetCurrentBeamIndex() + 1);
+            ImGui::Text("Detected beam_canon nodes: %d", static_cast<int>(pingBeamCannonMeshCount_));
             ImGui::TreePop();
         }
         if (ImGui::Button("Save Boss Attack Settings")) SaveMineSettings_();

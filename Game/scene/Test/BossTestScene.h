@@ -8,6 +8,9 @@
 #include "boss/ShockwaveRock.h"
 #include "boss/AnchorAttack.h"
 #include "boss/ScrewAttack.h"
+#include "boss/ShipScrewAnimation.h"
+#include "boss/PingBeamAttack.h"
+#include <array>
 #include <memory>
 #include <random>
 #include <string>
@@ -58,6 +61,9 @@ private:
     void ResetScrew_();
     void UpdateScrew_(float dt);
     void UpdateScrewDebug_(float dt);
+    void TriggerPingBeam_();
+    void ResetPingBeam_();
+    void UpdatePingBeam_(float dt);
     void AddScrewTestTarget_(GameApp& app, int type);
     void UpdateScrewTestTargets_(float dt);
     void ReleaseScrewTargets_(bool gatheredOnly);
@@ -91,6 +97,14 @@ private:
     std::vector<std::unique_ptr<Object3d>> screwReleaseFullDistanceEdges_;
     std::vector<std::unique_ptr<Object3d>> screwReleaseMinDistanceEdges_;
     std::vector<std::unique_ptr<Object3d>> screwReleaseDirectionDebug_;
+    std::unique_ptr<Object3d> pingBeamTestPlayer_;
+    std::array<std::unique_ptr<Object3d>, PingBeamAttack::kPingCount> pingBeamMarkers_;
+    std::array<std::unique_ptr<Object3d>, 2> pingBeamVisuals_;
+    std::array<std::unique_ptr<Object3d>, 2> pingBeamRailDebug_;
+    std::array<std::unique_ptr<Object3d>, 2> pingBeamPivotDebug_;
+    std::array<std::unique_ptr<Object3d>, 2> pingBeamCurrentAngleDebug_;
+    std::array<std::unique_ptr<Object3d>, 2> pingBeamTargetAngleDebug_;
+    std::array<std::unique_ptr<Object3d>, 2> pingBeamUnitPositionDebug_;
 
     struct ScrewTestTarget {
         enum class Type { ReleaseDummy, PlayerProxy, MarineProxy };
@@ -123,6 +137,26 @@ private:
     AnchorAttack anchorAttack_{};
     ScrewAttackSettings screwSettings_{};
     ScrewAttack screwAttack_{};
+    ShipScrewAnimation screwAnimation_;
+    PingBeamAttackSettings pingBeamSettings_{};
+    PingBeamAttack pingBeamAttack_{};
+    Vector3 pingBeamTargetPosition_{ 0.0f, -5.0f, 25.0f };
+    std::array<Vector3, 4> pingBeamCannonLocalPositions_{{
+        { -3.5465f, -0.2577f, 0.5730f }, { -3.5465f, -0.5821f, 0.5730f },
+        { -3.5465f, -0.5821f, -0.7098f }, { -3.5465f, -0.2577f, -0.7098f }
+    }};
+    std::array<Vector3, 2> pingBeamSourcePivotLocalPositions_{{
+        { -3.0594f, -0.3890f, 0.6005f }, { -3.0594f, -0.3890f, -0.6822f }
+    }};
+    std::array<Vector3, 2> pingBeamSourceUnitLocalPositions_{{
+        { -3.5465f, -0.4199f, 0.5730f }, { -3.5465f, -0.4199f, -0.7098f }
+    }};
+    std::array<Vector3, 2> pingBeamTipLocalPositions_{{
+        { -3.9219f, -0.4199f, 0.5730f }, { -3.9219f, -0.4199f, -0.7098f }
+    }};
+    std::array<Vector3, 4> pingBeamCannonRotations_{};
+    std::array<size_t, 4> pingBeamCannonMeshIndices_{};
+    size_t pingBeamCannonMeshCount_ = 0;
     std::unordered_set<Mine*> screwGatheredMines_;
     std::unordered_set<Mine*> screwReleasedMines_;
     std::vector<std::unique_ptr<ShockwaveRock>> shockwaveRocks_;
@@ -151,6 +185,8 @@ private:
     bool pendingResetAnchor_ = false;
     bool pendingTriggerScrew_ = false;
     bool pendingResetScrew_ = false;
+    bool pendingTriggerPingBeam_ = false;
+    bool pendingResetPingBeam_ = false;
     bool pendingReleaseOnly_ = false;
     int pendingAddScrewTargetType_ = -1;
     bool pendingClearScrewTargets_ = false;

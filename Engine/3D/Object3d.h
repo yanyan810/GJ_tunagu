@@ -98,6 +98,9 @@ public:
 	size_t GetMeshInstanceCount() const { return model_ ? model_->GetNodeInstances().size() : 0; }
 	std::string GetMeshInstanceNodeName(size_t instanceIndex) const;
 	void SetMeshInstanceExplosionOffset(size_t instanceIndex, const Vector3& translate, const Vector3& rotate);
+	void SetMeshInstanceRotationAroundPivot(size_t instanceIndex, const Vector3& pivot, const Vector3& rotate);
+	void SetMeshInstanceTransformAroundPivot(size_t instanceIndex, const Vector3& pivot,
+		const Vector3& translate, const Vector3& rotate);
 	void ResetMeshInstanceExplosionOffsets();
 
 	void SetBillboard(bool billboard) { isBillboard_ = billboard; }
@@ -284,6 +287,8 @@ private:
 	struct MeshInstanceExplosionOffset {
 		Vector3 translate{};
 		Vector3 rotate{};
+		Vector3 pivot{};
+		bool usePivot = false;
 	};
 	std::vector<MeshInstanceExplosionOffset> meshInstanceExplosionOffsets_;
 
