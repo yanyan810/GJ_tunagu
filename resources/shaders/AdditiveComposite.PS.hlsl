@@ -15,6 +15,6 @@ PixelShaderOutput main(VertexShaderOutput input)
     float4 addColor = gAddTexture.Sample(gSampler, input.texcoord);
 
     PixelShaderOutput output;
-    output.color = float4(saturate(baseColor.rgb + addColor.rgb), baseColor.a);
+    output.color = float4(max(baseColor.rgb + addColor.rgb, 0.0f), baseColor.a);
     return output;
 }

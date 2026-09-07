@@ -230,6 +230,6 @@ float4 main(VertexShaderOutput input) : SV_TARGET0
         return float4(saturate(shaftColor * 4.0f), 1.0f);
     }
 
-    sceneColor.rgb = saturate(sceneColor.rgb + shaftColor);
+    sceneColor.rgb = max(sceneColor.rgb + shaftColor, 0.0f);
     return sceneColor;
 }

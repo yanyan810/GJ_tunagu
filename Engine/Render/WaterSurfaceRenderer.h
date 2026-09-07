@@ -2,18 +2,25 @@
 
 #include "Matrix4x4.h"
 #include "Vector3.h"
+#include <cstdint>
 #include <d3d12.h>
 #include <wrl.h>
 
 class Camera;
 class DirectXCommon;
+class SrvManager;
 
 class WaterSurfaceRenderer final {
 public:
-    void Initialize(DirectXCommon* dx, Camera* camera);
+    void Initialize(DirectXCommon* dx, SrvManager* srv, Camera* camera);
     void Update(float dt);
+    // Call once immediately before DrawDepth while color/depth are RT/DEPTH_WRITE.
+    // Both source resources return to those states before this method returns.
+    void CaptureScene(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth);
     void DrawDepth() const;
     void DrawColor() const;
+    void SetSceneOpticsSettings(bool enabled, float strength = 0.85f,
+        int steps = 28, float maxDistance = 160.0f);
 
     void SetEnabled(bool enabled) { enabled_ = enabled; }
     void SetWaterLevel(float waterLevel) { waterLevel_ = waterLevel; }
@@ -27,7 +34,7 @@ public:
     void SetWaveStrength(float strength) { waveStrength_ = strength; }
     // Direction from the water toward the sun (opposite the light's travel direction).
     void SetSunDirection(const Vector3& direction) { sunDirection_ = direction; }
-    // The floor reflection is a plane approximation; it does not include scene objects.
+    // Environment approximation used when a scene ray misses or leaves the screen.
     void SetUnderwaterAppearance(float skyExposure, float floorHeight,
         const Vector3& floorColor, const Vector3& extinctionDistanceRGB,
         const Vector3& deepWaterColor, float floorReflectionStrength = 1.0f);
@@ -69,12 +76,30 @@ private:
         float floorReflectionStrength;
     };
 
+    struct SceneOpticsParameters {
+        Matrix4x4 viewProjection;
+        Matrix4x4 inverseViewProjection;
+        Matrix4x4 view;
+        Vector2 textureSize;
+        float enabled;
+        float strength;
+        float maxDistance;
+        float thickness;
+        int32_t steps;
+        float padding;
+        Vector2 depthUnpack;
+        Vector2 depthPadding;
+    };
+
     void CreateRootSignature_();
     void CreatePipelineStates_();
     void CreateResources_();
     void BindCommon_(ID3D12PipelineState* pipelineState) const;
+    bool PrepareSceneCapture_(const D3D12_RESOURCE_DESC& colorDesc,
+        const D3D12_RESOURCE_DESC& depthDesc);
 
     DirectXCommon* dx_ = nullptr;
+    SrvManager* srv_ = nullptr;
     Camera* camera_ = nullptr;
     bool enabled_ = true;
     float waterLevel_ = 28.0f;
@@ -97,6 +122,10 @@ private:
     float skyExposure_ = 0.65f;
     Vector3 deepWaterColor_{ 0.018f, 0.115f, 0.16f };
     float floorReflectionStrength_ = 1.0f;
+    bool sceneOpticsEnabled_ = true;
+    float sceneOpticsStrength_ = 0.85f;
+    int sceneOpticsSteps_ = 28;
+    float sceneOpticsMaxDistance_ = 160.0f;
     UINT indexCount_ = 0;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
@@ -107,11 +136,17 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> transformationResource_;
     Microsoft::WRL::ComPtr<ID3D12Resource> cameraResource_;
     Microsoft::WRL::ComPtr<ID3D12Resource> parameterResource_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> sceneOpticsResource_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> sceneColorCopy_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> sceneDepthCopy_;
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
     D3D12_INDEX_BUFFER_VIEW indexBufferView_{};
     TransformationData* transformationData_ = nullptr;
     CameraData* cameraData_ = nullptr;
     WaterParameters* parameterData_ = nullptr;
+    SceneOpticsParameters* sceneOpticsData_ = nullptr;
+    uint32_t sceneColorSrvIndex_ = 0;
+    uint32_t sceneDepthSrvIndex_ = 0;
     D3D12_GPU_DESCRIPTOR_HANDLE normalAHandle_{};
     D3D12_GPU_DESCRIPTOR_HANDLE normalBHandle_{};
     D3D12_GPU_DESCRIPTOR_HANDLE reflectionHandle_{};

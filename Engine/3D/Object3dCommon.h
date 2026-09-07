@@ -29,7 +29,7 @@ public:
 
     void SetGraphicsPipelineState(BlendMode mode);
     void SetGraphicsPipelineStateEnvMap(BlendMode mode);
-    void SetGraphicsPipelineStateOutline();
+    void SetGraphicsPipelineStateOutline(bool pixelWidth = false);
 
     void SetSrvManager(SrvManager* srv) { srv_ = srv; }
     void SetSkinningCommon(SkinningCommon* skin) { skinCom_ = skin; }
@@ -56,6 +56,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pso_[static_cast<int>(BlendMode::kCountOfBlendMode)];
     Microsoft::WRL::ComPtr<ID3D12PipelineState> envMapPso_[static_cast<int>(BlendMode::kCountOfBlendMode)];
     Microsoft::WRL::ComPtr<ID3D12PipelineState> outlinePso_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> pixelOutlinePso_;
 
     D3D12_INPUT_ELEMENT_DESC inputElems_[3] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,

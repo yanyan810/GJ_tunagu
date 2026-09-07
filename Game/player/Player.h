@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <functional>
 #include "Vector3.h"
 #include "MathStruct.h"
 
@@ -19,6 +20,8 @@ public:
     void Update(float dt, const Input& input, std::vector<std::unique_ptr<Debris>>& debrisList);
     void Draw();
     void DrawImGui();
+    using MotionResolver = std::function<Vector3(const Vector3&, const Vector3&)>;
+    void SetMotionResolver(MotionResolver resolver) { motionResolver_ = std::move(resolver); }
 
     // カメラの追従やアタッチの計算に必要なgetter
     const Vector3& GetPosition() const { return pos_; }
@@ -71,6 +74,7 @@ private:
 
     // 移動用パラメータ
     Vector3 pos_ = { 0.0f, 0.0f, 0.0f };
+    MotionResolver motionResolver_;
     Vector3 vel_ = { 0.0f, 0.0f, 0.0f };
     float yaw_ = 0.0f;          // 左右旋回
     float pitch_ = 0.0f;        // マグロモデルの上下向き

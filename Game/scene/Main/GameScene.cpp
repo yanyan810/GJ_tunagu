@@ -74,6 +74,7 @@ void GameScene::OnEnter(GameApp& app) {
 
     player_ = std::make_unique<Player>();
     player_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
+    underwaterEnvironment_->BindPlayer(*player_);
 
     // 2D UI スプライトで構築する画面左上 HPバーの初期化
     hpBarBgSprite_ = std::make_unique<Sprite>();
@@ -290,7 +291,8 @@ void GameScene::Update(GameApp& app, float dt) {
             targetPos.z + backDir.z * distance
         };
 
-        camera_->SetTranslate(targetCamPos);
+        camera_->SetTranslate(underwaterEnvironment_
+            ? underwaterEnvironment_->ConstrainCamera(targetPos, targetCamPos) : targetCamPos);
         camera_->SetRotate({ camPitch, camYaw, 0.0f });
         camera_->Update();
 

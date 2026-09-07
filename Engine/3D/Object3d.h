@@ -42,7 +42,7 @@ public:
 		Vector4 outlineColor;
 		float outlineThickness;
 		float enableOutline;
-		float pad[2];
+		float outlineInverseViewport[2];
 
 		// Dissolve
 		Vector4 dissolveEdgeColor;
@@ -201,6 +201,9 @@ public:
 	void SetOutlineColor(const Vector4& color) { outlineColor_ = color; }
 	Vector4 GetOutlineColor() const { return outlineColor_; }
 	void SetOutlineThickness(float t) { outlineThickness_ = t; }
+	// Opt in to a width measured in scene render pixels. Positive legacy
+	// thickness values continue to extrude the mesh in model space.
+	void SetOutlinePixelWidth(float widthPixels);
 	float GetOutlineThickness() const { return outlineThickness_; }
 
 	void SetEnableDissolve(bool enable) { enableDissolve_ = enable; }

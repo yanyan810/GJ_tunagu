@@ -1,4 +1,5 @@
 ﻿#include "SkinnedModel.h"
+#include "SceneColorFormat.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -676,7 +677,7 @@ void SkinnedModel::CreatePipelineIfNeeded_()
 	psoDesc.InputLayout = { inputElements, _countof(inputElements) };
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	psoDesc.NumRenderTargets = 1;
-	psoDesc.RTVFormats[0] = dx_->GetRTVFormat();
+	psoDesc.RTVFormats[0] = kSceneColorFormat;
 	psoDesc.DSVFormat = dx_->GetDSVFormat();
 	psoDesc.SampleDesc.Count = 1;
 	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;

@@ -26,7 +26,7 @@ SeabedVertexOutput main(VertexShaderInput input, uint instanceId : SV_InstanceID
     position.xz = RotateQuarter(position.xz, quarter) + tile.xy;
     float3 normal = input.normal;
     normal.xz = RotateQuarter(normal.xz, quarter);
-    const float visibility = 1.0f - smoothstep(160.0f, 210.0f,
+    const float visibility = 1.0f - smoothstep(260.0f, 340.0f,
         length(position.xz - gCameraPosition.xz));
     position.y = gFloorHeight + position.y * visibility;
     // Frequencies repeat at 4096 seconds, matching the bounded CPU clock.

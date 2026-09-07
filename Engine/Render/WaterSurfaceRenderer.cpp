@@ -3,11 +3,14 @@
 #include "Camera.h"
 #include "DirectXCommon.h"
 #include "TextureManager.h"
+#include "SrvManager.h"
+#include "SceneColorFormat.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -31,10 +34,12 @@ Vector3 FiniteColor(const Vector3& value, const Vector3& fallback) {
 }
 }
 
-void WaterSurfaceRenderer::Initialize(DirectXCommon* dx, Camera* camera) {
+void WaterSurfaceRenderer::Initialize(DirectXCommon* dx, SrvManager* srv, Camera* camera) {
     assert(dx);
+    assert(srv);
     assert(camera);
     dx_ = dx;
+    srv_ = srv;
     camera_ = camera;
 
     CreateRootSignature_();
@@ -50,6 +55,110 @@ void WaterSurfaceRenderer::Initialize(DirectXCommon* dx, Camera* camera) {
     reflectionHandle_ = textureManager->GetSrvHandleGPU(kReflectionPath);
 
     Update(0.0f);
+}
+
+void WaterSurfaceRenderer::SetSceneOpticsSettings(bool enabled, float strength,
+    int steps, float maxDistance) {
+    sceneOpticsEnabled_ = enabled;
+    sceneOpticsStrength_ = FiniteClamp(strength, 0.85f, 0.0f, 1.0f);
+    sceneOpticsSteps_ = std::clamp(steps, 12, 40);
+    sceneOpticsMaxDistance_ = FiniteClamp(maxDistance, 160.0f, 10.0f, 400.0f);
+}
+
+bool WaterSurfaceRenderer::PrepareSceneCapture_(const D3D12_RESOURCE_DESC& colorDesc,
+    const D3D12_RESOURCE_DESC& depthDesc) {
+    if (colorDesc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D ||
+        depthDesc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D ||
+        colorDesc.SampleDesc.Count != 1 || depthDesc.SampleDesc.Count != 1 ||
+        colorDesc.DepthOrArraySize != 1 || depthDesc.DepthOrArraySize != 1 ||
+        colorDesc.MipLevels != 1 || depthDesc.MipLevels != 1 ||
+        colorDesc.Width != depthDesc.Width || colorDesc.Height != depthDesc.Height ||
+        colorDesc.Format != kSceneColorFormat || depthDesc.Format != DXGI_FORMAT_R32_TYPELESS) {
+        return false;
+    }
+    if (sceneColorCopy_ && sceneDepthCopy_ &&
+        sceneColorCopy_->GetDesc().Width == colorDesc.Width &&
+        sceneColorCopy_->GetDesc().Height == colorDesc.Height) {
+        return true;
+    }
+
+    // The renderer already waits for its frame fence before recording the next
+    // frame. Keep descriptor indices stable when the render resolution changes.
+    D3D12_HEAP_PROPERTIES heap{};
+    heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+    D3D12_RESOURCE_DESC copyColor = colorDesc;
+    D3D12_RESOURCE_DESC copyDepth = depthDesc;
+    copyColor.Flags = D3D12_RESOURCE_FLAG_NONE;
+    copyDepth.Flags = D3D12_RESOURCE_FLAG_NONE;
+    Microsoft::WRL::ComPtr<ID3D12Resource> color;
+    Microsoft::WRL::ComPtr<ID3D12Resource> depth;
+    HRESULT hr = dx_->GetDevice()->CreateCommittedResource(&heap,
+        D3D12_HEAP_FLAG_NONE, &copyColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        nullptr, IID_PPV_ARGS(&color));
+    if (FAILED(hr)) {
+        OutputDebugStringA("[WaterSurface] Scene color capture allocation failed; using environment reflection.\n");
+        return false;
+    }
+    hr = dx_->GetDevice()->CreateCommittedResource(&heap,
+        D3D12_HEAP_FLAG_NONE, &copyDepth, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        nullptr, IID_PPV_ARGS(&depth));
+    if (FAILED(hr)) {
+        OutputDebugStringA("[WaterSurface] Scene depth capture allocation failed; using environment reflection.\n");
+        return false;
+    }
+    color->SetName(L"Water pre-surface HDR color");
+    depth->SetName(L"Water pre-surface depth");
+    sceneColorCopy_ = std::move(color);
+    sceneDepthCopy_ = std::move(depth);
+    srv_->CreateSRVTexture2D(sceneColorSrvIndex_, sceneColorCopy_.Get(), kSceneColorFormat, 1);
+    srv_->CreateSRVTexture2D(sceneDepthSrvIndex_, sceneDepthCopy_.Get(), DXGI_FORMAT_R32_FLOAT, 1);
+    return true;
+}
+
+void WaterSurfaceRenderer::CaptureScene(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth) {
+    if (!sceneOpticsData_) {
+        return;
+    }
+    sceneOpticsData_->enabled = 0.0f;
+    if (!enabled_ || !sceneOpticsEnabled_ || sceneOpticsStrength_ <= 0.0f ||
+        !sceneColor || !sceneDepth ||
+        !PrepareSceneCapture_(sceneColor->GetDesc(), sceneDepth->GetDesc())) {
+        return;
+    }
+    ID3D12GraphicsCommandList* commandList = dx_->GetCommandList();
+    dx_->TransitionResource(sceneColor, D3D12_RESOURCE_STATE_RENDER_TARGET,
+        D3D12_RESOURCE_STATE_COPY_SOURCE);
+    dx_->TransitionResource(sceneDepth, D3D12_RESOURCE_STATE_DEPTH_WRITE,
+        D3D12_RESOURCE_STATE_COPY_SOURCE);
+    dx_->TransitionResource(sceneColorCopy_.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        D3D12_RESOURCE_STATE_COPY_DEST);
+    dx_->TransitionResource(sceneDepthCopy_.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        D3D12_RESOURCE_STATE_COPY_DEST);
+    commandList->CopyResource(sceneColorCopy_.Get(), sceneColor);
+    commandList->CopyResource(sceneDepthCopy_.Get(), sceneDepth);
+    dx_->TransitionResource(sceneColorCopy_.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    dx_->TransitionResource(sceneDepthCopy_.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    dx_->TransitionResource(sceneColor, D3D12_RESOURCE_STATE_COPY_SOURCE,
+        D3D12_RESOURCE_STATE_RENDER_TARGET);
+    dx_->TransitionResource(sceneDepth, D3D12_RESOURCE_STATE_COPY_SOURCE,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE);
+
+    sceneOpticsData_->textureSize = {
+        static_cast<float>(sceneColor->GetDesc().Width),
+        static_cast<float>(sceneColor->GetDesc().Height) };
+    sceneOpticsData_->viewProjection = camera_->GetViewProjectionMatrix();
+    sceneOpticsData_->inverseViewProjection = Matrix4x4::Inverse(
+        camera_->GetViewProjectionMatrix());
+    sceneOpticsData_->view = camera_->GetViewMatrix();
+    sceneOpticsData_->strength = sceneOpticsStrength_;
+    sceneOpticsData_->maxDistance = sceneOpticsMaxDistance_;
+    sceneOpticsData_->thickness = 1.10f;
+    sceneOpticsData_->steps = sceneOpticsSteps_;
+    const Matrix4x4& projection = camera_->GetProjectionMatrix();
+    sceneOpticsData_->depthUnpack = { projection.m[3][2], projection.m[2][2] };
+    sceneOpticsData_->enabled = 1.0f;
 }
 
 void WaterSurfaceRenderer::SetNormalSettings(
@@ -122,6 +231,9 @@ void WaterSurfaceRenderer::Update(float dt) {
     parameterData_->skyExposure = skyExposure_;
     parameterData_->deepWaterColor = deepWaterColor_;
     parameterData_->floorReflectionStrength = floorReflectionStrength_;
+    // A capture belongs to one frame only. Rendering without CaptureScene safely
+    // uses the environment approximation instead of a stale camera's image.
+    sceneOpticsData_->enabled = 0.0f;
 }
 
 void WaterSurfaceRenderer::DrawDepth() const {
@@ -141,7 +253,7 @@ void WaterSurfaceRenderer::DrawColor() const {
 }
 
 void WaterSurfaceRenderer::CreateRootSignature_() {
-    D3D12_DESCRIPTOR_RANGE ranges[3]{};
+    D3D12_DESCRIPTOR_RANGE ranges[5]{};
     for (UINT i = 0; i < _countof(ranges); ++i) {
         ranges[i].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
         ranges[i].NumDescriptors = 1;
@@ -149,7 +261,7 @@ void WaterSurfaceRenderer::CreateRootSignature_() {
         ranges[i].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
     }
 
-    D3D12_ROOT_PARAMETER parameters[6]{};
+    D3D12_ROOT_PARAMETER parameters[9]{};
     parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     parameters[0].Descriptor.ShaderRegister = 0;
     parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
@@ -159,12 +271,15 @@ void WaterSurfaceRenderer::CreateRootSignature_() {
     parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     parameters[2].Descriptor.ShaderRegister = 1;
     parameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    for (UINT i = 0; i < 3; ++i) {
+    for (UINT i = 0; i < 5; ++i) {
         parameters[3 + i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         parameters[3 + i].DescriptorTable.NumDescriptorRanges = 1;
         parameters[3 + i].DescriptorTable.pDescriptorRanges = &ranges[i];
         parameters[3 + i].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     }
+    parameters[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    parameters[8].Descriptor.ShaderRegister = 2;
+    parameters[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -176,12 +291,18 @@ void WaterSurfaceRenderer::CreateRootSignature_() {
     sampler.ShaderRegister = 0;
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+    D3D12_STATIC_SAMPLER_DESC samplers[2] = { sampler, sampler };
+    samplers[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[1].ShaderRegister = 1;
+
     D3D12_ROOT_SIGNATURE_DESC desc{};
     desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     desc.NumParameters = _countof(parameters);
     desc.pParameters = parameters;
-    desc.NumStaticSamplers = 1;
-    desc.pStaticSamplers = &sampler;
+    desc.NumStaticSamplers = _countof(samplers);
+    desc.pStaticSamplers = samplers;
 
     Microsoft::WRL::ComPtr<ID3DBlob> signatureBlob;
     Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
@@ -222,7 +343,7 @@ void WaterSurfaceRenderer::CreatePipelineStates_() {
     base.VS = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
     base.RasterizerState = rasterizer;
     base.NumRenderTargets = 1;
-    base.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    base.RTVFormats[0] = kSceneColorFormat;
     base.DSVFormat = DXGI_FORMAT_D32_FLOAT;
     base.SampleDesc.Count = 1;
     base.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
@@ -272,6 +393,14 @@ void WaterSurfaceRenderer::CreateResources_() {
     static_assert(offsetof(WaterParameters, skyExposure) == 108);
     static_assert(offsetof(WaterParameters, deepWaterColor) == 112);
     static_assert(offsetof(WaterParameters, floorReflectionStrength) == 124);
+    static_assert(sizeof(SceneOpticsParameters) == 240);
+    static_assert(offsetof(SceneOpticsParameters, inverseViewProjection) == 64);
+    static_assert(offsetof(SceneOpticsParameters, view) == 128);
+    static_assert(offsetof(SceneOpticsParameters, textureSize) == 192);
+    static_assert(offsetof(SceneOpticsParameters, enabled) == 200);
+    static_assert(offsetof(SceneOpticsParameters, maxDistance) == 208);
+    static_assert(offsetof(SceneOpticsParameters, steps) == 216);
+    static_assert(offsetof(SceneOpticsParameters, depthUnpack) == 224);
 
     std::vector<VertexData> vertices((kGridCells + 1) * (kGridCells + 1));
     const auto gridCoordinate = [this](UINT index) {
@@ -315,12 +444,29 @@ void WaterSurfaceRenderer::CreateResources_() {
     indexBufferView_.SizeInBytes = indexBytes;
     indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
 
-    transformationResource_ = dx_->CreateBufferResource(sizeof(TransformationData));
-    cameraResource_ = dx_->CreateBufferResource(sizeof(CameraData));
-    parameterResource_ = dx_->CreateBufferResource(sizeof(WaterParameters));
+    transformationResource_ = dx_->CreateBufferResource(256);
+    cameraResource_ = dx_->CreateBufferResource(256);
+    parameterResource_ = dx_->CreateBufferResource(256);
+    sceneOpticsResource_ = dx_->CreateBufferResource(256);
     transformationResource_->Map(0, nullptr, reinterpret_cast<void**>(&transformationData_));
     cameraResource_->Map(0, nullptr, reinterpret_cast<void**>(&cameraData_));
     parameterResource_->Map(0, nullptr, reinterpret_cast<void**>(&parameterData_));
+    sceneOpticsResource_->Map(0, nullptr, reinterpret_cast<void**>(&sceneOpticsData_));
+    assert(sceneOpticsData_);
+    *sceneOpticsData_ = {};
+    sceneColorSrvIndex_ = srv_->Allocate();
+    sceneDepthSrvIndex_ = srv_->Allocate();
+    // Valid null SRVs also make the disabled/failure path safe for the debug layer.
+    D3D12_SHADER_RESOURCE_VIEW_DESC nullSrv{};
+    nullSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    nullSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    nullSrv.Texture2D.MipLevels = 1;
+    nullSrv.Format = kSceneColorFormat;
+    dx_->GetDevice()->CreateShaderResourceView(nullptr, &nullSrv,
+        srv_->GetCPUDescriptionHandle(sceneColorSrvIndex_));
+    nullSrv.Format = DXGI_FORMAT_R32_FLOAT;
+    dx_->GetDevice()->CreateShaderResourceView(nullptr, &nullSrv,
+        srv_->GetCPUDescriptionHandle(sceneDepthSrvIndex_));
     assert(transformationData_ && cameraData_ && parameterData_);
 }
 
@@ -344,4 +490,7 @@ void WaterSurfaceRenderer::BindCommon_(ID3D12PipelineState* pipelineState) const
     commandList->SetGraphicsRootDescriptorTable(3, normalAHandle_);
     commandList->SetGraphicsRootDescriptorTable(4, normalBHandle_);
     commandList->SetGraphicsRootDescriptorTable(5, reflectionHandle_);
+    commandList->SetGraphicsRootDescriptorTable(6, srv_->GetGPUDescriptionHandle(sceneColorSrvIndex_));
+    commandList->SetGraphicsRootDescriptorTable(7, srv_->GetGPUDescriptionHandle(sceneDepthSrvIndex_));
+    commandList->SetGraphicsRootConstantBufferView(8, sceneOpticsResource_->GetGPUVirtualAddress());
 }

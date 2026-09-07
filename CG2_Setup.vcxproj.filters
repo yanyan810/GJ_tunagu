@@ -171,6 +171,15 @@
     <ClCompile Include="Engine\Render\SeabedDetailRenderer.cpp">
       <Filter>Engine\Render</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Render\ReefSceneRenderer.cpp">
+      <Filter>Engine\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Render\ReefCollisionWorld.cpp">
+      <Filter>Engine\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossReadability.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
     <!-- Engine\Level: レベルローダー -->
     <!-- Engine\math: 数学ライブラリ -->
     <ClCompile Include="Engine\math\Matrix4x4.cpp">
@@ -381,6 +390,21 @@
       <Filter>Engine\Render</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Render\SeabedDetailRenderer.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\ReefSceneRenderer.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\ReefCollisionWorld.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossReadability.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\SceneColorFormat.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\OceanShadowParameters.h">
       <Filter>Engine\Render</Filter>
     </ClInclude>
     <ClInclude Include="resources\shaders\SandSurface.hlsli">
@@ -649,6 +673,15 @@
     <FxCompile Include="resources\shaders\SeabedDetail.PS.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
+    <FxCompile Include="resources\shaders\ReefScene.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\ReefScene.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\ToneMap.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <!-- ===== hlsli (インクルード) ===== -->
   <ItemGroup>
@@ -658,7 +691,19 @@
     <None Include="resources\shaders\OceanReceiverLighting.hlsli">
       <Filter>shaders</Filter>
     </None>
+    <None Include="resources\shaders\OceanSunShadow.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="resources\shaders\WaterSceneOptics.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="resources\shaders\ReefScene.hlsli">
+      <Filter>shaders</Filter>
+    </None>
     <None Include="resources\shaders\Object3d.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="resources\shaders\Object3dOutline.hlsli">
       <Filter>shaders</Filter>
     </None>
     <None Include="resources\shaders\Particle.hlsli">

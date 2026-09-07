@@ -190,6 +190,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Engine\Render\UnderwaterBackgroundRenderer.cpp" />
     <ClCompile Include="Engine\Render\WaterSurfaceRenderer.cpp" />
     <ClCompile Include="Engine\Render\SeabedDetailRenderer.cpp" />
+    <ClCompile Include="Engine\Render\ReefSceneRenderer.cpp" />
+    <ClCompile Include="Engine\Render\ReefCollisionWorld.cpp" />
+    <ClCompile Include="Game\boss\BossReadability.cpp" />
     <ClCompile Include="externals\imgui\imgui.cpp" />
     <ClCompile Include="externals\imgui\imgui_demo.cpp" />
     <ClCompile Include="externals\imgui\imgui_draw.cpp" />
@@ -490,6 +493,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <FxCompile Include="resources\shaders\SeabedDetail.PS.hlsl">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="resources\shaders\ReefScene.VS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\ReefScene.PS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\ToneMap.PS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\2D\Sprite.h" />
@@ -521,6 +533,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Render\UnderwaterBackgroundRenderer.h" />
     <ClInclude Include="Engine\Render\WaterSurfaceRenderer.h" />
     <ClInclude Include="Engine\Render\SeabedDetailRenderer.h" />
+    <ClInclude Include="Engine\Render\ReefSceneRenderer.h" />
+    <ClInclude Include="Engine\Render\ReefCollisionWorld.h" />
+    <ClInclude Include="Game\boss\BossReadability.h" />
+    <ClInclude Include="Engine\Render\SceneColorFormat.h" />
+    <ClInclude Include="Engine\Render\OceanShadowParameters.h" />
     <ClInclude Include="resources\shaders\SandSurface.hlsli" />
     <ClInclude Include="resources\shaders\SeabedDetail.hlsli" />
     <ClInclude Include="resources\shaders\WaterSurfaceCommon.hlsli" />
@@ -610,6 +627,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <None Include="resources\shaders\CopyImage.hlsli" />
     <None Include="resources\shaders\UnderwaterBackground.hlsli" />
     <None Include="resources\shaders\OceanReceiverLighting.hlsli" />
+    <None Include="resources\shaders\OceanSunShadow.hlsli" />
+    <None Include="resources\shaders\WaterSceneOptics.hlsli" />
+    <None Include="resources\shaders\ReefScene.hlsli" />
+    <None Include="resources\shaders\Object3dOutline.hlsli" />
     <None Include="resources\shaders\Object3d.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">false</ExcludedFromBuild>

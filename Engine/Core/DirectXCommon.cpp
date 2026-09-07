@@ -468,7 +468,7 @@ void DirectXCommon::DethCriptorHeapSpawn() {
 	descriptorSizeRTV = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	descriptorSizeDSV = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
-	rtvDescriptorHeap = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 12, false);
+	rtvDescriptorHeap = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, kRenderTargetCapacity, false);
 
 	
 }
@@ -618,6 +618,7 @@ void DirectXCommon::UpdateFixFPS() {
 
 
 void DirectXCommon::PreDraw(bool clearDepth) {
+	currentRenderTargetFormat_ = rtvDesc.Format;
 	const UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 
 	D3D12_RESOURCE_BARRIER barrier{};
@@ -825,6 +826,8 @@ void DirectXCommon::CreateRenderTextureRTV(
 	uint32_t rtvIndex,
 	DXGI_FORMAT format)
 {
+	assert(rtvIndex < kRenderTargetCapacity);
+	renderTargetFormats_[rtvIndex] = format;
 	assert(resource);
 
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
@@ -839,6 +842,8 @@ void DirectXCommon::CreateRenderTextureRTV(
 
 void DirectXCommon::PreDrawRenderTexture(uint32_t rtvIndex, const Vector4& clearColor)
 {
+	assert(rtvIndex < kRenderTargetCapacity);
+	currentRenderTargetFormat_ = renderTargetFormats_[rtvIndex];
 	D3D12_CPU_DESCRIPTOR_HANDLE handle =
 		GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, rtvIndex);
 
@@ -867,6 +872,8 @@ void DirectXCommon::PreDrawRenderTexture(uint32_t rtvIndex, const Vector4& clear
 
 void DirectXCommon::PreDrawPostEffectBuffer(uint32_t rtvIndex)
 {
+	assert(rtvIndex < kRenderTargetCapacity);
+	currentRenderTargetFormat_ = renderTargetFormats_[rtvIndex];
 	D3D12_CPU_DESCRIPTOR_HANDLE handle =
 		GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, rtvIndex);
 
@@ -877,6 +884,8 @@ void DirectXCommon::PreDrawPostEffectBuffer(uint32_t rtvIndex)
 
 void DirectXCommon::PreDrawPostEffectBuffer(uint32_t rtvIndex, const Vector4& clearColor)
 {
+	assert(rtvIndex < kRenderTargetCapacity);
+	currentRenderTargetFormat_ = renderTargetFormats_[rtvIndex];
 	D3D12_CPU_DESCRIPTOR_HANDLE handle =
 		GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, rtvIndex);
 
@@ -896,6 +905,8 @@ void DirectXCommon::PreDrawPostEffectBuffer(uint32_t rtvIndex, const Vector4& cl
 
 void DirectXCommon::PreDrawRenderTextureNoDepthClear(uint32_t rtvIndex, const Vector4& clearColor)
 {
+	assert(rtvIndex < kRenderTargetCapacity);
+	currentRenderTargetFormat_ = renderTargetFormats_[rtvIndex];
 	D3D12_CPU_DESCRIPTOR_HANDLE handle =
 		GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, rtvIndex);
 
@@ -913,8 +924,19 @@ void DirectXCommon::PreDrawRenderTextureNoDepthClear(uint32_t rtvIndex, const Ve
 	commandList->RSSetScissorRects(1, &scissorRect);
 }
 
+void DirectXCommon::BindRenderTextureWithDepthNoClear(uint32_t rtvIndex)
+{
+	assert(rtvIndex < kRenderTargetCapacity);
+	currentRenderTargetFormat_ = renderTargetFormats_[rtvIndex];
+	const auto handle = GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, rtvIndex);
+	commandList->OMSetRenderTargets(1, &handle, FALSE, &dsvHandle);
+	commandList->RSSetViewports(1, &viewport);
+	commandList->RSSetScissorRects(1, &scissorRect);
+}
+
 void DirectXCommon::SetBackBufferRenderTarget()
 {
+	currentRenderTargetFormat_ = rtvDesc.Format;
 	const UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 	commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], FALSE, &dsvHandle);
 	commandList->RSSetViewports(1, &viewport);
@@ -923,6 +945,7 @@ void DirectXCommon::SetBackBufferRenderTarget()
 
 void DirectXCommon::SetBackBufferRenderTargetForPostEffect()
 {
+	currentRenderTargetFormat_ = rtvDesc.Format;
 	const UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 	commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], FALSE, nullptr);
 	commandList->RSSetViewports(1, &viewport);

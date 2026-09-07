@@ -11,6 +11,8 @@ class DirectXCommon;
 class Object3d;
 class Object3dCommon;
 class RenderManager;
+class Player;
+class ReefSceneRenderer;
 class SeabedDetailRenderer;
 class UnderwaterBackgroundRenderer;
 class WaterSurfaceRenderer;
@@ -25,12 +27,17 @@ public:
         Camera* camera, RenderManager* renderManager);
     void Shutdown();
     void SetPlayerSnapshot(const Vector3& position, float yaw, float pitch);
+    void BindPlayer(Player& player);
+    Vector3 ConstrainCamera(const Vector3& target, const Vector3& desired);
     void Update(float dt);
     void DrawBackground();
     void Draw();
     void DrawWaterDepth();
     void DrawWaterSurface();
     void DrawImGui();
+    void SetReefSceneryEnabled(bool enabled) { reefSceneEnabled_ = enabled; }
+    void SetReefSunShadowsEnabled(bool enabled) { reefSunShadowEnabled_ = enabled; }
+    void SetSceneWaterOpticsEnabled(bool enabled) { sceneWaterOpticsEnabled_ = enabled; }
 
 private:
     enum class CausticsPreset {
@@ -42,6 +49,10 @@ private:
     void ApplyCausticsSettings_();
     bool UsesProjectedCaustics_() const;
     void ApplyOceanLightingSettings_();
+    void DrawReefShadow_();
+    void SyncCollisionSettings_();
+    Vector3 ResolvePlayerMotion_(const Vector3& start, const Vector3& desired);
+    void ApplyWaterVisibilityPreset_(bool clearWater);
     void ApplyBackgroundSettings_();
     void ApplyWaterSurfaceSettings_();
     void ApplyLightShaftSettings_();
@@ -56,30 +67,45 @@ private:
     Vector3 CalculatePlayerWakeEmitPosition_(bool rightSide) const;
 
     Camera* camera_ = nullptr;
+    DirectXCommon* dx_ = nullptr;
     RenderManager* renderManager_ = nullptr;
     std::unique_ptr<Object3d> floor_;
     std::unique_ptr<UnderwaterBackgroundRenderer> background_;
     std::unique_ptr<WaterSurfaceRenderer> waterSurface_;
     std::unique_ptr<SeabedDetailRenderer> seabedDetails_;
+    std::unique_ptr<ReefSceneRenderer> reefScene_;
+    bool reefSceneEnabled_ = true;
+    bool environmentCollisionEnabled_ = true;
+    bool cameraCollisionEnabled_ = true;
+    float playerCollisionRadius_ = 1.25f;
+    float cameraCollisionRadius_ = 0.4f;
+    bool reefSunShadowEnabled_ = true;
+    float reefSunShadowStrength_ = 0.85f;
+    bool wideReefView_ = true;
+    float previousCameraFovY_ = 0.45f;
+    bool sceneWaterOpticsEnabled_ = true;
+    float sceneWaterOpticsStrength_ = 0.85f;
+    int sceneWaterOpticsSteps_ = 28;
     bool seabedDetailsEnabled_ = true;
-    float sandReliefStrength_ = 0.85f;
-    float waterSkyExposure_ = 0.65f;
-    float seabedReflectionStrength_ = 1.0f;
+    float sandReliefStrength_ = 0.65f;
+    float waterSkyExposure_ = 1.15f;
+    float seabedReflectionStrength_ = 0.40f;
+    Vector3 waterReflectionTint_{ 0.006f, 0.10f, 0.32f };
 
     bool backgroundEnabled_ = true;
-    Vector4 backgroundSurfaceColor_{ 0.08f, 0.38f, 0.46f, 1.0f };
-    Vector4 backgroundHorizonColor_{ 0.018f, 0.115f, 0.16f, 1.0f };
-    Vector4 backgroundLowerColor_{ 0.012f, 0.055f, 0.085f, 1.0f };
+    Vector4 backgroundSurfaceColor_{ 0.12f, 0.48f, 0.68f, 1.0f };
+    Vector4 backgroundHorizonColor_{ 0.025f, 0.20f, 0.40f, 1.0f };
+    Vector4 backgroundLowerColor_{ 0.012f, 0.065f, 0.16f, 1.0f };
     float backgroundHorizonSoftness_ = 0.45f;
     float backgroundUpwardLift_ = 0.12f;
     float backgroundLowerBlend_ = 0.80f;
 
     float floorHeight_ = -22.0f;
     float floorScale_ = 150.0f;
-    Vector4 floorColor_{ 0.58f, 0.49f, 0.34f, 1.0f };
+    Vector4 floorColor_{ 0.78f, 0.67f, 0.43f, 1.0f };
     bool sandVariationEnabled_ = true;
     float sandVariationScale_ = 0.025f;
-    float sandVariationStrength_ = 0.14f;
+    float sandVariationStrength_ = 0.10f;
 
     bool causticsEnabled_ = true;
     bool projectedCausticsEnabled_ = true;
@@ -88,9 +114,10 @@ private:
     float contactShadingRadius_ = 1.8f;
     CausticsPreset causticsPreset_ = CausticsPreset::DeepBroad;
     CausticsPreset appliedCausticsPreset_ = CausticsPreset::DeepBroad;
-    float causticsScale_ = 0.035f;
-    float causticsIntensity_ = 0.18f;
-    Vector3 causticsColor_{ 0.75f, 0.92f, 1.0f };
+    float causticsScale_ = 0.052f;
+    float causticsIntensity_ = 0.26f;
+    Vector3 causticsColor_{ 1.0f, 0.98f, 0.94f };
+    float causticsDispersion_ = 0.0045f;
     bool causticsAnimationEnabled_ = true;
     float causticsPlaybackTime_ = 0.0f;
     float causticsLoopDuration_ = 4.0f;
@@ -98,15 +125,15 @@ private:
     bool waterSurfaceEnabled_ = true;
     float waterLevelY_ = 28.0f;
     Vector4 waterSurfaceTint_{ 0.025f, 0.23f, 0.25f, 0.30f };
-    float waterNormalScaleA_ = 0.030f;
-    float waterNormalScaleB_ = 0.055f;
+    float waterNormalScaleA_ = 0.10f;
+    float waterNormalScaleB_ = 0.19f;
     Vector2 waterNormalSpeedA_{ 0.012f, 0.006f };
     Vector2 waterNormalSpeedB_{ -0.008f, 0.011f };
-    float waterNormalStrength_ = 0.20f;
+    float waterNormalStrength_ = 0.38f;
     float waterWaveStrength_ = 1.0f;
     float environmentTime_ = 0.0f;
     bool underwaterOpticsEnabled_ = true;
-    float underwaterShaftIntensity_ = 0.10f;
+    float underwaterShaftIntensity_ = 0.065f;
     bool previousDepthFogEnabled_ = false;
     float previousFogStart_ = 25.0f;
     Vector3 previousFogExtinction_{80.0f, 160.0f, 320.0f};
@@ -120,12 +147,12 @@ private:
     float lightShaftTransmissionStrength_ = 0.85f;
     float lightShaftTransmissionScale_ = 0.008f;
     Vector3 lightShaftDirection_{ 0.15f, 1.0f, 0.10f };
-    Vector3 lightShaftColor_{ 0.78f, 0.94f, 1.0f };
+    Vector3 lightShaftColor_{ 1.0f, 0.97f, 0.90f };
     int lightShaftNumSamples_ = 48;
     float lightShaftDensity_ = 0.85f;
     float lightShaftDecay_ = 0.96f;
     float lightShaftWeight_ = 0.030f;
-    float lightShaftExposure_ = 0.14f;
+    float lightShaftExposure_ = 0.10f;
     float lightShaftSourceRadius_ = 0.85f;
     float lightShaftOcclusionDepthRange_ = 120.0f;
     float lightShaftVirtualSourceScreenDistance_ = 1.0f;

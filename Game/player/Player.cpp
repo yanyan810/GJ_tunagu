@@ -280,11 +280,13 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     Vector3 vTail = TransformCoord(tailLocal, Matrix4x4::Multiply(scaleMat, rotWorld));
 
     // 尾びれの位置 currentTailPos を基準にモデル中心 pos_ を算出
+    const Vector3 previousPosition = pos_;
     pos_ = {
         currentTailPos.x - vTail.x,
         currentTailPos.y - vTail.y,
         currentTailPos.z - vTail.z
     };
+    if (motionResolver_) pos_ = motionResolver_(previousPosition, pos_);
 
     Matrix4x4 transMat = Matrix4x4::Translation(pos_);
     Matrix4x4 worldMat = Matrix4x4::Multiply(Matrix4x4::Multiply(scaleMat, rotWorld), transMat);
