@@ -4,6 +4,10 @@
 #include <cmath>
 
 namespace {
+constexpr float kTau = 6.28318530718f;
+float Safe(float value, float fallback, float minimum, float maximum) {
+    return std::isfinite(value) ? std::clamp(value, minimum, maximum) : fallback;
+}
 Vector3 Lerp(const Vector3& from, const Vector3& to, float t) {
     return from + (to - from) * std::clamp(t, 0.0f, 1.0f);
 }
@@ -28,6 +32,10 @@ void AnchorAttack::Trigger(const Vector3& center, const AnchorAttackSettings& se
     stateTime_ = 0.0f;
     angle_ = 0.0f;
     currentAngularSpeed_ = 0.0f;
+    retarget_ = {};
+    hasRetargetTarget_ = false;
+    orbitRadius_ = radiusFrom_ = radiusTo_ = std::max(0.0f, settings_.radius);
+    orbitHeight_ = heightFrom_ = heightTo_ = retargetElapsed_ = 0.0f;
     state_ = settings_.warningRing.previewTime > 0.0f ? State::Preview : State::Dropping;
     UpdateOrbitFacingRotation_();
 }
@@ -36,10 +44,52 @@ void AnchorAttack::Reset() {
     state_ = State::Inactive;
     stateTime_ = 0.0f;
     currentAngularSpeed_ = 0.0f;
+    hasRetargetTarget_ = false;
+}
+
+void AnchorAttack::ConfigureRetarget(const AnchorRetargetSettings& settings) {
+    retarget_ = settings;
+    retarget_.maxRadiusShiftPerTurn = Safe(settings.maxRadiusShiftPerTurn, 0.0f, 0.0f, 20.0f);
+    retarget_.maxHeightShiftPerTurn = Safe(settings.maxHeightShiftPerTurn, 0.0f, 0.0f, 10.0f);
+    retarget_.transitionTime = Safe(settings.transitionTime, 1.0f, 0.1f, 5.0f);
+    radiusFrom_ = radiusTo_ = orbitRadius_;
+    heightFrom_ = heightTo_ = orbitHeight_;
+    retargetElapsed_ = 0.0f;
+    hasRetargetTarget_ = false;
+}
+
+void AnchorAttack::SetRetargetTarget(const Vector3& target) {
+    if (!retarget_.enabled || state_ != State::Active ||
+        !std::isfinite(target.x) || !std::isfinite(target.y) || !std::isfinite(target.z)) return;
+    retargetTarget_ = target;
+    hasRetargetTarget_ = true;
+}
+
+void AnchorAttack::AdvanceRetarget_(float dt, bool completedTurn) {
+    if (!retarget_.enabled) return;
+    if (completedTurn && hasRetargetTarget_ && stateTime_ < std::max(0.0f, settings_.duration)) {
+        const double targetRadius = std::hypot(double(retargetTarget_.x)-center_.x,
+            double(retargetTarget_.z)-center_.z);
+        // Main battle bounds: small per-turn steps never expand the existing
+        // maximum orbit or move the ship/chain root toward the player.
+        const float desiredRadius = static_cast<float>(std::clamp(targetRadius, 5.0, 85.0));
+        const double desiredHeight = double(retargetTarget_.y)-center_.y;
+        radiusFrom_ = orbitRadius_; heightFrom_ = orbitHeight_;
+        radiusTo_ = radiusFrom_ + std::clamp(desiredRadius-radiusFrom_,
+            -retarget_.maxRadiusShiftPerTurn, retarget_.maxRadiusShiftPerTurn);
+        heightTo_ = heightFrom_ + static_cast<float>(std::clamp(desiredHeight-heightFrom_,
+            -double(retarget_.maxHeightShiftPerTurn), double(retarget_.maxHeightShiftPerTurn)));
+        retargetElapsed_ = 0.0f;
+    }
+    retargetElapsed_ = std::min(retargetElapsed_+dt, retarget_.transitionTime);
+    const float t = retargetElapsed_/retarget_.transitionTime;
+    const float smooth = t*t*(3.0f-2.0f*t);
+    orbitRadius_ = radiusFrom_+(radiusTo_-radiusFrom_)*smooth;
+    orbitHeight_ = heightFrom_+(heightTo_-heightFrom_)*smooth;
 }
 
 void AnchorAttack::Update(float dt) {
-    if (state_ == State::Inactive || dt <= 0.0f) return;
+    if (state_ == State::Inactive || !std::isfinite(dt) || dt <= 0.0f) return;
     stateTime_ += dt;
     if (state_ == State::Preview) {
         if (stateTime_ >= std::max(0.0f, settings_.warningRing.previewTime)) {
@@ -50,9 +100,8 @@ void AnchorAttack::Update(float dt) {
         return;
     }
 
-    const float radius = std::max(0.0f, settings_.radius);
-    const Vector3 spawnPosition = center_ + settings_.spawnLocalPosition;
-    const Vector3 orbitStartPosition = center_ + Vector3{ radius, 0.0f, 0.0f };
+    const Vector3 spawnPosition = GetSpawnPosition();
+    const Vector3 orbitStartPosition = center_ + Vector3{ orbitRadius_, 0.0f, 0.0f };
 
     if (state_ == State::Dropping) {
         UpdateOrbitFacingRotation_();
@@ -90,11 +139,14 @@ void AnchorAttack::Update(float dt) {
         std::max(0.0f, settings_.maxAngularSpeed),
         currentAngularSpeed_ + std::max(0.0f, settings_.angularAcceleration) * dt);
     const float direction = settings_.rotationDirection < 0 ? -1.0f : 1.0f;
+    const float previousTurns = std::floor(std::abs(angle_)/kTau);
     angle_ += currentAngularSpeed_ * direction * dt;
+    const bool completedTurn = std::floor(std::abs(angle_)/kTau) > previousTurns;
+    AdvanceRetarget_(dt, completedTurn);
     position_ = {
-        center_.x + std::cos(angle_) * radius,
-        center_.y + std::sin(angle_ * settings_.verticalFrequency) * settings_.verticalAmplitude,
-        center_.z + std::sin(angle_) * radius
+        center_.x + std::cos(angle_) * orbitRadius_,
+        center_.y + orbitHeight_ + std::sin(angle_ * settings_.verticalFrequency) * settings_.verticalAmplitude,
+        center_.z + std::sin(angle_) * orbitRadius_
     };
     optionalSelfRotation_ += Vector3{
         settings_.selfRotationSpeed * 0.63f,

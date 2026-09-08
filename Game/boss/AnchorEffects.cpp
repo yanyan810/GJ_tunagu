@@ -76,13 +76,13 @@ void AnchorEffects::OnTrigger(const AnchorAttack& attack, const AnchorAttackSett
     Reset();
     auto& e=*impl_;
     e.settings=settings;
-    e.settings.radius=Safe(settings.radius,0,0,500);
+    e.settings.radius=Safe(attack.GetOrbitRadius(),0,0,500);
     e.settings.collisionRadius=Safe(settings.collisionRadius,1.5f,0.05f,20);
     e.settings.warningRing.thickness=Safe(settings.warningRing.thickness,0.5f,0.01f,10);
     e.settings.warningRing.pulseSpeed=Safe(settings.warningRing.pulseSpeed,3,0,20);
     e.settings.warningRing.pulseAmount=Safe(settings.warningRing.pulseAmount,0.2f,0,1);
     e.configured=Finite(attack.GetCenter())&&Finite(attack.GetPosition())&&std::isfinite(settings.radius);
-    e.state=attack.GetState();e.center=attack.GetCenter();e.position=attack.GetPosition();
+    e.state=attack.GetState();e.center=attack.GetOrbitCenter();e.position=attack.GetPosition();
     e.previousPosition=e.position;e.hasPosition=e.configured;e.valid=e.configured&&e.enabled;
     if(e.valid&&MovingState(e.state)) e.trail.push_back({e.position,{},0,0,e.sampleSerial++});
 }
@@ -98,7 +98,8 @@ void AnchorEffects::Update(float dt, const AnchorAttack& attack) {
     }
     const auto previousState=e.state;
     e.state=attack.GetState();e.stateTime=Safe(attack.GetStateTime(),0,0,3600);
-    const Vector3 current=attack.GetPosition(),center=attack.GetCenter();
+    const Vector3 current=attack.GetPosition(),center=attack.GetOrbitCenter();
+    e.settings.radius=Safe(attack.GetOrbitRadius(),e.settings.radius,0,500);
     e.valid=e.enabled&&e.configured&&Finite(current)&&Finite(center);
     if(!e.valid) {
         e.trail.clear();e.arrivalAge=-1;e.hasPosition=false;e.speed=0;e.velocity={};

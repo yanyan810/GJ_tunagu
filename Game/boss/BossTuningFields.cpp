@@ -30,14 +30,20 @@ const BossTuningField fields[]{
     F("機雷","mine.travelTime","到着の目安時間",battle.mineTravelTime,.5f,5,.1f,"水の抵抗を補正して投げる速さを決めます。吸引や近距離の速度制限で実際の時間は変わります。","秒"),
     F("機雷","mine.leadTime","移動先の先読み",battle.mineAimLeadTime,0,2.5f,.05f,"各機雷の発射前に移動先を予測する時間。発射後は追尾しません。","秒"),
     F("機雷","mine.triggerRadius","近接起爆の半径",battle.mineTriggerRadius,.5f,8,.1f,"プレイヤーが近づくと導火線を開始する半径。プレイヤー判定半径を別に加算します。","m"),
+    B("機雷","mine.linkShell","泡・探知・爆風を連動",battle.mineLinkShell,"ON: 泡の公称半径を探知半径に合わせ、爆風は下の倍率で小さくします。OFF: 従来の小さな泡と独立した爆風半径。"),
+    F("機雷","mine.blastRatio","泡に対する爆風の倍率",battle.mineBlastRatio,.5f,.95f,.05f,"連動ON時に使用。0.85なら泡半径の85%。プレイヤー判定半径は探知・被弾の両方へ別に加算します。","倍"),
     F("機雷","mine.fuse","接近後の爆発猶予",mineFuse,.2f,3,.05f,"起爆予告から爆発まで。短すぎると対処しづらくなるため0.2秒以上。","秒"),
-    F("機雷","mine.blastRadius","爆風の半径",mine.explosionRadius,1,15,.25f,"爆発の見た目とダメージ範囲の共通半径。","m"),
+    F("機雷","mine.blastRadius","非連動時の爆風半径",mine.explosionRadius,1,15,.25f,"泡との連動がOFFのときだけ使用。ONなら探知半径×爆風倍率が見た目とダメージの共通半径です。","m"),
     F("機雷","mine.lifetime","自然起爆まで",mineLifetime,2,20,.5f,"接近しなかった機雷も、この時間で導火線を開始します。","秒"),
     F("機雷","mine.chainFuse","誘爆の猶予",mineChainFuse,.1f,3,.05f,"他の機雷の爆風を受けたときの導火線の時間。","秒"),
     F("機雷","mine.drag","水中抵抗",mine.drag,0,3,.05f,"飛翔速度を減衰させる強さ。弾道が変わるため到着時間と合わせて調整します。","1/秒"),
     F("機雷","mine.damage","爆発ダメージ",mine.damage,0,200,1,"単体散布・スクリューに使われる機雷の共通ダメージ。","HP"),
     F("アンカー","anchor.radius","回転半径の下限",anchor.radius,5,70,.5f,"実際の半径は予告開始時の船とプレイヤーの水平距離にも合わせます。","m"),
     F("アンカー","anchor.radiusBias","狙う半径の追加幅",battle.anchorRadiusBias,-5,10,.25f,"プレイヤーまでの水平距離に加える量。半径の下限と上限85mも適用されます。","m"),
+    B("アンカー","anchor.retarget","1周ごとに少し狙い直す",battle.anchorRetarget.enabled,"回転が1周するたびに、その時点のプレイヤーまでの距離と高さへ少し寄せます。発射方向や回転角は飛ばしません。"),
+    F("アンカー","anchor.retargetRadius","1周で半径を変える上限",battle.anchorRetarget.maxRadiusShiftPerTurn,0,5,.1f,"1回の狙い直しで半径を変える最大距離。0なら半径を固定します。","m"),
+    F("アンカー","anchor.retargetHeight","1周で高さを変える上限",battle.anchorRetarget.maxHeightShiftPerTurn,0,3,.1f,"1回の狙い直しで回転面を上下へ動かす最大距離。上下の揺れは別に残ります。","m"),
+    F("アンカー","anchor.retargetTime","狙い直しにかける時間",battle.anchorRetarget.transitionTime,.4f,3,.1f,"半径・高さを滑らかに移す時間。短すぎる急な追尾を避けるため0.4秒以上。","秒"),
     F("アンカー","anchor.preview","予告リングの時間",anchor.warningRing.previewTime,.3f,5,.05f,"アンカーの動作前に回転範囲を予告する時間。","秒"),
     F("アンカー","anchor.drop","降ろす時間",anchor.dropDuration,.2f,3,.05f,"船から回転する高さへアンカーを降ろす時間。","秒"),
     F("アンカー","anchor.wait","降下後の猶予",anchor.waitTime,.1f,3,.05f,"回転を始める前の待ち時間。","秒"),
@@ -51,6 +57,10 @@ const BossTuningField fields[]{
     F("アンカー","anchor.damage","命中ダメージ",anchor.damage,0,200,1,"アンカー本体に当たったときのダメージ。鎖自体には判定はありません。","HP"),
     F("スクリュー","screw.preview","吸引前の予告",screw.previewTime,.4f,4,.05f,"吸引範囲が現れてから力が働くまでの猶予。","秒"),
     F("スクリュー","screw.power","吸い込む力",screw.suctionPower,0,60,.5f,"吸引の加速度。泳ぐ力と外力の抵抗もあるため、この値が移動速度になるわけではありません。","設定値"),
+    F("スクリュー","screw.glow","吸引の発光",battle.screwGlow,.25f,2.5f,.05f,"吸引演出の発光の強さ。判定や吸い込む力には影響しません。","倍"),
+    F("スクリュー","screw.flowSpeed","内向きの光の速さ",battle.screwFlowSpeed,.25f,2.5f,.05f,"帯・粒が吸引中心へ流れる速さ。ゲームの吸引速度とは別です。","倍"),
+    F("スクリュー","screw.bandWidth","吸引の帯の太さ",battle.screwBandWidth,.5f,2,.05f,"水の帯を見つけやすくする幅の倍率。","倍"),
+    F("スクリュー","screw.dangerMix","吸引の危険色の割合",battle.screwDangerMix,0,1,.05f,"0で水色寄り、1で暖色の危険表示を強調します。","割合"),
     F("スクリュー","screw.duration","吸引を続ける時間",screw.suctionDuration,1,8,.1f,"吸引開始から機雷を保持する段階へ移るまでの時間。","秒"),
     F("スクリュー","screw.hold","放出前の保持",screw.holdTime,.2f,3,.05f,"吸引後、下へ放出する前の間。","秒"),
     F("スクリュー","screw.release","下へ放出する力",screw.releasePower,0,70,1,"吸引範囲に残っていたプレイヤー・機雷に加える下向きの速度。","m/秒"),
@@ -67,12 +77,19 @@ const BossTuningField fields[]{
     F("スクリュー","screw.innerY","内側範囲の縦半幅",screw.innerRangeHalfSize.y,.5f,25,.25f,"中心付近の強い吸引範囲。中間範囲以下に設定します。","m"),
     F("スクリュー","screw.innerZ","内側範囲の奥行半幅",screw.innerRangeHalfSize.z,.5f,30,.25f,"中心付近の強い吸引範囲。中間範囲以下に設定します。","m"),
     F("ショックウェーブ","wave.startRadius","開始半径",wave.radiusStart,.1f,10,.1f,"予告した中心から波が広がり始める半径。","m"),
-    F("ショックウェーブ","wave.maxRadius","最大半径",wave.radiusMax,5,60,.5f,"波が届く最大距離。開始半径以上に設定します。","m"),
+    F("ショックウェーブ","wave.maxRadius","最大半径",wave.radiusMax,5,90,.5f,"発生源から波が届く最大距離。船側から出す場合は船までの距離も考慮してください。","m"),
     F("ショックウェーブ","wave.speed","波の広がる速さ",wave.expansionSpeed,2,40,.5f,"半径が1秒に増える量。速いほど水平に泳いで逃げにくくなります。","m/秒"),
     F("ショックウェーブ","wave.duration","波の持続時間",wave.duration,.5f,8,.1f,"最大半径まで到達できる時間を確保してください。最大半径到達後に岩が発生します。","秒"),
     B("ショックウェーブ","wave.playerDepth","泳いでいる深さに出す",battle.waveAtTargetDepth,"ON: 予告開始時のプレイヤーの深さに水平の波。上下に避けられます。OFF: 従来の海底の波。"),
     F("ショックウェーブ","wave.halfHeight","波の判定の上下幅",battle.waveHalfHeight,.2f,4,.1f,"波の中心面から上下それぞれの当たり幅。プレイヤー半径を別に加算します。","m"),
     F("ショックウェーブ","wave.damage","波のダメージ",waveDamage,0,100,1,"波本体のダメージ。地面から出る岩のダメージとは別です。","HP"),
+    I("ショックウェーブ","wave.count","1回の連射数",battle.waveVolley.count,1,3,"各波に独立した予告を付けます。岩の発生は最後の波だけなので岩の数は増えません。"),
+    F("ショックウェーブ","wave.interval","連射の間隔",battle.waveVolley.interval,1,5,.1f,"各波の予告を始める間隔。予告時間以上に設定します。短いと複数の波が重なります。","秒"),
+    F("ショックウェーブ","wave.speedJitter","速度のランダム幅",battle.waveVolley.speedJitter,0,.2f,.01f,"0.08で基準速度の±8%。発射時に決めた速度は途中で変えません。遅い波は寿命も補正します。","割合"),
+    B("ショックウェーブ","wave.originAtBoss","船側から波を出す",battle.waveVolley.originAtBoss,"ON: 各予告開始時の船の水平位置から発射。OFF: 従来のプレイヤー位置が中心。高さは別設定です。"),
+    F("ショックウェーブ","wave.thickness","波の見た目の半幅",battle.waveThickness,.15f,1.5f,.05f,"水の帯の太さ。ダメージの上下幅とは別です。危険色の芯は実際の半径に沿います。","m"),
+    F("ショックウェーブ","wave.intensity","波の発光",battle.waveIntensity,.25f,3,.05f,"水色の帯・暖色の縁・明るい芯の発光強度。","倍"),
+    F("ショックウェーブ","wave.dangerMix","波の危険色の割合",battle.waveDangerMix,0,1,.05f,"0で水色寄り、1で暖色の危険表示を強調します。","割合"),
     I("地面の岩","rock.count","出現する岩の数",wave.rock.spawnCount,0,48,"波が最大半径に達すると出る岩の総数。0なら波単体の確認ができます。"),
     F("地面の岩","rock.interval","岩が出る間隔",wave.rock.spawnInterval,.05f,.5f,.01f,"岩を順番に出す間隔。","秒"),
     F("地面の岩","rock.radiusMin","出現距離の最小値",wave.rock.spawnRadiusMin,0,30,.5f,"予告中心からの水平距離。中央を狙う岩は例外として近くに出ます。","m"),
@@ -100,12 +117,13 @@ BossCombatSettings BossTuningDefaults() {
     s.ping.trackingTime=.9f; s.ping.chargeTime=.95f;
     s.ping.beamDuration=.28f; s.ping.beamInterval=.35f; s.ping.damage=24;
     s.mineFuse=.6f;
+    s.battle.mineTriggerRadius=1.6f;
     s.anchor.startAngularSpeed=.6f; s.anchor.verticalAmplitude=1.5f;
     s.screw.previewTime=1.3f; s.screw.suctionDuration=3.5f;
     s.battle.screwPayloadDelay=1.1f;
-    // A 30 m / 18 m/s wave finished before an ordinary 15 m/s swimmer
-    // could be reached after the .9 s warning. Keep expansion time similar.
-    s.wave.radiusMax=40; s.wave.expansionSpeed=24;
+    // A ship-origin volley needs more reach, with slower individually warned
+    // pulses. Swimming away from a distant source remains a valid escape.
+    s.wave.radiusMax=60; s.wave.expansionSpeed=20; s.wave.duration=3.8f;
     // Moving the wave into the water layer makes it a new threat.
     s.waveDamage=10;
     return s;
@@ -121,6 +139,8 @@ bool ValidateBossTuningSettings(const BossCombatSettings& s, std::string& error)
     }
     const auto require=[&](bool ok,const char* message){if(!ok) error=message;return ok;};
     if(!require(s.anchor.maxAngularSpeed>=s.anchor.startAngularSpeed,"アンカー: 最高速度を初速以上にしてください。")) return false;
+    if(!require(!s.battle.mineLinkShell||s.battle.mineTriggerRadius>=.75f,"機雷: 泡との連動中は、中心モデルが収まるよう探知半径を0.75m以上にしてください。")) return false;
+    if(!require(s.battle.waveVolley.count<=1||s.battle.waveVolley.interval>=s.windup,"波: 連射間隔を予告時間以上にして、各波の予告を順番に表示してください。")) return false;
     if(!require(s.wave.radiusMax>=s.wave.radiusStart,"波: 最大半径を開始半径以上にしてください。")) return false;
     if(!require(s.wave.duration+.0001f>=(s.wave.radiusMax-s.wave.radiusStart)/s.wave.expansionSpeed,"波: 最大半径へ届くよう、持続時間を延ばすか速度を上げてください。")) return false;
     if(!require(s.wave.rock.spawnRadiusMax>=s.wave.rock.spawnRadiusMin&&s.wave.rock.scaleMax>=s.wave.rock.scaleMin&&

@@ -8,6 +8,9 @@ namespace BossCombatCollision {
 bool Finite(const Vector3& value);
 float DistanceSquared(const Vector3& a, const Vector3& b);
 bool SegmentSphere(const Vector3& from, const Vector3& to, const Vector3& center, float radius);
+// Swept contact with a linearly expanding ring, restricted to its water layer.
+bool SegmentWave(const Vector3& from,const Vector3& to,const Vector3& center,const Vector3& scale,
+    float previousRadius,float radius,float radialPad,float verticalPad);
 // Finite beam volume with the same orthogonal radial axes as the VFX cylinder.
 // Player-radius expansion preserves swept contacts without the box's square corners.
 bool SegmentBeam(const Vector3& from, const Vector3& to, const Vector3& origin, const Vector3& end,

@@ -28,6 +28,10 @@ public:
     void Reset();
     // Call after gameplay's mine update and before processing its events.
     void Update(float dt, const std::vector<std::unique_ptr<Mine>>& mines);
+    // Apply the mine's launch-time radius after Update, including a final
+    // zero-dt resnapshot. Radius 0 explicitly restores the authored 0.95m gel
+    // for an unlinked launch, including when a pooled Mine pointer is reused.
+    bool SetTriggerRadius(const Mine& mine, float radius);
     void OnExplosion(const MineExplosionEvent& event);
     // Sources must be in RENDER_TARGET / DEPTH_WRITE states; both are restored.
     void Draw(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth);

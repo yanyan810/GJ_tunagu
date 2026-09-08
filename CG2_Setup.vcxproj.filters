@@ -825,6 +825,9 @@
     <ClInclude Include="Game\boss\BossTuningFields.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
+    <ClInclude Include="Game\boss\BossWaveVolley.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
     <ClInclude Include="Game\boss\BossTuningStore.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>

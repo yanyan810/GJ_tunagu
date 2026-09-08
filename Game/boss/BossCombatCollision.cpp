@@ -28,6 +28,43 @@ bool SegmentSphere(const Vector3& from, const Vector3& to, const Vector3& center
     return x*x + y*y + z*z <= double(radius)*radius;
 }
 
+bool SegmentWave(const Vector3& from,const Vector3& to,const Vector3& center,const Vector3& scale,
+    float previousRadius,float radius,float radialPad,float verticalPad) {
+    if(!Finite(from)||!Finite(to)||!Finite(center)||!Finite(scale)||scale.x<=0||scale.z<=0||
+        !std::isfinite(previousRadius)||!std::isfinite(radius)||!std::isfinite(radialPad)||!std::isfinite(verticalPad)||
+        previousRadius<0||radius<0||radialPad<0||verticalPad<0) return false;
+    double low=0,high=1;
+    const double y=double(from.y)-center.y,dy=double(to.y)-from.y;
+    if(std::abs(dy)<1e-12) {if(std::abs(y)>verticalPad) return false;}
+    else {
+        double a=(-verticalPad-y)/dy,b=(verticalPad-y)/dy;if(a>b) std::swap(a,b);
+        low=std::max(low,a);high=std::min(high,b);if(low>high) return false;
+    }
+    const double x=(double(from.x)-center.x)/scale.x,z=(double(from.z)-center.z)/scale.z;
+    const double dx=(double(to.x)-from.x)/scale.x,dz=(double(to.z)-from.z)/scale.z;
+    const double r=previousRadius,dr=double(radius)-previousRadius,p=radialPad;
+    const auto inside=[&](double t) {
+        if(t<low-1e-10||t>high+1e-10) return false;
+        const double distance=std::hypot(x+dx*t,z+dz*t),rim=r+dr*t;
+        return std::abs(distance-rim)<=p+1e-8;
+    };
+    if(inside(low)||inside(high)) return true;
+    // Entry/exit can occur at either side of the annulus. Solve both moving
+    // boundaries, so crossing the center between samples cannot miss the rim.
+    for(double offset:{-p,p}) {
+        const double edge=r+offset;
+        const double a=dx*dx+dz*dz-dr*dr,b=2*(x*dx+z*dz-edge*dr),c=x*x+z*z-edge*edge;
+        if(std::abs(a)<1e-12) {if(std::abs(b)>1e-12&&inside(-c/b)) return true;continue;}
+        const double discriminant=b*b-4*a*c;
+        if(discriminant<0) continue;
+        const double root=std::sqrt(discriminant);
+        const double q=-.5*(b+std::copysign(root,b));
+        if(std::abs(q)<1e-16) {if(inside(-b/(2*a))) return true;}
+        else if(inside(q/a)||inside(c/q)) return true;
+    }
+    return false;
+}
+
 bool SegmentBox(const Vector3& from, const Vector3& to, const Matrix4x4& boxWorld,
     const Vector3& halfSize, float sphereRadius) {
     if (!Finite(from) || !Finite(to) || !Finite(halfSize) || halfSize.x < 0.0f || halfSize.y < 0.0f ||

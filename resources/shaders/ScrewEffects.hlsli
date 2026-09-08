@@ -11,11 +11,12 @@ cbuffer ScrewFrame : register(b0)
     float4 gCameraUpEmission;
     float4 gViewportStyle; // width, height, water opacity, reserved
     WorldEffectsFogParameters gWorldEffectsFog;
+    float4 gFlowReadability; // clock, warm danger mix, band width, active pressure
 };
 cbuffer ScrewPrimitive : register(b1)
 {
     float4 gColorOpacity;
-    float4 gStyle; // kind: water/mote/halo/bubble, intensity, progress, phase
+    float4 gStyle; // kind: water/mote/halo/bubble, intensity, inward ribbon flag, phase
 };
 struct ScrewVertexInput
 {

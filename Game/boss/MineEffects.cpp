@@ -54,7 +54,34 @@ struct Body {
     Vector3 motion{},lag{},lagVelocity{};
     Mine::State state=Mine::State::Flying;
     float phase=0,stretch=0.78f,springVelocity=2.0f,fuse=0;
+    float shellRadius=0.95f,blastRadius=-1.0f;
 };
+float EnclosedGelRadius(const Body& body,float baseWobble,float amount) {
+    const float vertical=std::clamp(1.0f+(body.stretch-1.0f)*amount,0.45f,1.70f);
+    const float minimumStretch=std::min(vertical,1.0f/std::sqrt(vertical));
+    const float shear=std::sqrt(body.lag.x*body.lag.x+body.lag.z*body.lag.z)*1.1f*amount;
+    const float minimumShear=(std::sqrt(shear*shear+4.0f)-shear)*0.5f;
+    // The two shader waves sum to at most 0.80. Smallest singular values
+    // conservatively enclose a sphere despite stretch, slosh and center lag.
+    return body.shellRadius*(1.0f-0.80f*baseWobble*amount)*minimumStretch*minimumShear
+        -std::sqrt(Dot(body.lag,body.lag))*0.22f*amount;
+}
+float GelElasticity(const Body& body,float baseWobble,float requested) {
+    float minimumInterior=0.61f; // Rigid Bomb radius 0.57 + 0.04 clearance.
+    if(body.blastRadius>=0 && body.blastRadius<body.shellRadius)
+        minimumInterior=std::max(minimumInterior,std::min(body.shellRadius,body.blastRadius+0.04f));
+    float amount=std::clamp(requested,0.0f,1.5f);
+    if(EnclosedGelRadius(body,baseWobble,amount)<minimumInterior) {
+        float safe=0.0f,unsafe=amount;
+        for(int i=0;i<8;++i) {
+            const float middle=(safe+unsafe)*0.5f;
+            if(EnclosedGelRadius(body,baseWobble,middle)>=minimumInterior) safe=middle;
+            else unsafe=middle;
+        }
+        amount=safe;
+    }
+    return amount;
+}
 struct Burst { Vector3 position; float radius,age,phase; };
 struct Bubble { Vector3 origin,velocity; float age,lifetime,radius,phase; };
 }
@@ -220,6 +247,23 @@ void MineEffects::OnExplosion(const MineExplosionEvent& event) {
     }
 }
 
+bool MineEffects::SetTriggerRadius(const Mine& mine,float radius) {
+    // Keep the authored Bomb geometry inside even at the smallest supported
+    // radius. Invalid settings leave the existing snapshot untouched.
+    if(!std::isfinite(radius)||(radius!=0.0f&&radius<0.65f)||radius>120.0f) return false;
+    auto& bodies=impl_->bodies;
+    const auto found=std::find_if(bodies.begin(),bodies.end(),[&](const Body& b){return b.mine==&mine;});
+    if(found==bodies.end()) return false;
+    if(radius==0.0f) {
+        found->shellRadius=0.95f;found->blastRadius=-1.0f;
+        return true;
+    }
+    found->shellRadius=radius;
+    const float blast=mine.GetExplosionRadius();
+    found->blastRadius=std::isfinite(blast)?std::max(0.0f,blast):-1.0f;
+    return true;
+}
+
 bool MineEffects::IsEnabled() const {return impl_->enabled;}
 bool MineEffects::IsSoloPreview() const {return impl_->soloPreview;}
 bool MineEffects::ShowDebugGeometry() const {return impl_->debugGeometry;}
@@ -287,38 +331,17 @@ void MineEffects::Impl::BuildDraws() {
         const bool warning=b.state==Mine::State::Triggered;
         const float pulse=warning?0.5f+0.5f*std::sin(kTau*(time*2.0f+b.fuse*b.fuse*3.0f)):0.0f;
         const float baseWobble=0.060f+std::min(0.12f,std::abs(b.springVelocity)*0.045f);
-        const float offsetPerElasticity=std::sqrt(Dot(b.lag,b.lag))*0.22f;
-        const float shearPerElasticity=std::sqrt(b.lag.x*b.lag.x+b.lag.z*b.lag.z)*1.1f;
-        auto enclosedRadius=[&](float amount) {
-            const float vertical=std::clamp(1.0f+(b.stretch-1.0f)*amount,0.45f,1.70f);
-            const float minimumStretch=std::min(vertical,1.0f/std::sqrt(vertical));
-            const float shear=shearPerElasticity*amount;
-            const float minimumShear=(std::sqrt(shear*shear+4.0f)-shear)*0.5f;
-            // GelRadius's two waves have total amplitude at most 0.80.
-            // Smallest singular values bound every direction, including shear.
-            return 0.95f*(1.0f-0.80f*baseWobble*amount)*minimumStretch*minimumShear
-                -offsetPerElasticity*amount;
-        };
-        float effectiveElasticity=std::clamp(elasticity,0.0f,1.5f);
-        if(enclosedRadius(effectiveElasticity)<0.61f) {
-            float safe=0.0f,unsafe=effectiveElasticity;
-            for(int i=0;i<8;++i) {
-                const float middle=(safe+unsafe)*0.5f;
-                if(enclosedRadius(middle)>=0.61f) safe=middle;
-                else unsafe=middle;
-            }
-            effectiveElasticity=safe;
-        }
+        const float effectiveElasticity=GelElasticity(b,baseWobble,elasticity);
         // Keep the rigid 0.57-radius Bomb inside the gel with 0.04 clearance.
         // Limit all deformation channels together to retain their motion phase.
         const float stretch=1.0f+(b.stretch-1.0f)*effectiveElasticity;
         const float wobble=baseWobble*effectiveElasticity;
         const Vector4 tint=warning?Vector4{1.0f,0.40f,0.12f,0.90f}:Vector4{0.24f,0.88f,0.60f,0.88f};
         const size_t shellIndex=draws.size();
-        Orb(Material::Gel,b.position+b.lag*(0.22f*effectiveElasticity),0.95f,tint,0.95f+pulse*0.4f,time*6.0f+b.phase,b.fuse,
+        Orb(Material::Gel,b.position+b.lag*(0.22f*effectiveElasticity),b.shellRadius,tint,0.95f+pulse*0.4f,time*6.0f+b.phase,b.fuse,
             {stretch,wobble,warning?1.0f:0.0f,0});
         if(draws.size()>shellIndex) draws.back().constants.slosh={b.lag.x*1.1f*effectiveElasticity,0,b.lag.z*1.1f*effectiveElasticity,0};
-        if(warning) Billboard(Material::Warning,b.position,1.42f,
+        if(warning) Billboard(Material::Warning,b.position,1.42f*(b.shellRadius/0.95f),
             {1.0f,0.24f,0.075f,0.85f},0.9f+pulse*0.45f,b.phase,b.fuse);
     }
     for(const auto& b:bursts) {
@@ -338,7 +361,8 @@ void MineEffects::Impl::BuildDraws() {
         Billboard(Material::Halo,b.position,1.5f+std::min(b.radius,9.0f)*0.45f,
             {1.0f,0.22f,0.075f,flash},2.2f,b.phase);
     }
-    for(const auto& b:bodies) Billboard(Material::Halo,b.position,1.85f,
+    for(const auto& b:bodies) Billboard(Material::Halo,b.position,
+        1.85f+std::clamp(b.shellRadius-0.95f,0.0f,2.0f)*0.75f,
         {1.0f,0.28f,0.055f,0.22f},0.65f+b.fuse*0.7f,b.phase);
     for(const auto& b:bubbles) {
         const float life=Saturate(b.age/b.lifetime);

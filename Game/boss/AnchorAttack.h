@@ -46,6 +46,14 @@ struct AnchorAttackSettings {
     AnchorChainSettings chain{};
 };
 
+// Opt-in battle adaptation; the authored F2 timeline remains unchanged by default.
+struct AnchorRetargetSettings {
+    bool enabled = false;
+    float maxRadiusShiftPerTurn = 3.0f;
+    float maxHeightShiftPerTurn = 1.5f;
+    float transitionTime = 0.8f;
+};
+
 class AnchorAttack {
 public:
     enum class State { Inactive, Preview, Dropping, Wait, Active, PullingUp };
@@ -54,6 +62,9 @@ public:
     void Reset();
     void Update(float dt);
     void SetCenter(const Vector3& center) { center_ = center; }
+    void ConfigureRetarget(const AnchorRetargetSettings& settings);
+    // Sampled only at completed revolutions, never a continuous pursuit.
+    void SetRetargetTarget(const Vector3& target);
 
     State GetState() const { return state_; }
     bool IsRunning() const { return state_ != State::Inactive; }
@@ -67,6 +78,9 @@ public:
     }
     bool IsDamageActive() const { return state_ == State::Active; }
     const Vector3& GetCenter() const { return center_; }
+    Vector3 GetOrbitCenter() const { return center_ + Vector3{0, orbitHeight_, 0}; }
+    Vector3 GetSpawnPosition() const { return center_ + settings_.spawnLocalPosition; }
+    float GetOrbitRadius() const { return orbitRadius_; }
     const Vector3& GetPosition() const { return position_; }
     const Vector3& GetSelfRotation() const { return selfRotation_; }
     float GetAngle() const { return angle_; }
@@ -81,6 +95,7 @@ public:
 
 private:
     void UpdateOrbitFacingRotation_();
+    void AdvanceRetarget_(float dt, bool completedTurn);
 
     AnchorAttackSettings settings_{};
     State state_ = State::Inactive;
@@ -92,4 +107,11 @@ private:
     float currentAngularSpeed_ = 0.0f;
     Vector3 pullStartPosition_{};
     Vector3 optionalSelfRotation_{};
+    AnchorRetargetSettings retarget_{};
+    Vector3 retargetTarget_{};
+    bool hasRetargetTarget_ = false;
+    float orbitRadius_ = 15.0f, orbitHeight_ = 0.0f;
+    float retargetElapsed_ = 0.0f;
+    float radiusFrom_ = 15.0f, radiusTo_ = 15.0f;
+    float heightFrom_ = 0.0f, heightTo_ = 0.0f;
 };
