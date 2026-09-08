@@ -140,7 +140,7 @@ void TitleScene::Update(GameApp& app, float dt) {
             if (app.Audio() && divingSeHandle_ != 0) {
                 app.Audio()->Play(divingSeHandle_, 1.0f);
             }
-            app.Scenes().Change(app, "Game");
+            app.Scenes().Change(app, "Tutorial");
             return;
         }
     }

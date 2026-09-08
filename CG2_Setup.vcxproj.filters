@@ -196,6 +196,9 @@
     <ClCompile Include="Game\scene\Flow\TitleScene.cpp">
       <Filter>Game\Scene\Flow</Filter>
     </ClCompile>
+    <ClCompile Include="Game\scene\Flow\TutorialScene.cpp">
+      <Filter>Game\Scene\Flow</Filter>
+    </ClCompile>
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp">
       <Filter>Game\Environment</Filter>
     </ClCompile>
@@ -442,6 +445,9 @@
       <Filter>Game\Scene\Main</Filter>
     </ClInclude>
     <ClInclude Include="Game\scene\Flow\TitleScene.h">
+      <Filter>Game\Scene\Flow</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\scene\Flow\TutorialScene.h">
       <Filter>Game\Scene\Flow</Filter>
     </ClInclude>
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h">

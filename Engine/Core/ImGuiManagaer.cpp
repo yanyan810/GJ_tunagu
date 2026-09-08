@@ -53,13 +53,14 @@ void ImGuiManagaer::Initialize([[maybe_unused]]WinApp* winApp, [[maybe_unused]] 
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
     const char* japaneseFontPaths[] = {
+        "resources/Fonts/NikumaruFont.otf",
         "C:/Windows/Fonts/meiryo.ttc",
         "C:/Windows/Fonts/YuGothM.ttc",
         "C:/Windows/Fonts/msgothic.ttc",
     };
     for (const char* fontPath : japaneseFontPaths) {
         if (std::filesystem::exists(fontPath)) {
-            io.Fonts->AddFontFromFileTTF(fontPath, 16.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
+            io.Fonts->AddFontFromFileTTF(fontPath, 22.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
             break;
         }
     }

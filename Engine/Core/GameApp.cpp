@@ -2,6 +2,7 @@
 #include "SceneManager.h"
 #include "AudioSystem.h"
 #include "scene/Flow/TitleScene.h"
+#include "scene/Flow/TutorialScene.h"
 #include "scene/Main/GameScene.h"
 #include "scene/Flow/GameOverScene.h"
 #include "scene/Flow/GameClearScene.h"
@@ -211,6 +212,7 @@ bool GameApp::Initialize_() {
     // SceneManager
     sceneMgr_ = std::make_unique<SceneManager>();
     sceneMgr_->Register("Title", [] { return std::make_unique<TitleScene>(); });
+    sceneMgr_->Register("Tutorial", [] { return std::make_unique<TutorialScene>(); });
     sceneMgr_->Register("Game", [] { return std::make_unique<GameScene>(); });
     sceneMgr_->Register("BossTest", [] { return std::make_unique<BossTestScene>(); });
     sceneMgr_->Register("TestBattle", [] { return std::make_unique<TestBattleScene>(); });

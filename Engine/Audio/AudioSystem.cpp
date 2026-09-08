@@ -249,7 +249,10 @@ AudioSystem::Sound AudioSystem::DecodeToPCMWithMF_(const std::wstring& path, boo
 
     ComPtr<IMFSourceReader> reader;
     hr = MFCreateSourceReaderFromURL(path.c_str(), nullptr, &reader);
-    assert(SUCCEEDED(hr));
+    if (FAILED(hr) || !reader) {
+        OutputDebugStringW((L"[AudioSystem] Failed to load audio file: " + path + L"\n").c_str());
+        return {};
+    }
 
     reader->SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS, FALSE);
     hr = reader->SetStreamSelection(MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE);
