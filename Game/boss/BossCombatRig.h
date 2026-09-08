@@ -34,6 +34,8 @@ public:
 
     void Initialize(Object3dCommon* common, DirectXCommon* dx, Camera* camera, Object3d* ship);
     void Reset();
+    // Presentation-only recovery after PingBeam becomes inactive (0 = immediate).
+    void SetCannonReturnDuration(float seconds);
     // Owns the single PingBeamAttack::Update call, because its tracking needs
     // the authored ship pivots. Anchor and Screw must already be advanced.
     void Update(float dt, PingBeamAttack& ping, const PingBeamAttackSettings& pingSettings,

@@ -11,13 +11,13 @@
                 0.0
             ],
             "angleRandomDeg": 360.0,
-            "angularVelocityMaxDeg": 0.0,
-            "angularVelocityMinDeg": 0.0,
-            "count": 14,
+            "angularVelocityMaxDeg": 24.0,
+            "angularVelocityMinDeg": -24.0,
+            "count": 12,
             "endColor": [
                 0.72,
                 0.86,
-                0.90,
+                0.9,
                 0.0
             ],
             "frequency": 0.25,
@@ -29,12 +29,12 @@
             "rotationRandomDeg": 360.0,
             "rotationStartDeg": 0.0,
             "scaleEnd": [
-                0.025,
-                0.025,
-                0.025
+                0.055,
+                0.042,
+                0.042
             ],
             "scaleStart": [
-                0.075,
+                0.1,
                 0.075,
                 0.075
             ],
@@ -45,13 +45,13 @@
                 56.0
             ],
             "shapeType": 2,
-            "speedMax": 0.004,
-            "speedMin": 0.001,
+            "speedMax": 0.002,
+            "speedMin": 0.0006,
             "startColor": [
-                0.78,
-                0.90,
-                0.92,
-                0.36
+                0.76,
+                0.87,
+                0.9,
+                0.48
             ],
             "timeScale": 1.0,
             "translate": [
@@ -60,9 +60,9 @@
                 0.0
             ],
             "velocityBase": [
-                0.0,
-                0.0015,
-                0.0
+                0.0007,
+                -0.0006,
+                0.0002
             ],
             "velocityVariance": 0.0
         },
@@ -72,6 +72,7 @@
         "name": "MarineSnow",
         "outlineBloomPostEffect": false,
         "postEffectMode": 0,
-        "texturePath": "resources/circle.png"
+        "texturePath": "resources/circle.png",
+        "visualStyle": 1
     }
 ]

@@ -10,6 +10,7 @@
 #include <fstream>
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <nlohmann/json.hpp>
 #include <Windows.h>
 #include <commdlg.h>
@@ -366,6 +367,31 @@ void ParticleManager::Emit(const std::string& groupName,
         group.particles.push_back(p);
     }
     group.activeTimeRemaining = std::max(group.activeTimeRemaining, 3.5f / std::max(0.001f, timeScale));
+}
+
+void ParticleManager::EmitTrail(const std::string& groupName, const Vector3& start,
+    const Vector3& end, uint32_t count, const Vector3& velocityMetersPerSecond)
+{
+    const auto finite = [](const Vector3& v) {
+        return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+    };
+    if (count == 0 || !finite(start) || !finite(end) || !finite(velocityMetersPerSecond)) return;
+    auto it = particleGroups_.find(groupName);
+    if (it == particleGroups_.end() || !it->second.mappedEmitter) return;
+    auto& group = it->second;
+    if (group.visualStyle != ParticleGroup::VisualStyle::WakeFine &&
+        group.visualStyle != ParticleGroup::VisualStyle::WakeBubble) return;
+    Vector3 span = start - end;
+    const float distanceSquared = span.x * span.x + span.y * span.y + span.z * span.z;
+    // Never bridge teleports or an invalid/suspended snapshot with a long trail.
+    if (!std::isfinite(distanceSquared) || distanceSquared > 36.0f) span = {};
+    group.mappedEmitter->shapeType = 3;
+    group.mappedEmitter->shapeSize = span;
+    group.mappedEmitter->velocityBase = {
+        std::clamp(velocityMetersPerSecond.x, -12.0f, 12.0f) / 60.0f,
+        std::clamp(velocityMetersPerSecond.y, -12.0f, 12.0f) / 60.0f,
+        std::clamp(velocityMetersPerSecond.z, -12.0f, 12.0f) / 60.0f };
+    Emit(groupName, end, std::min(count, 12u));
 }
 
 void ParticleManager::EmitConfigured(const std::string& groupName, const Vector3& pos, float timeScale, float initialAge)
@@ -1057,7 +1083,10 @@ void ParticleManager::Draw(ID3D12GraphicsCommandList* cmd, bool drawPostEffectTa
         // PerView(CBV) 繧・RootParameter 4 縺ｫ繧ｻ繝・ヨ (b0)
         cmd->SetGraphicsRootConstantBufferView(4, perViewResource_->GetGPUVirtualAddress());
         // BillboardMode (RootConstants 32bit) 繧・RootParameter 5 縺ｫ繧ｻ繝・ヨ (b1)
-        cmd->SetGraphicsRoot32BitConstants(5, 1, &group.billboardMode, 0);
+        // Root constants are recorded per draw: no shared upload-memory mutation.
+        const uint32_t packedBillboard = (group.billboardMode & 0xffu) |
+            (group.model ? 0u : (static_cast<uint32_t>(group.visualStyle) << 8));
+        cmd->SetGraphicsRoot32BitConstants(5, 1, &packedBillboard, 0);
 
         srvManager_->SetGraphicsDescriptorTable(2, group.textureSrvIndex);
         srvManager_->SetGraphicsDescriptorTable(1, group.instancingSrvIndex);
@@ -1367,7 +1396,7 @@ void ParticleManager::DrawImGuiContents() {
 
                 ImGui::Separator();
                 ImGui::Text("Shape Settings");
-                const char* shapeTypes[] = { "Sphere", "Cone", "Box" };
+                const char* shapeTypes[] = { "Sphere", "Cone", "Box", "Trail Segment" };
                 int currentShape = static_cast<int>(group.mappedEmitter->shapeType);
                 if (ImGui::Combo("Shape Type", &currentShape, shapeTypes, IM_ARRAYSIZE(shapeTypes))) {
                     group.mappedEmitter->shapeType = static_cast<uint32_t>(currentShape);
@@ -1375,7 +1404,7 @@ void ParticleManager::DrawImGuiContents() {
 
                 ImGui::DragFloat3("Translate", &group.mappedEmitter->translate.x, 0.1f);
                 
-                if (currentShape == 0 || currentShape == 1) { // Sphere or Cone
+                if (currentShape == 0 || currentShape == 1 || currentShape == 3) { // Sphere, cone or trail radius
                     ImGui::DragFloat("Radius", &group.mappedEmitter->radius, 0.1f);
                 }
                 if (currentShape == 1) { // Cone
@@ -1435,6 +1464,8 @@ void ParticleManager::Save(const std::string& filename) {
         g["postEffectMode"] = static_cast<int>(group.postEffectMode);
         g["depthTestEnabled"] = group.depthTestEnabled;
         g["billboardMode"] = group.billboardMode;
+        if (group.visualStyle != ParticleGroup::VisualStyle::Texture)
+            g["visualStyle"] = static_cast<uint32_t>(group.visualStyle);
         g["isAutoEmit"] = group.isAutoEmit;
         g["bloomPostEffect"] = group.bloomPostEffect;
         g["outlineBloomPostEffect"] = group.outlineBloomPostEffect;
@@ -1549,6 +1580,9 @@ void ParticleManager::LoadInternal_(const std::string& filename, bool clearExist
         group.postEffectMode = static_cast<PostEffectMode>(g.value("postEffectMode", static_cast<int>(PostEffectMode::FullScreen)));
         group.depthTestEnabled = g.value("depthTestEnabled", true);
         group.billboardMode = g["billboardMode"];
+        const int visualStyle = g.value("visualStyle", 0);
+        group.visualStyle = visualStyle >= 1 && visualStyle <= 3 && modelType == 0
+            ? static_cast<ParticleGroup::VisualStyle>(visualStyle) : ParticleGroup::VisualStyle::Texture;
         group.isAutoEmit = forceAutoEmitOff ? false : g["isAutoEmit"].get<bool>();
         group.bloomPostEffect = g.value("bloomPostEffect", false);
         group.outlineBloomPostEffect = g.value("outlineBloomPostEffect", false);

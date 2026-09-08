@@ -17,6 +17,7 @@ class ReefCollisionWorld;
 class SeabedDetailRenderer;
 class UnderwaterBackgroundRenderer;
 class WaterSurfaceRenderer;
+class SwimFeedback;
 
 class UnderwaterEnvironment final {
 public:
@@ -88,6 +89,7 @@ private:
     std::unique_ptr<Object3d> floor_;
     std::unique_ptr<UnderwaterBackgroundRenderer> background_;
     std::unique_ptr<WaterSurfaceRenderer> waterSurface_;
+    std::unique_ptr<SwimFeedback> swimFeedback_;
     std::unique_ptr<SeabedDetailRenderer> seabedDetails_;
     std::unique_ptr<ReefSceneRenderer> reefScene_;
     bool reefSceneEnabled_ = true;
@@ -185,8 +187,8 @@ private:
     bool marineSnowInitialEmitted_ = false;
     float marineSnowEmitTimer_ = 0.0f;
     float marineSnowEmitInterval_ = 0.25f;
-    int marineSnowEmitCount_ = 14;
-    uint32_t marineSnowInitialCount_ = 160;
+    int marineSnowEmitCount_ = 12;
+    uint32_t marineSnowInitialCount_ = 140;
     float marineSnowSpawnAhead_ = 18.0f;
     float marineSnowSpawnYOffset_ = 2.0f;
 
@@ -199,6 +201,9 @@ private:
     bool playerWakeEmitRightSide_ = false;
     Vector3 playerSnapshotPosition_{};
     Vector3 previousPlayerPosition_{};
+    Vector3 previousWakeFineEmitPosition_{};
+    Vector3 previousWakeBubbleEmitPosition_{};
+    bool hasPreviousWakeEmitPosition_ = false;
     float playerSnapshotYaw_ = 0.0f;
     float playerSnapshotPitch_ = 0.0f;
     float playerWakeFineTimer_ = 0.0f;

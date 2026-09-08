@@ -96,7 +96,10 @@ struct BossCombatRig::Impl {
     std::array<Vector3,2> sourceCenters{{{-3.5465f,-0.4199f,0.5730f},{-3.5465f,-0.4199f,-0.7098f}}};
     std::array<Vector3,2> sourceTips{{{-3.9219f,-0.4199f,0.5730f},{-3.9219f,-0.4199f,-0.7098f}}};
     std::array<Vector3,2> translations{},rotations{},muzzles{};
+    std::array<Vector3,2> returnTranslations{},returnRotations{};
     std::array<float,2> initialAngles{};
+    float cannonReturnDuration=0.55f,cannonReturnTime=0;
+    bool pingWasRunning=false,cannonsReturning=false;
     Vector3 previousShipPosition{};
     void DiscoverCannons();
     void UpdatePing(float dt,PingBeamAttack& attack,const PingBeamAttackSettings& settings,const Vector3& target);
@@ -177,6 +180,8 @@ void BossCombatRig::Reset() {
     auto& e=*impl_;
     e.boxCount=e.chainCount=0;e.anchorVisible=false;e.pendingInitialAngles=true;
     e.translations.fill({});e.rotations.fill({});
+    e.pingWasRunning=e.cannonsReturning=false;e.cannonReturnTime=0;
+    e.returnTranslations.fill({});e.returnRotations.fill({});
     if(!e.ship) {e.muzzles.fill({});return;}
     for(size_t index:e.cannonIndices) if(index!=kNoMesh)
         e.ship->SetMeshInstanceExplosionOffset(index,{},{});
@@ -189,6 +194,10 @@ void BossCombatRig::Reset() {
     e.ship->Update(0);
 }
 
+void BossCombatRig::SetCannonReturnDuration(float seconds) {
+    impl_->cannonReturnDuration=Safe(seconds,0.55f,0.0f,5.0f);
+}
+
 void BossCombatRig::Impl::UpdatePing(float dt,PingBeamAttack& attack,
     const PingBeamAttackSettings& settings,const Vector3& requestedTarget) {
     const Matrix4x4 world=ship->CalculateWorldMatrix();
@@ -196,6 +205,15 @@ void BossCombatRig::Impl::UpdatePing(float dt,PingBeamAttack& attack,
     const Vector3 target=Finite(requestedTarget)?requestedTarget:ship->GetTranslate();
     Vector3 localTarget=TransformPoint(target,inverse);
     if(!Finite(localTarget)) localTarget={};
+    const bool runningBeforeUpdate=attack.IsRunning();
+    if(runningBeforeUpdate&&!pingWasRunning) {
+        // A new attack during recovery starts from one consistent authored
+        // pose, rather than combining a stale rail angle with a half-returned
+        // translation. Ordinary cooldown leaves time to finish the recovery.
+        translations.fill({});rotations.fill({});
+        cannonsReturning=false;cannonReturnTime=0;
+        pendingInitialAngles=true;
+    }
     if(pendingInitialAngles) {attack.SetOrbitAngles(initialAngles);pendingInitialAngles=false;}
     auto rail=settings.rail;
     rail.orbitRadius=Safe(rail.orbitRadius,0.4878f,0,100);
@@ -204,6 +222,28 @@ void BossCombatRig::Impl::UpdatePing(float dt,PingBeamAttack& attack,
     if(!Finite(rail.modelRotationOffset)) rail.modelRotationOffset={};
     attack.SetRailSettings(rail);
     attack.Update(dt,target,localTarget,pivots);
+    if(!attack.IsRunning()) {
+        if(pingWasRunning||runningBeforeUpdate) {
+            returnTranslations=translations;
+            for(size_t group=0;group<2;++group) {
+                // Equivalent shortest Euler offsets avoid extra full spins
+                // if tracking accumulated an angle outside [-pi, pi].
+                returnRotations[group]={std::remainder(rotations[group].x,kTau),
+                    std::remainder(rotations[group].y,kTau),std::remainder(rotations[group].z,kTau)};
+            }
+            cannonReturnTime=0;cannonsReturning=true;
+        }
+        if(cannonsReturning) {
+            cannonReturnTime=std::min(cannonReturnTime+dt,cannonReturnDuration);
+            const float t=cannonReturnDuration>0?cannonReturnTime/cannonReturnDuration:1.0f;
+            const float remaining=1.0f-t*t*(3.0f-2.0f*t);
+            for(size_t group=0;group<2;++group) {
+                translations[group]=returnTranslations[group]*remaining;
+                rotations[group]=returnRotations[group]*remaining;
+            }
+            if(t>=1.0f) {cannonsReturning=false;attack.SetOrbitAngles(initialAngles);}
+        }
+    }
     for(size_t group=0;group<2;++group) {
         if(attack.IsRunning()) {
             const float angle=Safe(attack.GetCurrentRailAngle(static_cast<int>(group)),initialAngles[group],-1.0e6f,1.0e6f);
@@ -224,6 +264,15 @@ void BossCombatRig::Impl::UpdatePing(float dt,PingBeamAttack& attack,
                     translations[group],rotations[group]);
             }
         }
+        else {
+            for(size_t part=0;part<2;++part) {
+                const size_t index=cannonIndices[group*2+part];
+                if(index==kNoMesh) continue;
+                if(cannonsReturning) ship->SetMeshInstanceTransformAroundPivot(index,sourceCenters[group],
+                    translations[group],rotations[group]);
+                else ship->SetMeshInstanceExplosionOffset(index,{},{});
+            }
+        }
         // Use the pose actually written above, also after an attack finishes.
         // Idle/reset muzzles therefore stay on the visible authored triangles.
         const auto aim=Matrix4x4::MakeAffineMatrix({1,1,1},rotations[group],{});
@@ -232,6 +281,7 @@ void BossCombatRig::Impl::UpdatePing(float dt,PingBeamAttack& attack,
         const Vector3 muzzle=TransformPoint(localTip,world);
         if(Finite(muzzle)) muzzles[group]=muzzle;
     }
+    pingWasRunning=attack.IsRunning();
 }
 
 void BossCombatRig::Impl::UpdateAnchor(float dt,const AnchorAttack& attack,

@@ -13,6 +13,7 @@
 #include "OceanShadowParameters.h"
 #include "SceneColorFormat.h"
 #include "WorldEffectsFog.h"
+#include "SwimMotionParameters.h"
 
 class DirectXCommon;
 class SrvManager;
@@ -141,6 +142,7 @@ public:
         D3D12_GPU_DESCRIPTOR_HANDLE shadowTexture = {});
     void SetExposureEV(float exposureEV);
     float GetExposureEV() const { return exposureEV_; }
+    void SetSwimMotionParameters(const SwimMotionParameters& parameters);
     void SetUnderwaterFogParameters(float startDistance,
         const Vector3& extinctionDistanceRGB, float maxOpacity);
     void SetLightShaftParameters(
@@ -157,7 +159,7 @@ private:
         const wchar_t* psPath,
         Microsoft::WRL::ComPtr<ID3D12PipelineState>& outPSO,
         DXGI_FORMAT targetFormat = kSceneColorFormat);
-    void DrawToneMapPass_(uint32_t srcSrvIndex);
+    void DrawToneMapPass_(uint32_t srcSrvIndex, bool swimming=true);
     void DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* bloomCBOverride = nullptr);
     void DrawFullscreenPassToBuffer(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* srcResource, OffscreenPass& dst, ID3D12Resource* bloomCBOverride = nullptr);
     void DrawAdditiveCompositePass(uint32_t baseSrvIndex, uint32_t addSrvIndex);
@@ -202,6 +204,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> toneMapPSO_;
     float exposureEV_ = 0.0f;
     float toneMapShoulderStart_ = 0.8f;
+    SwimMotionParameters swimMotion_{};
 
     static constexpr int kEffectCount = static_cast<int>(PostEffectMode::Count);
     std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kEffectCount> pipelineStates_;

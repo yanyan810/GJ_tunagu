@@ -137,6 +137,9 @@ struct ParticleGroup {
     // 1: Velocity Aligned (進行方向を向く)
     // 2: None (回転なし/固定)
     uint32_t billboardMode = 0;
+    // Opt-in analytic sprites. Zero preserves every existing texture/model effect.
+    enum class VisualStyle : uint32_t { Texture = 0, MarineSnow = 1, WakeFine = 2, WakeBubble = 3 };
+    VisualStyle visualStyle = VisualStyle::Texture;
 
     // JSON保存復元用
     std::string texturePath = "";
@@ -203,6 +206,10 @@ public:
         uint32_t count,
         float timeScale = 1.0f,
         float initialAge = 0.0f);
+    // One GPU emission spread along a short world-space tail segment.
+    // Velocity is authored in metres/second here; conversion stays internal.
+    void EmitTrail(const std::string& groupName, const Vector3& start,
+        const Vector3& end, uint32_t count, const Vector3& velocityMetersPerSecond);
     void EmitConfigured(const std::string& groupName, const Vector3& pos, float timeScale = 1.0f, float initialAge = 0.0f);
 
 private:

@@ -14,6 +14,7 @@
 #include "TextureManager.h"
 #include "UnderwaterBackgroundRenderer.h"
 #include "WaterSurfaceRenderer.h"
+#include "environment/SwimFeedback.h"
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
@@ -53,6 +54,7 @@ bool EndsWith(const std::string& value, const char* suffix) {
 
 UnderwaterEnvironment::UnderwaterEnvironment() = default;
 UnderwaterEnvironment::~UnderwaterEnvironment() {
+    if (swimFeedback_) swimFeedback_->Shutdown();
     RemovePlayerWakeGroups_();
     RemoveMarineSnowGroups_();
 }
@@ -63,6 +65,8 @@ void UnderwaterEnvironment::Initialize(
     camera_ = camera;
     dx_ = dx;
     renderManager_ = renderManager;
+    swimFeedback_ = std::make_unique<SwimFeedback>();
+    swimFeedback_->Initialize(renderManager_);
     if (camera_) {
         previousCameraFovY_ = camera_->GetFovY();
         camera_->SetFovY(wideReefView_ ? kReefFovY : previousCameraFovY_);
@@ -115,6 +119,7 @@ void UnderwaterEnvironment::Initialize(
 }
 
 void UnderwaterEnvironment::Shutdown() {
+    if (swimFeedback_) swimFeedback_->Shutdown();
     if (camera_) {
         camera_->SetFovY(previousCameraFovY_);
     }
@@ -224,8 +229,10 @@ void UnderwaterEnvironment::Update(float dt) {
     }
 
     UpdatePlayerWake_(dt);
+    if (swimFeedback_) swimFeedback_->Update(dt, playerSnapshotPosition_, camera_, waterLevelY_, hasPlayerSnapshot_);
 
-    if (!marineSnowEnabled_ || marineSnowGroupNames_.empty() || !camera_) {
+    if (!marineSnowEnabled_ || marineSnowGroupNames_.empty() || !camera_ ||
+        camera_->GetTranslate().y >= waterLevelY_ - 0.2f) {
         return;
     }
 
@@ -847,7 +854,11 @@ void UnderwaterEnvironment::RemoveMarineSnowGroups_() {
 
 void UnderwaterEnvironment::EmitMarineSnow_(uint32_t count) {
     ParticleManager* particleManager = ParticleManager::GetInstance();
-    const Vector3 emitCenter = CalculateMarineSnowEmitCenter_();
+    Vector3 emitCenter = CalculateMarineSnowEmitCenter_();
+    // A bounded drift varies the spawn seed even while the camera rests, avoiding
+    // repeated copies of the same 12 points in a stationary volume.
+    emitCenter.x += std::sin(environmentTime_ * 0.73f) * 0.45f;
+    emitCenter.z += std::cos(environmentTime_ * 0.61f) * 0.45f;
     for (const std::string& groupName : marineSnowGroupNames_) {
         particleManager->Emit(groupName, emitCenter, count);
     }
@@ -896,6 +907,7 @@ void UnderwaterEnvironment::LoadPlayerWake_() {
     }
 
     hasPreviousPlayerPosition_ = false;
+    hasPreviousWakeEmitPosition_ = false;
     playerWakeFineTimer_ = 0.0f;
     playerWakeBubbleTimer_ = 0.0f;
 }
@@ -909,77 +921,70 @@ void UnderwaterEnvironment::RemovePlayerWakeGroups_() {
     playerWakeFineGroupName_.clear();
     playerWakeBubbleGroupName_.clear();
     hasPreviousPlayerPosition_ = false;
+    hasPreviousWakeEmitPosition_ = false;
     playerWakeFineTimer_ = 0.0f;
     playerWakeBubbleTimer_ = 0.0f;
 }
 
 void UnderwaterEnvironment::UpdatePlayerWake_(float dt) {
-    if (!hasPlayerSnapshot_) {
-        return;
+    const auto resetEmission = [this]() {
+        playerWakeFineTimer_ = playerWakeBubbleTimer_ = 0.0f;
+        hasPreviousWakeEmitPosition_ = false;
+    };
+    const auto finite = [](const Vector3& p) {
+        return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
+    };
+    if (!hasPlayerSnapshot_ || !finite(playerSnapshotPosition_) ||
+        !std::isfinite(playerSnapshotYaw_) || !std::isfinite(playerSnapshotPitch_)) {
+        hasPreviousPlayerPosition_ = false;
+        resetEmission(); return;
     }
-
     if (!hasPreviousPlayerPosition_) {
         previousPlayerPosition_ = playerSnapshotPosition_;
         hasPreviousPlayerPosition_ = true;
-        return;
+        resetEmission(); return;
     }
-
-    const float dx = playerSnapshotPosition_.x - previousPlayerPosition_.x;
-    const float dy = playerSnapshotPosition_.y - previousPlayerPosition_.y;
-    const float dz = playerSnapshotPosition_.z - previousPlayerPosition_.z;
-    const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+    const Vector3 movement = playerSnapshotPosition_ - previousPlayerPosition_;
+    const float distance = std::sqrt(movement.x * movement.x + movement.y * movement.y + movement.z * movement.z);
     previousPlayerPosition_ = playerSnapshotPosition_;
-
-    if (!playerWakeEnabled_ || playerWakeFineGroupName_.empty() || dt <= 0.0f ||
-        distance > kPlayerWakeTeleportDistance) {
-        playerWakeFineTimer_ = 0.0f;
-        playerWakeBubbleTimer_ = 0.0f;
-        return;
+    if (!playerWakeEnabled_ || playerWakeFineGroupName_.empty() || !std::isfinite(dt) ||
+        dt <= 0.0f || dt > 0.25f || !std::isfinite(distance) ||
+        distance > kPlayerWakeTeleportDistance || playerSnapshotPosition_.y >= waterLevelY_ - 0.2f) {
+        resetEmission(); return;
     }
-
     const float speed = distance / dt;
-    const float safeReferenceSpeed =
-        std::max(playerWakeReferenceSpeed_, playerWakeMinSpeed_ + 0.001f);
-    const float speed01 = std::clamp(
-        (speed - playerWakeMinSpeed_) /
-            (safeReferenceSpeed - playerWakeMinSpeed_),
-        0.0f,
-        1.0f);
-    if (speed < playerWakeMinSpeed_) {
-        playerWakeFineTimer_ = 0.0f;
-        playerWakeBubbleTimer_ = 0.0f;
-        return;
+    if (!std::isfinite(speed) || speed < playerWakeMinSpeed_) { resetEmission(); return; }
+    const float safeReferenceSpeed = std::max(playerWakeReferenceSpeed_, playerWakeMinSpeed_ + 0.001f);
+    const float speed01 = std::clamp((speed - playerWakeMinSpeed_) /
+        (safeReferenceSpeed - playerWakeMinSpeed_), 0.0f, 1.0f);
+    const Vector3 direction = distance > 0.0001f ? movement * (1.0f / distance) : Vector3{};
+    const Vector3 fineVelocity = direction * (std::min(speed, 30.0f) * 0.04f) + Vector3{0, 0.20f, 0};
+    const Vector3 bubbleVelocity = direction * (std::min(speed, 30.0f) * 0.015f) + Vector3{0, 0.46f, 0};
+    if (!hasPreviousWakeEmitPosition_) {
+        previousWakeFineEmitPosition_ = CalculatePlayerWakeEmitPosition_(playerWakeEmitRightSide_);
+        previousWakeBubbleEmitPosition_ = previousWakeFineEmitPosition_;
+        hasPreviousWakeEmitPosition_ = true;
     }
-
-    const float safeDt = std::max(dt, 0.0f);
-    playerWakeFineTimer_ += safeDt;
-    playerWakeBubbleTimer_ += safeDt;
-
+    playerWakeFineTimer_ += dt;
+    playerWakeBubbleTimer_ += dt;
     const float fineInterval = 0.12f - 0.065f * speed01;
     if (playerWakeFineTimer_ >= fineInterval) {
         playerWakeFineTimer_ = std::fmod(playerWakeFineTimer_, fineInterval);
-        const float scaledAmount =
-            (1.0f + 5.0f * speed01) * std::max(playerWakeFineAmountMultiplier_, 0.0f);
-        const uint32_t fineCount = static_cast<uint32_t>(
-            std::clamp(static_cast<int>(std::round(scaledAmount)), 0, 12));
-        if (fineCount > 0) {
-            const Vector3 emitPosition =
-                CalculatePlayerWakeEmitPosition_(playerWakeEmitRightSide_);
-            ParticleManager::GetInstance()->Emit(
-                playerWakeFineGroupName_, emitPosition, fineCount);
-            playerWakeEmitRightSide_ = !playerWakeEmitRightSide_;
-        }
+        const float amount = (1.0f + 4.0f * speed01) * std::max(playerWakeFineAmountMultiplier_, 0.0f);
+        const uint32_t fineCount = static_cast<uint32_t>(std::clamp(static_cast<int>(std::round(amount)), 0, 12));
+        const Vector3 end = CalculatePlayerWakeEmitPosition_(playerWakeEmitRightSide_);
+        if (fineCount > 0) ParticleManager::GetInstance()->EmitTrail(
+            playerWakeFineGroupName_, previousWakeFineEmitPosition_, end, fineCount, fineVelocity);
+        previousWakeFineEmitPosition_ = end;
+        playerWakeEmitRightSide_ = !playerWakeEmitRightSide_;
     }
-
-    const float safeBubbleInterval = std::max(playerWakeBubbleInterval_, 0.05f);
-    if (!playerWakeBubbleGroupName_.empty() && speed01 >= 0.25f &&
-        playerWakeBubbleTimer_ >= safeBubbleInterval) {
-        playerWakeBubbleTimer_ = std::fmod(
-            playerWakeBubbleTimer_, safeBubbleInterval);
-        const Vector3 emitPosition =
-            CalculatePlayerWakeEmitPosition_(playerWakeEmitRightSide_);
-        ParticleManager::GetInstance()->Emit(
-            playerWakeBubbleGroupName_, emitPosition, 1);
+    const float bubbleInterval = std::max(playerWakeBubbleInterval_, 0.05f);
+    if (!playerWakeBubbleGroupName_.empty() && speed01 >= 0.25f && playerWakeBubbleTimer_ >= bubbleInterval) {
+        playerWakeBubbleTimer_ = std::fmod(playerWakeBubbleTimer_, bubbleInterval);
+        const Vector3 end = CalculatePlayerWakeEmitPosition_(playerWakeEmitRightSide_);
+        ParticleManager::GetInstance()->EmitTrail(
+            playerWakeBubbleGroupName_, previousWakeBubbleEmitPosition_, end, 1, bubbleVelocity);
+        previousWakeBubbleEmitPosition_ = end;
         playerWakeEmitRightSide_ = !playerWakeEmitRightSide_;
     }
 }
