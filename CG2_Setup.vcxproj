@@ -610,6 +610,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Camera\DebugCamera.h" />
     <ClInclude Include="Engine\Core\DirectXCommon.h" />
     <ClInclude Include="Engine\Core\IScene.h" />
+    <ClInclude Include="Engine\Core\SceneLoadTask.h" />
+    <ClInclude Include="Engine\Core\LoadingScreen.h" />
     <ClInclude Include="Engine\math\AABB.h" />
     <ClInclude Include="Engine\math\Mesh.h" />
     <ClInclude Include="Engine\Particle\Particle.h" />

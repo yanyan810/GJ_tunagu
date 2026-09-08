@@ -1,4 +1,5 @@
 #include "TitleScene.h"
+#include "Sprite.h"
 #include "GameApp.h"
 #include "Input.h"
 #include "AudioSystem.h"
@@ -34,6 +35,12 @@ TitleScene::TitleScene() = default;
 TitleScene::~TitleScene() = default;
 
 void TitleScene::OnEnter(GameApp& app) {
+    auto task = Load(app);
+    while (!task.Done()) task.Step();
+}
+
+SceneLoadTask TitleScene::Load(GameApp& app) {
+    co_yield 0.0f;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     // タイトルカメラの初期化（ゆっくり回転するシネマティックカメラ）
@@ -47,11 +54,13 @@ void TitleScene::OnEnter(GameApp& app) {
     app.ObjCom()->SetDefaultCamera(camera_.get());
 
     // 水中環境の初期化
+    co_yield 0.05f;
     underwaterEnvironment_ = std::make_unique<UnderwaterEnvironment>();
     underwaterEnvironment_->Initialize(
         app.ObjCom(), app.Dx(), camera_.get(), app.Render());
 
     // プレイヤーの初期化（背景で泳ぐ姿を見せる）
+    co_yield 0.25f;
     player_ = std::make_unique<Player>();
     player_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
     underwaterEnvironment_->BindPlayer(*player_);
@@ -71,8 +80,20 @@ void TitleScene::OnEnter(GameApp& app) {
         auto debris = std::make_unique<Debris>();
         debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), type, { x, y, z });
         debrisList_.push_back(std::move(debris));
+        co_yield 0.35f + 0.55f * (i + 1) / numDebris;
     }
 
+    titleSprite_ = std::make_unique<Sprite>();
+    titleSprite_->Initialize(app.SpriteCom(), app.Dx(), "tex/title/title.png");
+    pressSpaceSprite_ = std::make_unique<Sprite>();
+    pressSpaceSprite_->Initialize(app.SpriteCom(), app.Dx(), "tex/title/pressSpace.png");
+    const auto view = Matrix4x4::MakeIdentity4x4();
+    const auto projection = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
+    for (Sprite* sprite : { titleSprite_.get(), pressSpaceSprite_.get() }) {
+        sprite->SetPosition({ 0.0f, 0.0f });
+        sprite->SetScale({ 1.0f, 1.0f, 1.0f });
+        sprite->Update(view, projection);
+    }
     timer_ = 0.0f;
 
     // Title.mp3 の BGM 再生開始
@@ -82,6 +103,7 @@ void TitleScene::OnEnter(GameApp& app) {
         app.Audio()->Play(bgmHandle_, 0.6f);
         divingSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/ダイビング（水中）.mp3", false);
     }
+    co_return;
 }
 
 void TitleScene::OnExit(GameApp& app) {
@@ -90,6 +112,8 @@ void TitleScene::OnExit(GameApp& app) {
         app.Audio()->Unload(bgmHandle_);
         bgmHandle_ = 0;
     }
+    titleSprite_.reset();
+    pressSpaceSprite_.reset();
     debrisList_.clear();
     player_.reset();
     underwaterEnvironment_.reset();
@@ -166,27 +190,13 @@ void TitleScene::Draw(GameApp& /*app*/) {
 }
 
 void TitleScene::DrawOverlay2D(GameApp& /*app*/) {
+    if (titleSprite_) titleSprite_->Draw();
+    if (pressSpaceSprite_) {
+        const float alpha = 0.35f + 0.65f * (std::sin(timer_ * 4.0f) + 1.0f) * 0.5f;
+        pressSpaceSprite_->SetColor({ 1.0f, 1.0f, 1.0f, alpha });
+        pressSpaceSprite_->Draw();
+    }
 }
 
 void TitleScene::DrawImGui(GameApp& /*app*/) {
-#ifdef USE_IMGUI
-    // 画面下に「Press space to start」を配置 (点滅表示)
-    float blink = (std::sin(timer_ * 4.0f) + 1.0f) * 0.5f;
-    if (blink > 0.15f) {
-        ImGui::SetNextWindowPos(ImVec2(410.0f, 620.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(460.0f, 60.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.0f);
-
-        ImGuiWindowFlags flags =
-            ImGuiWindowFlags_NoDecoration |
-            ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoInputs;
-
-        ImGui::Begin("PressSpaceToStartWindow", nullptr, flags);
-        ImGui::SetWindowFontScale(1.5f);
-        ImGui::TextColored(ImVec4(1.0f, 0.95f, 0.4f, blink), "  Press space to start  ");
-        ImGui::End();
-    }
-#endif
 }

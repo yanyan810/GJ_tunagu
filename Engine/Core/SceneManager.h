@@ -4,12 +4,16 @@
 #include <unordered_map>
 #include <functional>
 #include <vector>
+#include "SceneLoadTask.h"
 
 class GameApp;
 class IScene;
+class LoadingScreen;
 
 class SceneManager {
 public:
+    SceneManager();
+    ~SceneManager();
     using Factory = std::function<std::unique_ptr<IScene>()>;
 
     void Register(const std::string& name, Factory factory);
@@ -37,6 +41,11 @@ public:
     }
 
 private:
+    std::unique_ptr<LoadingScreen> loadingScreen_;
+    SceneLoadTask loadingTask_;
+    bool loading_ = false;
+    bool loadingDrawn_ = false;
+    bool completionDrawn_ = false;
     std::unordered_map<std::string, Factory> factories_;
     std::unique_ptr<IScene> current_;
     std::vector<std::unique_ptr<IScene>> retiredScenes_;

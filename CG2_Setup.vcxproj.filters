@@ -492,6 +492,8 @@
     <ClInclude Include="Engine\Core\CrashHandler.h" />
     <ClInclude Include="Engine\Core\DirectXCommon.h" />
     <ClInclude Include="Engine\Core\IScene.h" />
+    <ClInclude Include="Engine\Core\SceneLoadTask.h" />
+    <ClInclude Include="Engine\Core\LoadingScreen.h" />
     <ClInclude Include="Engine\Particle\Particle.h" />
     <ClInclude Include="Engine\Particle\ParticleCommon.h" />
     <ClInclude Include="Engine\3D\SkinnedModel.h" />
