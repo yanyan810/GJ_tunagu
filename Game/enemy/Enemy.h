@@ -84,8 +84,8 @@ private:
     float radius_ = 12.0f;
 
     // ステータス
-    float maxHp_ = 1000.0f;
-    float hp_ = 1000.0f;
+    float maxHp_ = 4000.0f;
+    float hp_ = 4000.0f;
     bool isDead_ = false;
     float damageFlashTimer_ = 0.0f; // 被弾フラッシュタイマー
 
