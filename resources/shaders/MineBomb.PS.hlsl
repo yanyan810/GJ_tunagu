@@ -21,5 +21,8 @@ MinePixelOutput main(MineVertexOutput input)
     float3 emitted = float3(1.0f, 0.095f, 0.012f) * enamel * power *
         (0.08f + rim * 0.28f + fuse * (0.28f + pulse * 0.32f));
     float3 color = base * diffuse * 1.25f + specular * float3(1.0f, 0.90f, 0.75f) + emitted;
-    return MineOutput(float4(color, 1.0f), emitted);
+    WorldEffectsFogTerms fog = EvaluateWorldEffectsFog(gWorldEffectsFog,
+        input.worldPosition, gCameraPositionTime.xyz);
+    return MineOutput(FogWorldEffectSurface(float4(color, 1.0f), fog),
+        FogWorldEffectEmission(emitted, fog));
 }

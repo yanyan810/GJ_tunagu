@@ -1,6 +1,8 @@
 #ifndef BOSS_WATER_EFFECTS_HLSLI
 #define BOSS_WATER_EFFECTS_HLSLI
 
+#include "WorldEffectsFog.hlsli"
+
 cbuffer BossWaterFrame : register(b0)
 {
     float4x4 gViewProjection;
@@ -8,6 +10,7 @@ cbuffer BossWaterFrame : register(b0)
     float4 gCameraRightRefraction;
     float4 gCameraUpEmission;
     float4 gViewportStyle; // width, height, water opacity, reserved
+    WorldEffectsFogParameters gWorldEffectsFog;
 };
 cbuffer BossWaterPrimitive : register(b1)
 {

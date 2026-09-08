@@ -1,4 +1,5 @@
 #include "BossWaterEffectRenderer.h"
+#include "WorldEffectsFog.h"
 #include "MineBloom.h"
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -33,9 +34,10 @@ struct WaterVertex { Vector3 position,normal; Vector2 uv; };
 struct FrameConstants {
     Matrix4x4 viewProjection;
     Vector4 cameraPositionTime,cameraRightRefraction,cameraUpEmission,viewportStyle;
+    WorldEffectsFog::Parameters worldEffectsFog;
 };
 struct PrimitiveConstants { Vector4 colorOpacity,style; };
-static_assert(sizeof(WaterVertex)==32 && sizeof(FrameConstants)==128 && sizeof(PrimitiveConstants)==32);
+static_assert(sizeof(WaterVertex)==32 && sizeof(FrameConstants)==240 && sizeof(PrimitiveConstants)==32);
 struct DrawItem { PrimitiveConstants constants; UINT first=0,count=0; float distance=0; };
 }
 
@@ -180,7 +182,7 @@ void BossWaterEffectRenderer::Draw(ID3D12Resource* sceneColor, ID3D12Resource* s
     *e.frame={e.camera->GetViewProjectionMatrix(),Pack(e.camera->GetTranslate(),e.time),
         {world.m[0][0],world.m[0][1],world.m[0][2],Safe(style.refraction,4,0,10)},
         {world.m[1][0],world.m[1][1],world.m[1][2],Safe(style.glow,1,0,2.5f)},
-        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),Safe(style.opacity,1,0,1.5f),0}};
+        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),Safe(style.opacity,1,0,1.5f),0},WorldEffectsFog::GetParameters()};
     std::memcpy(e.vertexData,e.geometry.data(),e.geometry.size()*sizeof(WaterVertex));
     auto* command=e.dx->GetCommandList();
     command->SetGraphicsRootSignature(e.root.Get());

@@ -904,6 +904,7 @@ void GameScene::Draw(GameApp& app) {
         underwaterEnvironment_->DrawWaterDepth();
         underwaterEnvironment_->DrawWaterSurface();
     }
+    const auto effectsFog = app.Render()->BeginWorldEffects();
     if (bossCombat_) bossCombat_->DrawEffects(
         app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 

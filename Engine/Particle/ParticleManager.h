@@ -13,6 +13,7 @@
 
 #include "ParticleCommon.h"
 #include "RenderManager.h"
+#include "WorldEffectsFog.h"
 
 class Model;
 
@@ -263,10 +264,22 @@ private:
     struct MaterialForGPU {
         Vector4 color;
         int enableLighting;
-        float padding[3];
+        uint32_t blendMode;
+        float padding[2];
         Matrix4x4 uvTransform;
+        WorldEffectsFog::Parameters worldEffectsFog;
+        Vector4 cameraPosition;
     };
-    MaterialForGPU* mappedMaterial_ = nullptr;
+    static_assert(sizeof(MaterialForGPU) == 224);
+    static_assert(offsetof(MaterialForGPU, worldEffectsFog) == 96);
+    static_assert(offsetof(MaterialForGPU, cameraPosition) == 208);
+    static constexpr size_t kMaterialStride = 256;
+    static constexpr size_t kMaterialBlendCount = static_cast<size_t>(ParticleCommon::BlendMode::kCountOfBlendMode);
+    static_assert(kMaterialBlendCount == 6); // Matches Particle.PS.hlsl's blend branches.
+    static_assert(sizeof(MaterialForGPU) <= kMaterialStride);
+    unsigned char* mappedMaterialData_ = nullptr;
+    MaterialForGPU materialTemplate_{};
+    Vector4 materialCameraPosition_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> dirLightResource_;
 
     // === ImGui・ファイル検索用 ===

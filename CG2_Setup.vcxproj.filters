@@ -388,6 +388,9 @@
     <ClInclude Include="Engine\Render\RenderManager.h">
       <Filter>Engine\Render</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Render\WorldEffectsFog.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Render\LightShaftParameters.h">
       <Filter>Engine\Render</Filter>
     </ClInclude>
@@ -835,6 +838,9 @@
       <Filter>shaders</Filter>
     </FxCompile>
     <None Include="resources\shaders\BossWaterEffects.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="resources\shaders\WorldEffectsFog.hlsli">
       <Filter>shaders</Filter>
     </None>
     <ClInclude Include="Game\boss\ScrewEffects.h">

@@ -97,13 +97,15 @@ float SoftboxHighlight(float3 reflected)
     return box * split * 0.72f + accent * 0.48f;
 }
 
-MinePixelOutput EmittedLight(float4 color)
+MinePixelOutput EmittedLight(float4 color, WorldEffectsFogTerms fog)
 {
-    return MineOutput(color, color.rgb);
+    return MineOutput(FogWorldEffectSurface(color, fog), FogWorldEffectEmission(color.rgb, fog));
 }
 
 MinePixelOutput main(MineVertexOutput input, bool frontFace : SV_IsFrontFace)
 {
+    WorldEffectsFogTerms fog = EvaluateWorldEffectsFog(gWorldEffectsFog,
+        input.worldPosition, gCameraPositionTime.xyz);
     int kind = (int)(gCenterKind.w + 0.5f);
     float2 screenUV = input.position.xy / max(gViewportStyle.xy, 1.0f.xx);
     float progress = saturate(gAxisZProgress.w);
@@ -122,7 +124,7 @@ MinePixelOutput main(MineVertexOutput input, bool frontFace : SV_IsFrontFace)
         if (kind == 3)
         {
             float halo = exp(-radius * radius * 5.0f) * (1.0f - smoothstep(0.65f, 1.0f, radius));
-            return EmittedLight(float4(tint * halo * emission * opacity * soft * 0.46f, 0.0f));
+            return EmittedLight(float4(tint * halo * emission * opacity * soft * 0.46f, 0.0f), fog);
         }
         if (kind == 1)
         {
@@ -132,7 +134,7 @@ MinePixelOutput main(MineVertexOutput input, bool frontFace : SV_IsFrontFace)
             float rim = exp(-pow((radius - 0.63f) / 0.08f, 2.0f));
             float3 coreTint = lerp(tint, float3(1.0f, 0.87f, 0.48f), center * 0.60f);
             float alpha = sphere * opacity * soft * 0.42f;
-            return EmittedLight(float4(coreTint * (sphere * 0.6f + center * 1.7f + rim * 0.4f) * emission * opacity * soft, alpha));
+            return EmittedLight(float4(coreTint * (sphere * 0.6f + center * 1.7f + rim * 0.4f) * emission * opacity * soft, alpha), fog);
         }
         if (kind == 2)
         {
@@ -146,13 +148,13 @@ MinePixelOutput main(MineVertexOutput input, bool frontFace : SV_IsFrontFace)
             float glow = exp(-pow((radius - 0.83f) / 0.055f, 2.0f)) * 0.24f * remaining;
             float mask = track + arc + inner;
             return EmittedLight(float4(tint * (mask + glow) * emission * opacity * soft * 1.9f,
-                saturate(mask * 0.35f) * opacity * soft));
+                saturate(mask * 0.35f) * opacity * soft), fog);
         }
         // Equatorial pressure ring: antialiased thin line with a colored skirt.
         float ring = RingMask(radius, 0.97f, 0.012f);
         float skirt = exp(-pow((radius - 0.95f) / 0.055f, 2.0f)) * 0.17f;
         return EmittedLight(float4(tint * (ring + skirt) * emission * opacity * soft * 1.5f,
-            ring * opacity * soft * 0.22f));
+            ring * opacity * soft * 0.22f), fog);
     }
 
     // Render only the entry surface from outside, or the exit from inside.
@@ -172,7 +174,8 @@ MinePixelOutput main(MineVertexOutput input, bool frontFace : SV_IsFrontFace)
     {
         float alpha = (0.014f + rim * 0.17f) * opacity * soft;
         float3 light = tint * (rim * 1.35f + 0.004f) * emission * opacity * soft;
-        return MineOutput(float4(scene * alpha + light, alpha), light);
+        return MineOutput(FogWorldEffectRefraction(scene, scene, light, alpha, fog),
+            FogWorldEffectEmission(light, fog));
     }
     float bubble = kind == 4 ? 1.0f : 0.0f;
     float thickness = facing * lerp(2.1f, 0.32f, bubble);
@@ -190,6 +193,7 @@ MinePixelOutput main(MineVertexOutput input, bool frontFace : SV_IsFrontFace)
     float3 shellLight = edgeTint * (rim * lerp(0.22f, 0.58f, bubble) + bodyScatter * 0.17f);
     shellLight += float3(0.90f, 1.0f, 0.91f) * highlight * lerp(0.95f, 0.85f, bubble);
     shellLight *= emission * opacity * soft;
-    return MineOutput(float4(transmission * alpha + shellLight, alpha), shellLight);
+    return MineOutput(FogWorldEffectRefraction(scene, transmission, shellLight, alpha, fog),
+        FogWorldEffectEmission(shellLight, fog));
 }
 

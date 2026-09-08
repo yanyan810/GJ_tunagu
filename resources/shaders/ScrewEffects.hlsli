@@ -1,6 +1,8 @@
 #ifndef SCREW_EFFECTS_HLSLI
 #define SCREW_EFFECTS_HLSLI
 
+#include "WorldEffectsFog.hlsli"
+
 cbuffer ScrewFrame : register(b0)
 {
     float4x4 gViewProjection;
@@ -8,6 +10,7 @@ cbuffer ScrewFrame : register(b0)
     float4 gCameraRightRefraction;
     float4 gCameraUpEmission;
     float4 gViewportStyle; // width, height, water opacity, reserved
+    WorldEffectsFogParameters gWorldEffectsFog;
 };
 cbuffer ScrewPrimitive : register(b1)
 {

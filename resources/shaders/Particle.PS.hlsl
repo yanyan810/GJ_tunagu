@@ -1,9 +1,14 @@
 #include "Particle.hlsli"
+#include "WorldEffectsFog.hlsli"
 struct Material
 {
     float4 color;
     int enableLighting;
+    uint blendMode;
+    float2 padding;
     float4x4 uvTransform;
+    WorldEffectsFogParameters worldEffectsFog;
+    float4 cameraPosition;
 };
 
 struct PixelSharderOutput
@@ -45,6 +50,19 @@ PixelSharderOutput main(VertexShaderOutput input)
         discard;
     }
 
+    WorldEffectsFogTerms fog = EvaluateWorldEffectsFog(gMaterial.worldEffectsFog,
+        input.worldPosition, gMaterial.cameraPosition.xyz);
+    if (fog.enabled >= 0.5f)
+    {
+        // These PSOs use straight alpha. Only opaque/normal surfaces scatter;
+        // adding scatter to an additive particle would add a false glowing veil.
+        if (gMaterial.blendMode == 0 || gMaterial.blendMode == 1)
+            output.color.rgb = output.color.rgb * fog.transmission + fog.scattering;
+        else if (gMaterial.blendMode == 4)
+            output.color.rgb = 1.0f + (output.color.rgb - 1.0f) * fog.transmission;
+        else // Add, subtract and screen scale their contribution toward zero.
+            output.color.rgb *= fog.transmission;
+    }
     return output;
 }
 

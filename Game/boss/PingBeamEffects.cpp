@@ -1,4 +1,5 @@
 #include "PingBeamEffects.h"
+#include "WorldEffectsFog.h"
 #include "PingBeamPath.h"
 
 #include "Camera.h"
@@ -48,6 +49,7 @@ struct FrameConstants {
     Vector4 cameraRightRefraction;
     Vector4 cameraUpEmission;
     Vector4 viewportStyle;
+    WorldEffectsFog::Parameters worldEffectsFog;
 };
 struct PrimitiveConstants {
     Vector4 centerKind;
@@ -57,11 +59,11 @@ struct PrimitiveConstants {
     Vector4 colorOpacity;
 };
 static_assert(sizeof(EffectVertex) == 32);
-static_assert(sizeof(FrameConstants) == 128);
+static_assert(sizeof(FrameConstants) == 240);
 static_assert(sizeof(PrimitiveConstants) == 80);
 
 enum class Shape { Sphere, Cylinder, Quad };
-enum class Material { Gel, Core, Ring, Halo, Bubble, Marker };
+enum class Material { Gel, Core, Ring, Halo, Bubble, Marker, BeamHalo, AimRing };
 struct DrawItem {
     PrimitiveConstants constants;
     Shape shape;
@@ -117,6 +119,7 @@ struct PingBeamEffects::Impl {
         const Vector4& tint, float intensity = 1.0f, float phase = 0.0f);
     void Billboard(Material material, const Vector3& center, float radius,
         const Vector4& tint, float intensity = 1.0f, float phase = 0.0f, float progress = 0.0f);
+    float AimRadius(const Vector3& center, float radius) const;
     void Burst(const Vector3& position, int index);
 };
 
@@ -231,6 +234,22 @@ void PingBeamEffects::Impl::Billboard(Material material, const Vector3& center, 
         tint, intensity, phase, progress);
 }
 
+float PingBeamEffects::Impl::AimRadius(const Vector3& center, float radius) const {
+    const auto& view = camera->GetViewMatrix();
+    const float depth = center.x*view.m[0][2] + center.y*view.m[1][2] +
+        center.z*view.m[2][2] + view.m[3][2];
+    const float projectionScale = std::abs(camera->GetProjectionMatrix().m[1][1]);
+    if (!std::isfinite(depth) || depth <= 0.001f ||
+        !std::isfinite(projectionScale) || projectionScale <= 0.0001f) return radius;
+    // Only the aiming ring grows. Its main circle sits at 0.79 of the quad's
+    // radius; keep that circle at least 36 pixels at the HUD's 720 reference.
+    // Four times the authored size bounds extreme distances/FOVs and preserves
+    // nearby markers. This changes presentation, never the lock or hit radius.
+    constexpr float minimumRadiusNdc = 36.0f / (360.0f * 0.79f);
+    const float minimumWorldRadius = minimumRadiusNdc * depth / projectionScale;
+    return (std::min)((std::max)(radius, minimumWorldRadius), radius*4.0f);
+}
+
 void PingBeamEffects::Impl::BuildDraws() {
     draws.clear();
     using State = PingBeamAttack::State;
@@ -241,7 +260,7 @@ void PingBeamEffects::Impl::BuildDraws() {
 
     if (state == State::Tracking) {
         const float progress = Saturate(stateTime / std::max(0.001f, settings.trackingTime));
-        Billboard(Material::Ring, target, markRadius * (1.6f - 0.35f * progress),
+        Billboard(Material::AimRing, target, AimRadius(target, markRadius * (1.6f - 0.35f * progress)),
             {0.25f,0.83f,0.94f,0.55f}, 0.6f, time, progress);
     }
     for (int i = 0; i < 3; ++i) {
@@ -254,14 +273,16 @@ void PingBeamEffects::Impl::BuildDraws() {
             const float phase = time * 0.65f + i * 0.55f;
             // Coincident locks share one outline and retain the latest ordinal
             // in the pips. This marker communicates a position, not a hit radius.
-            Billboard(Material::Marker, markers[i], markRadius * 1.25f,
+            const float radius = AimRadius(markers[i], markRadius * 1.25f);
+            const float markerUnit = radius / 1.25f;
+            Billboard(Material::Marker, markers[i], radius,
                 warning, 0.65f, phase, static_cast<float>(i + 1) / 3.0f);
             for (int dot = 0; dot <= i; ++dot) {
                 const auto& w = camera->GetWorldMatrix();
                 const Vector3 r{w.m[0][0],w.m[0][1],w.m[0][2]};
                 const Vector3 u{w.m[1][0],w.m[1][1],w.m[1][2]};
-                const Vector3 p = markers[i] + r*((dot-i*0.5f)*markRadius*0.20f) + u*(markRadius*0.38f);
-                Orb(Material::Core, p, markRadius*0.045f, warning, 0.55f);
+                const Vector3 p = markers[i] + r*((dot-i*0.5f)*markerUnit*0.20f) + u*(markerUnit*0.38f);
+                Orb(Material::Core, p, markerUnit*0.045f, warning, 0.55f);
             }
         }
         if (ripples[i].age < 0.65f) {
@@ -321,7 +342,7 @@ void PingBeamEffects::Impl::BuildDraws() {
             // Low-opacity camera-facing halo; no global bloom setting changes.
             const Vector3 view = Unit(camera->GetTranslate()-center);
             const Vector3 side = Unit(Cross(forward,view), right);
-            Add(Shape::Quad, Material::Halo, center, side*(std::max(rx,ry)*2.5f), forward*(length*0.5f),
+            Add(Shape::Quad, Material::BeamHalo, center, side*(std::max(rx,ry)*2.5f), forward*(length*0.5f),
                 Unit(Cross(side,forward)), {0.12f,0.70f,0.85f,0.38f}, 0.7f*power, time, age);
             for (int ring = 0; ring < 3; ++ring) {
                 const float fraction = std::fmod(time*60.0f + ring*18.0f, length) / length;
@@ -355,7 +376,8 @@ void PingBeamEffects::Impl::BuildDraws() {
     std::stable_sort(draws.begin(), draws.end(), [](const DrawItem& a, const DrawItem& b) {
         const auto emissive = [](const DrawItem& item) {
             return item.constants.centerKind.w == static_cast<float>(Material::Core) ||
-                item.constants.centerKind.w == static_cast<float>(Material::Halo);
+                item.constants.centerKind.w == static_cast<float>(Material::Halo) ||
+                item.constants.centerKind.w == static_cast<float>(Material::BeamHalo);
         };
         if (emissive(a) != emissive(b)) return !emissive(a);
         return a.distance > b.distance;
@@ -536,7 +558,7 @@ void PingBeamEffects::Draw(ID3D12Resource* sceneColor, ID3D12Resource* sceneDept
     *e.frame={e.camera->GetViewProjectionMatrix(),Pack(e.camera->GetTranslate(),e.time),
         {w.m[0][0],w.m[0][1],w.m[0][2],e.refraction},
         {w.m[1][0],w.m[1][1],w.m[1][2],e.emission},
-        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),e.opacity,e.dispersion}};
+        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),e.opacity,e.dispersion},WorldEffectsFog::GetParameters()};
     auto* cmd=e.dx->GetCommandList();
     ID3D12DescriptorHeap* heaps[]={e.copyHeap.Get()};
     cmd->SetDescriptorHeaps(1,heaps);

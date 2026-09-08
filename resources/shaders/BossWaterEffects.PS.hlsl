@@ -32,6 +32,8 @@ float2 SafeRefraction(float2 uv, float2 offset, float fragmentDepth)
 
 BossWaterPixelOutput main(BossWaterVertexOutput input)
 {
+    WorldEffectsFogTerms fog = EvaluateWorldEffectsFog(gWorldEffectsFog,
+        input.worldPosition, gCameraPositionTime.xyz);
     float2 screenUV = input.position.xy / max(gViewportStyle.xy, 1.0f.xx);
     float soft = SoftIntersection(input, SceneDepth(screenUV));
     // Looking into a ribbon must not produce a screen-filling slab at the near plane.
@@ -57,7 +59,8 @@ BossWaterPixelOutput main(BossWaterVertexOutput input)
         else
             mask = exp(-r * r * 9.0f) * 1.8f + exp(-r * r * 3.8f) * 0.13f;
         float3 light = tint * mask * emission * opacity;
-        return BossWaterOutput(float4(light, 0.0f), light);
+        return BossWaterOutput(FogWorldEffectSurface(float4(light, 0.0f), fog),
+            FogWorldEffectEmission(light, fog));
     }
 
     float across = abs(input.uv.x * 2.0f - 1.0f);
@@ -84,5 +87,6 @@ BossWaterPixelOutput main(BossWaterVertexOutput input)
     float3 light = (tint * (0.035f + edge * 0.26f + pulse * core * 0.20f) +
         float3(0.64f, 0.92f, 1.0f) * pow(saturate(micro), 12.0f) * edge * 0.12f) *
         emission * mask * opacity * max(gViewportStyle.z, 0.0f);
-    return BossWaterOutput(float4(water * alpha + light, alpha), light);
+    return BossWaterOutput(FogWorldEffectRefraction(scene, water, light, alpha, fog),
+        FogWorldEffectEmission(light, fog));
 }
