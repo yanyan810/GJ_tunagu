@@ -9,6 +9,7 @@
 #include "GeometryGenerator.h"
 #include "ModelManager.h"
 #include "boss/PingBeamEffects.h"
+#include "boss/MineEffects.h"
 #include "RenderManager.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -206,6 +207,8 @@ void BossTestScene::OnEnter(GameApp& app) {
     CreateTemporaryBoss_(app);
     pingBeamEffects_ = std::make_unique<PingBeamEffects>();
     pingBeamEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
+    mineEffects_ = std::make_unique<MineEffects>();
+    mineEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
     screwAnimation_.Initialize(*boss_);
     pingBeamTestPlayer_ = CreateObject(app, camera_.get(), "cube/cube.obj",
         pingBeamTargetPosition_, {}, { 1.0f, 1.0f, 1.0f });
@@ -342,6 +345,7 @@ void BossTestScene::OnEnter(GameApp& app) {
 }
 
 void BossTestScene::OnExit(GameApp& app) {
+    mineEffects_.reset();
     pingBeamEffects_.reset();
     if (app.GetInput()) {
         app.GetInput()->SetCameraControlEnabled(false);
@@ -449,6 +453,7 @@ void BossTestScene::ApplyBossTransform_() {
 }
 
 void BossTestScene::ResetTestObjects_() {
+    if (mineEffects_) mineEffects_->Reset();
     bossPosition_ = { 0.0f, 3.0f, 25.0f };
     bossRotation_ = { 0.0f, -1.5707963f, 0.0f };
     bossScale_ = { 1.5f, 1.5f, 1.5f };
@@ -595,6 +600,7 @@ void BossTestScene::ProcessMineExplosions_() {
     }
 
     for (const auto& explosion : explosions) {
+        if (mineEffects_) mineEffects_->OnExplosion(explosion);
         const float radiusSquared = explosion.radius * explosion.radius;
         for (auto& other : mines_) {
             if (other->GetState() == Mine::State::Triggered ||
@@ -1691,6 +1697,7 @@ void BossTestScene::Update(GameApp& app, float dt) {
         pendingTestFireMines_ = false;
     }
     if (pendingClearTestMines_) {
+        if (mineEffects_) mineEffects_->Reset();
         mines_.clear();
         pendingMineEmissions_.clear();
         nextMineEmission_ = 0;
@@ -1796,11 +1803,22 @@ void BossTestScene::Update(GameApp& app, float dt) {
     for (auto& marker : distanceMarkers_) marker->Update(dt);
     if (boss_) boss_->Update(dt);
     for (auto& mine : mines_) mine->Update(dt);
+    if (mineEffects_) mineEffects_->Update(dt, mines_);
     ProcessMineExplosions_();
+    // Zero-delay chain triggers can change another mine after its snapshot.
+    if (mineEffects_) mineEffects_->Update(0.0f, mines_);
 }
 
 void BossTestScene::Draw(GameApp& app) {
     if (floor_) floor_->Draw();
+    if (mineEffects_ && mineEffects_->IsEnabled() && mineEffects_->IsSoloPreview()) {
+        if (boss_) boss_->Draw();
+        for (const auto& mine : mines_) {
+            if (!mineEffects_->ReplacesMine(*mine)) mine->Draw();
+        }
+        mineEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+        return;
+    }
     if (pingBeamEffects_ && pingBeamEffects_->IsEnabled() && pingBeamEffects_->IsSoloPreview()) {
         if (boss_) boss_->Draw();
         pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
@@ -1814,7 +1832,9 @@ void BossTestScene::Draw(GameApp& app) {
         for (const auto& object : debug.direction) object->Draw();
         for (const auto& object : debug.rangeEdges) object->Draw();
     }
-    for (const auto& mine : mines_) mine->Draw();
+    for (const auto& mine : mines_) {
+        if (!mineEffects_ || !mineEffects_->ReplacesMine(*mine) || mineEffects_->ShowDebugGeometry()) mine->Draw();
+    }
     for (const auto& target : screwTestTargets_) {
         if (target->object) target->object->Draw();
     }
@@ -1857,6 +1877,7 @@ void BossTestScene::Draw(GameApp& app) {
         for (const auto& marker : pingBeamTargetAngleDebug_) if (marker) marker->Draw();
         for (const auto& marker : pingBeamUnitPositionDebug_) if (marker) marker->Draw();
     }
+    if (mineEffects_) mineEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
     if (pingBeamEffects_) pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 }
 
@@ -1972,6 +1993,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
         if (ImGui::Button("Trigger First Mine (Chain Test)")) pendingTriggerFirstMine_ = true;
         ImGui::SameLine();
         if (ImGui::Button("Trigger All Mines")) pendingTriggerAllMines_ = true;
+        if (mineEffects_) mineEffects_->DrawImGui();
         int flyingCount = 0;
         int floatingCount = 0;
         int triggeredCount = 0;
