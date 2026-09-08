@@ -14,6 +14,7 @@ class UnderwaterEnvironment;
 class DebugCamera;
 class Object3d;
 class BossCombatController;
+class BossWaterEffectRenderer;
 
 // 新しいゲームの実装を始めるための最小シーンです。
 class GameScene final : public IScene {
@@ -21,6 +22,7 @@ public:
     GameScene();
     ~GameScene() override;
     void OnEnter(GameApp& app) override;
+    SceneLoadTask Load(GameApp& app) override;
     void OnExit(GameApp& app) override;
     void Update(GameApp& app, float dt) override;
     void Draw(GameApp& app) override;
@@ -28,6 +30,13 @@ public:
     void DrawImGui(GameApp& app) override;
 
 private:
+    bool IsBossEntrance_() const { return oceanFlow_.locked && !oceanFlow_.BattleReady(); }
+    void UpdateBossEntrance_(GameApp& app, float dt);
+    std::unique_ptr<Object3d> entranceSun_;
+    std::unique_ptr<BossWaterEffectRenderer> entranceSplash_;
+    Vector3 entranceStartCamera_{};
+    Vector3 entranceStartRotation_{};
+    bool entranceWasDebug_ = false;
     void UpdateOcean_(GameApp& app, float dt);
     void PopulateOcean_(GameApp& app, int budget);
     OceanBattleFlow oceanFlow_;

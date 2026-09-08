@@ -7,6 +7,7 @@
 class Camera;
 class DirectXCommon;
 class SrvManager;
+class ReefCollisionWorld;
 struct ID3D12Resource;
 
 // Presentation only. Receives the attack's recorded positions and current state;
@@ -23,7 +24,8 @@ public:
     void Begin(const PingBeamAttackSettings& settings);
     void Reset();
     void Update(float dt, const PingBeamAttack& attack,
-        const std::array<Vector3, 2>& muzzlePositions, const Vector3& trackingTarget);
+        const std::array<Vector3, 2>& muzzlePositions, const Vector3& trackingTarget,
+        float groundY = -22.0f, const ReefCollisionWorld* world = nullptr);
     // Call once at the end of the scene's opaque/debug draws, before post FX.
     // The source color/depth must be in RENDER_TARGET / DEPTH_WRITE states.
     void Draw(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth);

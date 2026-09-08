@@ -13,6 +13,7 @@
 #include "GeometryGenerator.h"
 #include "ModelManager.h"
 #include "boss/PingBeamEffects.h"
+#include "boss/PingBeamPath.h"
 #include "boss/MineEffects.h"
 #include "boss/ScrewEffects.h"
 #include "boss/ShockwaveEffects.h"
@@ -1188,6 +1189,8 @@ void BossTestScene::ResetPingBeam_() {
 
 void BossTestScene::UpdatePingBeam_(float dt) {
     if (!boss_) return;
+    const float beamGroundY = battleEnvironment_ ? battleEnvironment_->GetFloorHeight() : screwSettings_.testGroundY;
+    const auto* beamWorld = battleEnvironment_ ? battleEnvironment_->GetBeamCollisionWorld() : nullptr;
     const Matrix4x4 bossWorld = Matrix4x4::MakeAffineMatrix(boss_->GetScale(), boss_->GetRotate(), boss_->GetTranslate());
     const Vector3 targetLocal = TransformPoint(pingBeamTargetPosition_, Matrix4x4::Inverse(bossWorld));
     pingBeamAttack_.SetRailSettings(pingBeamSettings_.rail);
@@ -1281,21 +1284,22 @@ void BossTestScene::UpdatePingBeam_(float dt) {
         if (!beam) continue;
         if (pingBeamAttack_.IsBeamVisible()) {
             const int index = pingBeamAttack_.GetCurrentBeamIndex();
-            const Vector3 target = pingBeamAttack_.GetPingPosition(index);
+            const auto path = PingBeamPath::Trace(origin, pingBeamAttack_.GetPingPosition(index), beamGroundY, beamWorld);
+            const Vector3 target = path.end;
             const Vector3 delta = target - origin;
             beam->SetTranslate((origin + target) * 0.5f);
             beam->SetRotate(BoxForwardRotation(delta));
             beam->SetScale({
-                pingBeamSettings_.beamWidth * 0.5f,
-                pingBeamSettings_.beamHeight * 0.5f,
-                Length(delta) * 0.5f
+                path.valid ? pingBeamSettings_.beamWidth * 0.5f : 0.0f,
+                path.valid ? pingBeamSettings_.beamHeight * 0.5f : 0.0f,
+                path.length * 0.5f
             });
         } else {
             beam->SetScale({ 0.0f, 0.0f, 0.0f });
         }
         beam->Update(dt);
     }
-    if (pingBeamEffects_) pingBeamEffects_->Update(dt, pingBeamAttack_, muzzlePositions, pingBeamTargetPosition_);
+    if (pingBeamEffects_) pingBeamEffects_->Update(dt, pingBeamAttack_, muzzlePositions, pingBeamTargetPosition_, beamGroundY, beamWorld);
 }
 
 bool BossTestScene::SaveMineSettings_() {

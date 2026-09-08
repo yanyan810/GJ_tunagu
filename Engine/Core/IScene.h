@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <string>
+#include "SceneLoadTask.h"
 
 class GameApp;
 
@@ -8,6 +9,7 @@ public:
     virtual ~IScene() = default;
 
     virtual void OnEnter(GameApp& app) {}
+    virtual SceneLoadTask Load(GameApp& app) { OnEnter(app); co_return; }
     virtual void OnExit(GameApp& app) {}
 
     virtual void Update(GameApp& app, float dt) = 0;

@@ -498,6 +498,8 @@
     <ClInclude Include="Engine\Core\CrashHandler.h" />
     <ClInclude Include="Engine\Core\DirectXCommon.h" />
     <ClInclude Include="Engine\Core\IScene.h" />
+    <ClInclude Include="Engine\Core\SceneLoadTask.h" />
+    <ClInclude Include="Engine\Core\LoadingScreen.h" />
     <ClInclude Include="Engine\Particle\Particle.h" />
     <ClInclude Include="Engine\Particle\ParticleCommon.h" />
     <ClInclude Include="Engine\3D\SkinnedModel.h" />
@@ -755,6 +757,12 @@
     <ClCompile Include="Game\boss\AnchorEffects.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
+    <ClCompile Include="Game\boss\BossAttackGuidance.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossThreatHud.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
     <ClCompile Include="Game\boss\BossCombatController.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
@@ -770,6 +778,12 @@
     <ClCompile Include="Game\boss\BossCombatCollision.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
+    <ClInclude Include="Game\boss\BossAttackGuidance.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossThreatHud.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
     <ClInclude Include="Game\boss\BossCombatController.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
@@ -794,6 +808,12 @@
     <ClInclude Include="Game\boss\AnchorEffects.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
+    <FxCompile Include="resources\shaders\BossThreatHud.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\BossThreatHud.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
     <FxCompile Include="resources\shaders\BossWaterEffects.VS.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
@@ -849,6 +869,12 @@
       <Filter>shaders</Filter>
     </None>
     <ClInclude Include="Game\boss\PingBeamEffects.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\PingBeamPath.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossThreatHudMotion.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
     <FxCompile Include="resources\shaders\PingBeamEffects.VS.hlsl">

@@ -1,4 +1,5 @@
 #include "PingBeamEffects.h"
+#include "PingBeamPath.h"
 
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -88,6 +89,7 @@ struct PingBeamEffects::Impl {
     float stateTime = 0.0f;
     int pingCount = 0, beamIndex = -1;
     std::array<Vector3, 2> muzzles{};
+    std::array<PingBeamPath::Segment, 2> beamPaths{};
     Vector3 target{};
     std::array<Vector3, 3> markers{};
     std::array<bool, 3> markerVisible{};
@@ -148,6 +150,7 @@ void PingBeamEffects::Reset() {
     e.time = 0.0f; e.stateTime = 0.0f;
     e.state = PingBeamAttack::State::Inactive;
     e.pingCount = 0; e.beamIndex = -1;
+    e.beamPaths.fill({});
     e.markerVisible.fill(false);
     e.ripples.fill({});
     e.bubbles.clear(); e.draws.clear();
@@ -166,7 +169,8 @@ void PingBeamEffects::Impl::Burst(const Vector3& position, int index) {
 }
 
 void PingBeamEffects::Update(float dt, const PingBeamAttack& attack,
-    const std::array<Vector3, 2>& muzzlePositions, const Vector3& trackingTarget) {
+    const std::array<Vector3, 2>& muzzlePositions, const Vector3& trackingTarget,
+    float groundY, const ReefCollisionWorld* world) {
     auto& e = *impl_;
     dt = std::isfinite(dt) ? std::max(0.0f, dt) : 0.0f;
     e.time += dt;
@@ -178,7 +182,15 @@ void PingBeamEffects::Update(float dt, const PingBeamAttack& attack,
     for (int i = e.pingCount; i < newCount; ++i) e.ripples[i] = {attack.GetPingPosition(i), 0.0f};
     const bool beamStarted = attack.IsBeamVisible() &&
         (e.state != PingBeamAttack::State::Beam || e.beamIndex != attack.GetCurrentBeamIndex());
-    if (beamStarted) e.Burst(attack.GetPingPosition(attack.GetCurrentBeamIndex()), attack.GetCurrentBeamIndex());
+    e.beamPaths.fill({});
+    if (attack.IsBeamVisible()) {
+        const int index = attack.GetCurrentBeamIndex();
+        for (size_t i = 0; i < e.muzzles.size(); ++i) {
+            auto& path = e.beamPaths[i];
+            path = PingBeamPath::Trace(e.muzzles[i], attack.GetPingPosition(index), groundY, world);
+            if (beamStarted && path.valid && path.hitSurface) e.Burst(path.end, index * 2 + static_cast<int>(i));
+        }
+    }
     e.state = attack.GetState(); e.stateTime = attack.GetStateTime();
     e.pingCount = newCount; e.beamIndex = attack.GetCurrentBeamIndex();
     for (int i = 0; i < PingBeamAttack::kPingCount; ++i) {
@@ -287,12 +299,14 @@ void PingBeamEffects::Impl::BuildDraws() {
         }
     }
     if (firing) {
-        const Vector3 end = markers[beamIndex];
         const float age = Saturate(stateTime / std::max(settings.beamDuration,0.001f));
         const float power = 1.0f + 0.7f*std::exp(-stateTime*24.0f);
         for (size_t i = 0; i < muzzles.size(); ++i) {
+            const auto& path = beamPaths[i];
+            if (!path.valid) continue;
+            const Vector3 end = path.end;
             const Vector3 delta = end - muzzles[i];
-            const float length = std::sqrt(Dot(delta,delta));
+            const float length = path.length;
             if (length < 0.01f) continue;
             const Vector3 forward = delta*(1.0f/length);
             const Vector3 right = Unit(Cross(std::abs(forward.y)<0.96f ? Vector3{0,1,0} : Vector3{1,0,0}, forward));
@@ -307,19 +321,27 @@ void PingBeamEffects::Impl::BuildDraws() {
             // Low-opacity camera-facing halo; no global bloom setting changes.
             const Vector3 view = Unit(camera->GetTranslate()-center);
             const Vector3 side = Unit(Cross(forward,view), right);
-            Add(Shape::Quad, Material::Halo, center, side*(std::max(rx,ry)*2.5f), forward*(length*0.52f),
+            Add(Shape::Quad, Material::Halo, center, side*(std::max(rx,ry)*2.5f), forward*(length*0.5f),
                 Unit(Cross(side,forward)), {0.12f,0.70f,0.85f,0.38f}, 0.7f*power, time, age);
             for (int ring = 0; ring < 3; ++ring) {
-                const float fraction = std::fmod(time*1.5f + ring/3.0f, 1.0f);
+                const float fraction = std::fmod(time*60.0f + ring*18.0f, length) / length;
                 Add(Shape::Quad, Material::Ring, muzzles[i]+delta*fraction,
                     right*(rx*1.28f), up*(ry*1.28f), forward, {0.34f,0.85f,1.0f,0.24f}, 0.4f, time, age);
             }
+            // A distant range cap is not an impact. Only terrain produces an
+            // impact shell/burst; the aiming marker remains free of fake hits.
+            if (path.hitSurface) {
+                const float impactRadius = std::max(0.35f, std::min(settings.beamWidth, settings.beamHeight)*0.52f);
+                Orb(Material::Gel, end, impactRadius, {0.24f,0.8f,0.94f,0.42f}, power, time);
+                Orb(Material::Core, end, impactRadius*0.23f, pearl, 1.6f*power);
+                Billboard(Material::Halo, end, impactRadius*3.0f, {0.25f,0.75f,1.0f,0.5f}, power);
+                const Vector3 normal = Unit(path.normal);
+                const Vector3 tangent = Unit(Cross(std::abs(normal.y)<0.96f ? Vector3{0,1,0} : Vector3{1,0,0}, normal));
+                const float ringRadius = impactRadius*(1.4f+age*1.2f);
+                Add(Shape::Quad, Material::Ring, end+normal*0.03f, tangent*ringRadius,
+                    Unit(Cross(normal,tangent))*ringRadius, normal, pearl, 0.6f*(1.0f-age), time, age);
+            }
         }
-        const float impactRadius = std::max(0.35f, std::min(settings.beamWidth, settings.beamHeight)*0.52f);
-        Orb(Material::Gel, end, impactRadius, {0.24f,0.8f,0.94f,0.42f}, power, time);
-        Orb(Material::Core, end, impactRadius*0.23f, pearl, 1.6f*power);
-        Billboard(Material::Halo, end, impactRadius*3.0f, {0.25f,0.75f,1.0f,0.5f}, power);
-        Billboard(Material::Ring, end, impactRadius*(1.4f+age*1.2f), pearl, 0.6f*(1.0f-age), time, age);
     }
     // Only bubbles linger after firing; no damaging-looking beam after its state ends.
     for (const auto& b : bubbles) {

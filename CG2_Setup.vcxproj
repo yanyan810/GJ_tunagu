@@ -249,6 +249,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\BossWaterEffectRenderer.cpp" />
     <ClCompile Include="Game\boss\ShockwaveEffects.cpp" />
     <ClCompile Include="Game\boss\AnchorEffects.cpp" />
+    <ClCompile Include="Game\boss\BossAttackGuidance.cpp" />
+    <ClCompile Include="Game\boss\BossThreatHud.cpp" />
     <ClCompile Include="Game\boss\BossCombatController.cpp" />
     <ClCompile Include="Game\boss\BossCombatRig.cpp" />
     <ClCompile Include="Game\boss\BossCombatSettings.cpp" />
@@ -533,6 +535,12 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <FxCompile Include="resources\shaders\ScrewEffects.PS.hlsl">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="resources\shaders\BossThreatHud.VS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\BossThreatHud.PS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="resources\shaders\BossWaterEffects.VS.hlsl">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
@@ -611,6 +619,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Camera\DebugCamera.h" />
     <ClInclude Include="Engine\Core\DirectXCommon.h" />
     <ClInclude Include="Engine\Core\IScene.h" />
+    <ClInclude Include="Engine\Core\SceneLoadTask.h" />
+    <ClInclude Include="Engine\Core\LoadingScreen.h" />
     <ClInclude Include="Engine\math\AABB.h" />
     <ClInclude Include="Engine\math\Mesh.h" />
     <ClInclude Include="Engine\Particle\Particle.h" />
@@ -663,11 +673,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\scene\Main\OceanBattleFlow.h" />
     <ClInclude Include="Game\boss\PingBeamAttack.h" />
     <ClInclude Include="Game\boss\PingBeamEffects.h" />
+    <ClInclude Include="Game\boss\PingBeamPath.h" />
+    <ClInclude Include="Game\boss\BossThreatHudMotion.h" />
     <ClInclude Include="Game\boss\MineEffects.h" />
     <ClInclude Include="Game\boss\ScrewEffects.h" />
     <ClInclude Include="Game\boss\BossWaterEffectRenderer.h" />
     <ClInclude Include="Game\boss\ShockwaveEffects.h" />
     <ClInclude Include="Game\boss\AnchorEffects.h" />
+    <ClInclude Include="Game\boss\BossAttackGuidance.h" />
+    <ClInclude Include="Game\boss\BossThreatHud.h" />
     <ClInclude Include="Game\boss\BossCombatController.h" />
     <ClInclude Include="Game\boss\BossCombatRig.h" />
     <ClInclude Include="Game\boss\BossCombatSettings.h" />
