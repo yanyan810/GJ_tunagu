@@ -56,6 +56,7 @@ public:
     const Vector3& GetVelocity() const { return velocity_; }
     const Vector3& GetTargetPosition() const { return targetPosition_; }
     float GetTriggerTimeRemaining() const { return triggerTimeRemaining_; }
+    float GetTriggerFuseDuration() const { return triggerFuseDuration_; }
     float GetExplosionRadius() const { return settings_.explosionRadius; }
     float GetDamage() const { return settings_.damage; }
     float GetMoveSpeedDamage() const { return settings_.moveSpeedDamage; }
