@@ -462,13 +462,92 @@ void RenderManager::SetUnderwaterFogParameters(float startDistance,
 void RenderManager::BeginOffscreen()
 {
     assert(offscreen_);
+    offscreenRecording_ = true;
+    worldEffectsFogApplied_ = false;
+    worldEffectsFogParameters_ = {};
     offscreen_->Begin();
 }
 
 void RenderManager::EndOffscreen()
 {
     assert(offscreen_);
+    offscreenRecording_ = false;
     offscreen_->End();
+}
+
+WorldEffectsFog::Scope RenderManager::BeginWorldEffects()
+{
+    // Only the main HDR scene has this boundary. Previews and other post layers
+    // retain their existing pipeline, and no callback can outlive its scene.
+    if (!offscreenRecording_ || !IsEffectEnabled(PostEffectMode::DepthFog)) {
+        return WorldEffectsFog::Scope{};
+    }
+    if (worldEffectsFogApplied_) {
+        return WorldEffectsFog::Scope{worldEffectsFogParameters_};
+    }
+
+    auto cpu = FrameProfiler::Get().ScopeCpu("World effects fog boundary");
+    auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "World effects fog boundary");
+    auto* cmd = dx_->GetCommandList();
+    srv_->PreDraw();
+    // Detach depth before sampling it. Neither the HDR color nor the scene
+    // depth may be cleared when returning to transparent effects below.
+    cmd->OMSetRenderTargets(0, nullptr, FALSE, nullptr);
+    dx_->TransitionResource(dx_->GetDepthStencilResource(),
+        D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+    // The regular post scratch target is free during scene recording. Reusing
+    // it avoids another full-resolution HDR allocation or a new RTV slot.
+    auto& scratch = *postBuffers_[0];
+    DrawFullscreenPassToBuffer(PostEffectMode::DepthFog, offscreen_->GetSrvIndex(),
+        offscreen_->GetResource(), scratch);
+    scratch.TransitionToShaderResource();
+    offscreen_->BeginForPostEffect();
+    DrawFullscreenPass(PostEffectMode::FullScreen, scratch.GetSrvIndex());
+    scratch.TransitionToRenderTarget();
+
+    dx_->TransitionResource(dx_->GetDepthStencilResource(),
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+    dx_->BindRenderTextureWithDepthNoClear(offscreen_->GetRtvIndex());
+    srv_->PreDraw();
+
+    const auto& fog = depthFogParameters_;
+    auto finite = [](float value, float fallback) {
+        return std::isfinite(value) ? value : fallback;
+    };
+    auto color = [&](const Vector3& value) {
+        return Vector3{(std::max)(finite(value.x, 0.0f), 0.0f),
+            (std::max)(finite(value.y, 0.0f), 0.0f),
+            (std::max)(finite(value.z, 0.0f), 0.0f)};
+    };
+    const bool directionalBackground = fog.background.enabled >= 0.5f;
+    const auto background = [&](const Vector4& value) {
+        return color(directionalBackground ? Vector3{value.x, value.y, value.z} : fog.color);
+    };
+    const auto upper = background(fog.background.surfaceColor);
+    const auto horizon = background(fog.background.horizonColor);
+    const auto lower = background(fog.background.lowerColor);
+    worldEffectsFogParameters_ = {
+        {finite(fog.startDistance, 0.0f), finite(fog.endDistance, 120.0f),
+            (std::max)(finite(fog.density, 0.0f), 0.0f),
+            std::clamp(finite(fog.maxOpacity, 0.0f), 0.0f, 1.0f)},
+        {(std::max)(finite(fog.extinctionDistanceRGB.x, 110.0f), 0.001f),
+            (std::max)(finite(fog.extinctionDistanceRGB.y, 190.0f), 0.001f),
+            (std::max)(finite(fog.extinctionDistanceRGB.z, 250.0f), 0.001f),
+            fog.underwaterMediumEnabled >= 0.5f ? 1.0f : 0.0f},
+        {upper.x, upper.y, upper.z, finite(fog.medium.waterLevelY, 28.0f)},
+        {horizon.x, horizon.y, horizon.z,
+            (std::max)(finite(fog.background.horizonSoftness, 0.5f), 0.001f)},
+        {lower.x, lower.y, lower.z, directionalBackground
+            ? (std::max)(finite(fog.background.upwardLift, 0.0f), 0.0f) : 0.0f},
+        {fog.enabled >= 0.5f ? 1.0f : 0.0f, fog.medium.enabled >= 0.5f ? 1.0f : 0.0f,
+            directionalBackground ? std::clamp(finite(fog.background.lowerBlend, 0.0f), 0.0f, 1.0f) : 0.0f,
+            (std::max)(finite(fog.medium.depthLightRange, 180.0f), 1.0f)},
+        {finite(fog.medium.cameraPosition.x, 0.0f), finite(fog.medium.cameraPosition.y, 0.0f),
+            finite(fog.medium.cameraPosition.z, 0.0f), 0.0f}
+    };
+    worldEffectsFogApplied_ = true;
+    return WorldEffectsFog::Scope{worldEffectsFogParameters_};
 }
 
 void RenderManager::BeginPreview()
@@ -869,24 +948,26 @@ void RenderManager::DrawFullscreenPassToBuffer(
     );
 }
 
-int RenderManager::FindLastEnabledPostEffect_() const
+bool RenderManager::ShouldRunPostEffect_(int index, bool skipWorldFog) const
+{
+    const auto mode = static_cast<PostEffectMode>(index);
+    return enabledEffects_[index] && mode != PostEffectMode::GaussianBlurX &&
+        mode != PostEffectMode::GaussianBlurY && !(skipWorldFog && mode == PostEffectMode::DepthFog);
+}
+
+int RenderManager::FindLastEnabledPostEffect_(bool skipWorldFog) const
 {
     int lastEffect = -1;
     for (int i = 1; i < kEffectCount; ++i) {
-        if (i == static_cast<int>(PostEffectMode::GaussianBlurX) ||
-            i == static_cast<int>(PostEffectMode::GaussianBlurY)) {
-            continue;
-        }
-        if (enabledEffects_[i]) {
-            lastEffect = i;
-        }
+        if (ShouldRunPostEffect_(i, skipWorldFog)) lastEffect = i;
     }
     return lastEffect;
 }
 
 uint32_t RenderManager::RenderPostEffectsToBuffer_(ID3D12Resource* srcResource, uint32_t srcSrvIndex)
 {
-    const int lastEffect = FindLastEnabledPostEffect_();
+    const bool skipWorldFog = worldEffectsFogApplied_ && srcResource == offscreen_->GetResource();
+    const int lastEffect = FindLastEnabledPostEffect_(skipWorldFog);
     int bufferIndex = 0;
 
     if (lastEffect < 0) {
@@ -897,13 +978,7 @@ uint32_t RenderManager::RenderPostEffectsToBuffer_(ID3D12Resource* srcResource, 
     }
 
     for (int i = 1; i < kEffectCount; ++i) {
-        if (i == static_cast<int>(PostEffectMode::GaussianBlurX) ||
-            i == static_cast<int>(PostEffectMode::GaussianBlurY)) {
-            continue;
-        }
-        if (!enabledEffects_[i]) {
-            continue;
-        }
+        if (!ShouldRunPostEffect_(i, skipWorldFog)) continue;
 
         const PostEffectMode mode = static_cast<PostEffectMode>(i);
         if (mode == PostEffectMode::GaussianBlur) {

@@ -1,7 +1,9 @@
 #ifndef MINE_EFFECTS_HLSLI
 #define MINE_EFFECTS_HLSLI
 
-// Matches MineEffects' 128-byte frame and 112-byte primitive constants.
+#include "WorldEffectsFog.hlsli"
+
+// Matches MineEffects' 240-byte frame and 112-byte primitive constants.
 cbuffer MineFrame : register(b0)
 {
     float4x4 gViewProjection;
@@ -9,6 +11,7 @@ cbuffer MineFrame : register(b0)
     float4 gCameraRightRefraction;
     float4 gCameraUpEmission;
     float4 gViewportStyle;
+    WorldEffectsFogParameters gWorldEffectsFog;
 };
 cbuffer MinePrimitive : register(b1)
 {

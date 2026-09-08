@@ -1,6 +1,8 @@
 #ifndef PING_BEAM_EFFECTS_HLSLI
 #define PING_BEAM_EFFECTS_HLSLI
 
+#include "WorldEffectsFog.hlsli"
+
 // Shared with PingBeamEffects' CPU constant buffers. Matrices use the engine's
 // row-vector convention (DXC -Zpr). Every primitive occupies five float4 values.
 cbuffer PingBeamFrame : register(b0)
@@ -10,6 +12,7 @@ cbuffer PingBeamFrame : register(b0)
     float4 gCameraRightRefraction;
     float4 gCameraUpEmission;
     float4 gViewportStyle;
+    WorldEffectsFogParameters gWorldEffectsFog;
 };
 
 cbuffer PingBeamPrimitive : register(b1)

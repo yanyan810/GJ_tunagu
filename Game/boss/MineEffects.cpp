@@ -1,4 +1,5 @@
 #include "MineEffects.h"
+#include "WorldEffectsFog.h"
 #include "MineBloom.h"
 #include "MineBombGeometry.h"
 
@@ -38,11 +39,12 @@ struct EffectMesh { UINT first=0,count=0; };
 struct FrameConstants {
     Matrix4x4 viewProjection;
     Vector4 cameraPositionTime,cameraRightRefraction,cameraUpEmission,viewportStyle;
+    WorldEffectsFog::Parameters worldEffectsFog;
 };
 struct PrimitiveConstants {
     Vector4 centerKind,axisXPhase,axisYIntensity,axisZProgress,colorOpacity,deformation,slosh;
 };
-static_assert(sizeof(EffectVertex)==32 && sizeof(FrameConstants)==128 && sizeof(PrimitiveConstants)==112);
+static_assert(sizeof(EffectVertex)==32 && sizeof(FrameConstants)==240 && sizeof(PrimitiveConstants)==112);
 enum class Shape { Sphere, MediumSphere, SmallSphere, Quad };
 enum class Material { Gel, Nucleus, Warning, Halo, Bubble, Pressure, ShockRing, Bomb };
 struct DrawItem { PrimitiveConstants constants; Shape shape; float distance; EffectMesh meshOverride{}; };
@@ -539,7 +541,7 @@ void MineEffects::Draw(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth) {
     *e.frame={e.camera->GetViewProjectionMatrix(),Pack(e.camera->GetTranslate(),e.time),
         {w.m[0][0],w.m[0][1],w.m[0][2],6.0f},
         {w.m[1][0],w.m[1][1],w.m[1][2],e.emission},
-        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),e.opacity,0.30f}};
+        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),e.opacity,0.30f},WorldEffectsFog::GetParameters()};
     auto* cmd=e.dx->GetCommandList();
     cmd->SetGraphicsRootSignature(e.root.Get());
     cmd->SetGraphicsRootConstantBufferView(0,e.frameBuffer->GetGPUVirtualAddress());

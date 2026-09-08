@@ -67,6 +67,8 @@ float RingMask(float radius, float ringRadius, float halfWidth)
 
 float4 main(PingBeamVertexOutput input) : SV_TARGET0
 {
+    WorldEffectsFogTerms fog = EvaluateWorldEffectsFog(gWorldEffectsFog,
+        input.worldPosition, gCameraPositionTime.xyz);
     int kind = (int)(gCenterKind.w + 0.5f);
     float2 screenUV = input.position.xy / max(gViewportStyle.xy, 1.0f.xx);
     float phase = gAxisXPhase.w;
@@ -76,10 +78,24 @@ float4 main(PingBeamVertexOutput input) : SV_TARGET0
     float emission = max(gCameraUpEmission.w, 0.0f) * intensity;
     float3 tint = max(gColorOpacity.rgb, 0.0f.xxx);
     float sceneDepth = SampleSceneDepth(screenUV);
-    float soft = SoftIntersection(input, sceneDepth, kind == 3 ? 0.45f : 0.18f);
+    float soft = SoftIntersection(input, sceneDepth, (kind == 3 || kind == 6) ? 0.45f : 0.18f);
     float time = gCameraPositionTime.w;
 
-    if (kind == 2 || kind == 3 || kind == 5)
+    if (kind == 6)
+    {
+        // Beam-only halo: extending the ray must not move all its light to the
+        // midpoint hundreds of metres away. Preserve the transverse Gaussian,
+        // and fade only the final two world units at either end of the quad.
+        float2 p = input.uv * 2.0f - 1.0f;
+        float halfLength = max(length(gAxisYIntensity.xyz), 0.001f);
+        float endDistance = (1.0f - abs(p.y)) * halfLength;
+        float endFade = smoothstep(0.0f, min(2.0f, halfLength), endDistance);
+        float halo = exp(-p.x * p.x * 5.5f) *
+            (1.0f - smoothstep(0.72f, 1.0f, abs(p.x))) * endFade;
+        return FogWorldEffectSurface(float4(tint * halo * emission * opacity * soft * 0.28f, 0.0f), fog);
+    }
+
+    if (kind == 2 || kind == 3 || kind == 5 || kind == 7)
     {
         float2 p = input.uv * 2.0f - 1.0f;
         float radius = length(p);
@@ -90,23 +106,28 @@ float4 main(PingBeamVertexOutput input) : SV_TARGET0
             // optical halo under the shared ONE / INV_SRC_ALPHA blend state.
             float halo = exp(-radius * radius * 5.5f) *
                 (1.0f - smoothstep(0.72f, 1.0f, radius));
-            return float4(tint * halo * emission * opacity * soft * 0.28f, 0.0f);
+            return FogWorldEffectSurface(float4(tint * halo * emission * opacity * soft * 0.28f, 0.0f), fog);
         }
 
         float angle = atan2(p.y, p.x);
-        float mainRing = RingMask(radius, 0.79f, kind == 5 ? 0.014f : 0.020f);
-        float secondaryRing = kind == 5 ? 0.0f : RingMask(radius, 0.62f, 0.010f);
+        // Keep aiming strokes readable at distance without widening impact
+        // rings, travelling rings or bubbles. One pixel of solid width is
+        // separate from RingMask's existing antialiasing fringe.
+        float aimHalfWidth = (kind == 5 || kind == 7) ? fwidth(radius) * 0.5f : 0.0f;
+        float mainRing = RingMask(radius, 0.79f, max(kind == 5 ? 0.014f : 0.020f, aimHalfWidth));
+        float secondaryRing = kind == 5 ? 0.0f : RingMask(radius, 0.62f, max(0.010f, aimHalfWidth));
         float segments = smoothstep(0.35f, 0.65f,
             0.5f + 0.5f * cos(angle * (kind == 5 ? 3.0f : 12.0f) - phase * kPingTau));
-        float accent = RingMask(radius, 0.91f, kind == 5 ? 0.014f : 0.026f) * segments;
+        float accent = RingMask(radius, 0.91f, max(kind == 5 ? 0.014f : 0.026f, aimHalfWidth)) * segments;
         float sweepingRadius = lerp(0.24f, 0.78f, progress);
-        float sweep = kind == 5 ? 0.0f : RingMask(radius, sweepingRadius, 0.024f) * (1.0f - progress);
-        float radialGlow = exp(-pow((radius - 0.79f) / 0.13f, 2.0f)) * 0.11f;
+        float sweep = kind == 5 ? 0.0f : RingMask(radius, sweepingRadius, max(0.024f, aimHalfWidth)) * (1.0f - progress);
+        float radialOffset = (radius - 0.79f) / 0.13f;
+        float radialGlow = exp(-radialOffset * radialOffset) * 0.11f;
         float pulse = 0.88f + 0.12f * sin(time * 4.2f + phase * kPingTau);
         float mask = saturate(mainRing + secondaryRing * 0.38f + accent * 0.60f + sweep * 0.7f);
         float alpha = mask * opacity * soft * 0.42f * saturate(emission);
         float3 light = tint * (mask + radialGlow) * pulse * emission * opacity * soft;
-        return float4(light * 1.35f, alpha);
+        return FogWorldEffectSurface(float4(light * 1.35f, alpha), fog);
     }
 
     float3 normal = normalize(input.normal);
@@ -123,7 +144,7 @@ float4 main(PingBeamVertexOutput input) : SV_TARGET0
         float center = 0.70f + facing * 0.30f;
         float3 pearlCore = lerp(tint, float3(0.91f, 1.0f, 1.0f), 0.72f);
         float alpha = opacity * soft * 0.20f * saturate(emission);
-        return float4(pearlCore * emission * opacity * soft * flow * center * 2.6f, alpha);
+        return FogWorldEffectSurface(float4(pearlCore * emission * opacity * soft * flow * center * 2.6f, alpha), fog);
     }
 
     // Gel and bubbles have a largely clear center and a thin pearl/violet edge.
@@ -155,5 +176,5 @@ float4 main(PingBeamVertexOutput input) : SV_TARGET0
         * emission * opacity * soft;
     // Premultiplied transmission can bend the background while preserving it;
     // the light term remains HDR so the existing tone mapper/bloom can respond.
-    return float4(transmission * alpha + shellLight, alpha);
+    return FogWorldEffectRefraction(scene, transmission, shellLight, alpha, fog);
 }

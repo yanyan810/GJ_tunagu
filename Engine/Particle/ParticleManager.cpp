@@ -185,13 +185,15 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 
     // --- 繝繝溘・繝槭ユ繝ｪ繧｢繝ｫ・・Λ繧､繝・---
     // HLSL縺ｮ struct Material { float4 color; int enableLighting; float4x4 uvTransform; } (繧ｵ繧､繧ｺ: 16+4+64 = 84 -> 繧｢繝ｩ繧､繝｡繝ｳ繝郁・・縺ｧ256縺ｮ蛟肴焚)
-    materialResource_ = dxCommon_->CreateBufferResource(256);
-    struct DummyMaterial { Vector4 color; int enableLighting; float padding[3]; Matrix4x4 uvTransform; };
-    DummyMaterial* mappedMat = nullptr;
-    materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedMat));
-    mappedMat->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    mappedMat->enableLighting = 0;
-    mappedMat->uvTransform = Matrix4x4::MakeIdentity4x4();
+    // Main-scene and post-layer draws may share one GPU submission. Each pass
+    // and blend mode owns an immutable slice until the engine's frame fence.
+    materialResource_ = dxCommon_->CreateBufferResource(kMaterialStride * kMaterialBlendCount * 2);
+    materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedMaterialData_));
+    materialTemplate_ = {};
+    materialTemplate_.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    materialTemplate_.enableLighting = 0;
+    materialTemplate_.uvTransform = Matrix4x4::MakeIdentity4x4();
+    materialCameraPosition_ = {};
 
     // HLSL縺ｮ struct DirectionalLight { float4 color; float3 direction; float intensity; }
     dirLightResource_ = dxCommon_->CreateBufferResource(256);
@@ -273,6 +275,8 @@ void ParticleManager::Update(float dt, const Camera& camera)
     // 笘・螳溘き繝｡繝ｩ縺九ｉ蜿門ｾ・
     const Matrix4x4& vp = camera.GetViewProjectionMatrix();
     const Matrix4x4& cameraMatrix = camera.GetWorldMatrix();
+    const Vector3 cameraPosition = camera.GetTranslate();
+    materialCameraPosition_ = { cameraPosition.x, cameraPosition.y, cameraPosition.z, 0.0f };
 
     Matrix4x4 billboardMatrix = cameraMatrix;
     billboardMatrix.m[3][0] = 0.0f;
@@ -1008,6 +1012,18 @@ void ParticleManager::Draw(ID3D12GraphicsCommandList* cmd) {
 }
 
 void ParticleManager::Draw(ID3D12GraphicsCommandList* cmd, bool drawPostEffectTargets) {
+    if (!mappedMaterialData_ || !materialResource_) return;
+    const size_t materialPassOffset = drawPostEffectTargets ? kMaterialBlendCount : 0;
+    MaterialForGPU material = materialTemplate_;
+    // Selective post particles have always been composited after world fog.
+    // Preserve that path while main-scene particles use their own depth.
+    material.worldEffectsFog = drawPostEffectTargets ? WorldEffectsFog::Parameters{} : WorldEffectsFog::GetParameters();
+    material.cameraPosition = materialCameraPosition_;
+    for (size_t blend = 0; blend < kMaterialBlendCount; ++blend) {
+        material.blendMode = static_cast<uint32_t>(blend);
+        std::memcpy(mappedMaterialData_ + (materialPassOffset + blend) * kMaterialStride,
+            &material, sizeof(material));
+    }
     const bool hasPostEffectTargets = HasPostEffectTargets();
     for (auto& [name, group] : particleGroups_) {
         if (!group.isAutoEmit && !group.isEmitRequested && group.activeTimeRemaining <= 0.0f) {
@@ -1023,8 +1039,10 @@ void ParticleManager::Draw(ID3D12GraphicsCommandList* cmd, bool drawPostEffectTa
 
         // --- Graphics 縺ｫ繧医ｋ謠冗判 ---
         // 笘・繝悶Ξ繝ｳ繝牙・譖ｿ・・SO蛻・崛・・
+        const size_t requestedBlend = static_cast<size_t>(group.blendMode);
+        const size_t materialBlend = requestedBlend < kMaterialBlendCount ? requestedBlend : 1;
         if (particleCommon_) {
-            particleCommon_->SetBlendMode(group.blendMode);
+            particleCommon_->SetBlendMode(static_cast<ParticleCommon::BlendMode>(materialBlend));
             particleCommon_->SetDepthTestEnabled(group.depthTestEnabled);
             particleCommon_->SetGraphicsPipelineState();
         }
@@ -1032,7 +1050,8 @@ void ParticleManager::Draw(ID3D12GraphicsCommandList* cmd, bool drawPostEffectTa
         cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
         // RootParameter 0 (b0) 縺ｫ Material
-        cmd->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+        cmd->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress() +
+            (materialPassOffset + materialBlend) * kMaterialStride);
         // RootParameter 3 (b1) 縺ｫ DirectionalLight
         cmd->SetGraphicsRootConstantBufferView(3, dirLightResource_->GetGPUVirtualAddress());
         // PerView(CBV) 繧・RootParameter 4 縺ｫ繧ｻ繝・ヨ (b0)

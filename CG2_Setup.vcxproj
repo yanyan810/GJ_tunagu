@@ -587,6 +587,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\math\Quaternion.h" />
     <ClInclude Include="Engine\Render\OffscreenPass.h" />
     <ClInclude Include="Engine\Render\RenderManager.h" />
+    <ClInclude Include="Engine\Render\WorldEffectsFog.h" />
     <ClInclude Include="Engine\Render\LightShaftParameters.h" />
     <ClInclude Include="Engine\Render\UnderwaterBackgroundParameters.h" />
     <ClInclude Include="Engine\Render\UnderwaterBackgroundRenderer.h" />
@@ -714,6 +715,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <None Include="resources\shaders\MineEffects.hlsli" />
     <None Include="resources\shaders\ScrewEffects.hlsli" />
     <None Include="resources\shaders\BossWaterEffects.hlsli" />
+    <None Include="resources\shaders\WorldEffectsFog.hlsli" />
     <None Include="resources\shaders\UnderwaterBackground.hlsli" />
     <None Include="resources\shaders\OceanReceiverLighting.hlsli" />
     <None Include="resources\shaders\OceanSunShadow.hlsli" />

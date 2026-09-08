@@ -12,6 +12,7 @@
 #include "UnderwaterBackgroundParameters.h"
 #include "OceanShadowParameters.h"
 #include "SceneColorFormat.h"
+#include "WorldEffectsFog.h"
 
 class DirectXCommon;
 class SrvManager;
@@ -96,6 +97,7 @@ public:
 
     void BeginOffscreen();
     void EndOffscreen();
+    [[nodiscard]] WorldEffectsFog::Scope BeginWorldEffects();
     void BeginPreview();
     void EndPreview();
     void BeginBackBuffer();
@@ -159,7 +161,8 @@ private:
     void DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* bloomCBOverride = nullptr);
     void DrawFullscreenPassToBuffer(PostEffectMode mode, uint32_t srcSrvIndex, ID3D12Resource* srcResource, OffscreenPass& dst, ID3D12Resource* bloomCBOverride = nullptr);
     void DrawAdditiveCompositePass(uint32_t baseSrvIndex, uint32_t addSrvIndex);
-    int FindLastEnabledPostEffect_() const;
+    bool ShouldRunPostEffect_(int index, bool skipWorldFog) const;
+    int FindLastEnabledPostEffect_(bool skipWorldFog) const;
     uint32_t RenderPostEffectsToBuffer_(ID3D12Resource* srcResource, uint32_t srcSrvIndex);
     uint32_t RenderLayerPostEffectsToBuffer_(
         ID3D12Resource* srcResource,
@@ -180,6 +183,9 @@ private:
     SrvManager* srv_ = nullptr;
 
     std::unique_ptr<OffscreenPass> offscreen_;
+    bool offscreenRecording_ = false;
+    bool worldEffectsFogApplied_ = false;
+    WorldEffectsFog::Parameters worldEffectsFogParameters_{};
     std::array<std::unique_ptr<OffscreenPass>, 2> postBuffers_;
     std::unique_ptr<OffscreenPass> particlePostLayer_;
     std::unique_ptr<OffscreenPass> particlePostBuffer_;
