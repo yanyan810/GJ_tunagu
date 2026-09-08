@@ -67,7 +67,8 @@ const char* Advice(const char* group) {
     if(g=="アンカー") return "おすすめ：上下の振れ幅を少し増やし、深さを変えてかわす攻撃に。半径や最高速度の急増は避けます。";
     if(g=="スクリュー") return "おすすめ：予告で範囲を認識して外へ泳ぐ。追加機雷は予告後に船から飛ばし、突然の出現をなくします。";
     if(g=="ショックウェーブ") return "おすすめ：予告した深さを水平に広がる波。上または下へ避ける役割にし、まず低いダメージで確認します。";
-    if(g=="地面の岩") return "岩はショックウェーブ後の別の当たり判定です。現状の強さと箱モデルは維持。今後は落下地点の予告と狙い直しをセットで検討します。";
+    if(g=="地面の岩") return "岩はショックウェーブ後の別の当たり判定です。不規則な石と細い鉱脈を使い、軌道と判定は従来のままです。";
+    if(g=="泳ぎ") return "反映または保存してF9を閉じると、泳ぎの演出はすぐに切り替わります。ボス登場前も調整可能です。移動・カメラの操作や当たり判定には影響しません。";
     return "数値の反映は次の攻撃から。すでに飛んでいる機雷・岩の設定は維持します。単体確認では残存弾を消して選んだ攻撃から再開します。";
 }
 }
@@ -79,7 +80,7 @@ void BossBattleTuning::DrawPanel() {
     const ImVec2 size{std::min(860.0f,std::max(300.0f,display.x-24)),std::min(760.0f,std::max(300.0f,display.y-24))};
     ImGui::SetNextWindowSize(size,ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos({12,12},ImGuiCond_FirstUseEver);
-    if(!ImGui::Begin("ボス攻撃の調整  [F9で閉じる]###BossBattleTuning",&e.open,
+    if(!ImGui::Begin("ボス攻撃・泳ぎの調整  [F9で閉じる]###BossBattleTuning",&e.open,
         ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoDocking)) {
         ImGui::End();return;
     }
@@ -90,7 +91,7 @@ void BossBattleTuning::DrawPanel() {
     if(e.stats.enabled) {
         ImGui::Text("現在: %s  |  機雷 %zu  岩 %zu  命中 %llu",AttackLabel(static_cast<int>(e.stats.attack)),
             e.stats.mines,e.stats.rocks,static_cast<unsigned long long>(e.stats.hits));
-        if(e.appliedRevision!=e.store.Revision()) ImGui::TextColored({1,.8f,.3f,1},"変更は次の攻撃から反映されます。");
+        if(e.appliedRevision!=e.store.Revision()) ImGui::TextColored({1,.8f,.3f,1},"攻撃の変更は次の攻撃から、泳ぎの演出は再開時に反映されます。");
     } else ImGui::TextDisabled("単体確認はゲームシーンでボス登場後に使えます。");
 
     ImGui::BeginDisabled(!e.stats.enabled);
@@ -111,7 +112,7 @@ void BossBattleTuning::DrawPanel() {
     const float editorHeight=std::max(110.0f,ImGui::GetContentRegionAvail().y-150.0f);
     if(ImGui::BeginChild("parameters",{0,editorHeight},ImGuiChildFlags_Borders)) {
         if(ImGui::BeginTabBar("attackGroups")) {
-            static constexpr const char* groups[]{"全体","ビーム","機雷","アンカー","スクリュー","ショックウェーブ","地面の岩"};
+            static constexpr const char* groups[]{"全体","ビーム","機雷","アンカー","スクリュー","ショックウェーブ","地面の岩","泳ぎ"};
             for(const char* group:groups) if(ImGui::BeginTabItem(group)) {
                 ImGui::TextWrapped("%s",Advice(group));ImGui::Separator();
                 for(const auto& f:BossTuningFields()) {
@@ -126,7 +127,7 @@ void BossBattleTuning::DrawPanel() {
                         int count=static_cast<int>(value);
                         changed=ImGui::DragInt(f.label,&count,1,static_cast<int>(f.minimum),static_cast<int>(f.maximum),"%d",ImGuiSliderFlags_AlwaysClamp);
                         value=static_cast<float>(count);
-                    } else changed=ImGui::DragFloat(f.label,&value,f.step,f.minimum,f.maximum,"%.2f",ImGuiSliderFlags_AlwaysClamp);
+                    } else changed=ImGui::DragFloat(f.label,&value,f.step,f.minimum,f.maximum,f.step<.01f?"%.3f":"%.2f",ImGuiSliderFlags_AlwaysClamp);
                     if(changed) {f.write(e.draft,value);e.dirty=true;}
                     if(*f.unit) {ImGui::SameLine();ImGui::TextDisabled("%s",f.unit);}
                     if(e.showHelp) {ImGui::PushStyleColor(ImGuiCol_Text,{.68f,.76f,.82f,1});ImGui::TextWrapped("%s",f.help);ImGui::PopStyleColor();}

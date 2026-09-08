@@ -202,6 +202,18 @@
     <ClCompile Include="Game\scene\Flow\StageSelectScene.cpp">
       <Filter>Game\Scene\Flow</Filter>
     </ClCompile>
+    <ClCompile Include="Game\environment\SwimFeedback.cpp">
+      <Filter>Game\Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\environment\SwimFeedbackMotion.cpp">
+      <Filter>Game\Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossRockGeometry.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\ShockwaveRockVisual.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp">
       <Filter>Game\Environment</Filter>
     </ClCompile>
@@ -463,6 +475,21 @@
     </ClInclude>
     <ClInclude Include="Game\scene\Flow\StageSelectScene.h">
       <Filter>Game\Scene\Flow</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\environment\SwimFeedback.h">
+      <Filter>Game\Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\environment\SwimFeedbackSettings.h">
+      <Filter>Game\Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\SwimMotionParameters.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossRockGeometry.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\ShockwaveRockVisual.h">
+      <Filter>Game\Enemy</Filter>
     </ClInclude>
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h">
       <Filter>Game\Environment</Filter>

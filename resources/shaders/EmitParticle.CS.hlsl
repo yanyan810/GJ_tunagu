@@ -160,6 +160,13 @@ void main(uint3 DTid : SV_DispatchThreadID) {
                     float3 boxRandom = generator.Generate3d() - 0.5f;
                     gParticles[particleIndex].translate = gEmitter.translate + (boxRandom * gEmitter.shapeSize);
                     gParticles[particleIndex].velocity = gEmitter.velocityBase + randomDirNorm * randomSpeed;
+                } else if (gEmitter.shapeType == 3) {
+                    // Opt-in tail trail: shapeSize points from this end to the previous one.
+                    // Stratify within the unchanged count, avoiding clumps at high speed.
+                    float along = (countIndex + generator.Generate1d()) / max(1u, gEmitter.count);
+                    gParticles[particleIndex].translate = gEmitter.translate + gEmitter.shapeSize * along
+                        + randomDirNorm * (gEmitter.radius * generator.Generate1d());
+                    gParticles[particleIndex].velocity = gEmitter.velocityBase + randomDirNorm * randomSpeed;
                 } else {
                     // Default
                     gParticles[particleIndex].translate = gEmitter.translate;

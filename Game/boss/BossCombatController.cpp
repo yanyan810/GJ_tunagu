@@ -141,6 +141,7 @@ void BossCombatController::Initialize(Object3dCommon* objects, DirectXCommon* dx
     const auto& tuning=BossBattleTuning::Get();
     e.settings=tuning.Settings();e.appliedRevision=tuning.Revision();e.activePing=e.settings.ping;
     e.rig.Initialize(objects,dx,camera,ship);
+    e.rig.SetCannonReturnDuration(e.settings.battle.beamReturnDuration);
     e.mineFx.Initialize(dx,srv,camera); e.pingFx.Initialize(dx,srv,camera);
     e.waveFx.Initialize(dx,srv,camera); e.anchorFx.Initialize(dx,srv,camera);
     e.screwFx.Initialize(dx,srv,camera); e.telegraph.Initialize(dx,srv,camera);
@@ -215,6 +216,7 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
         minesRemaining=settings.mineCount;mineOrdinal=0;mineLaunchClock=0;windup=settings.windup;
         break;
     case Attack::PingBeam:
+        rig.SetCannonReturnDuration(settings.battle.beamReturnDuration);
         activePing=settings.ping;
         activePing.sequentialShots=true;
         pingHits.fill(false);pingFx.Begin(activePing);ping.Trigger(activePing);

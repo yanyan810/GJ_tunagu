@@ -7,7 +7,7 @@
 
 class Camera;
 class DirectXCommon;
-class Object3d;
+class ShockwaveRockVisual;
 class Object3dCommon;
 
 class ShockwaveRock {
@@ -29,7 +29,7 @@ public:
     float GetMoveSpeedDamage() const { return moveSpeedDamage_; }
 
 private:
-    std::unique_ptr<Object3d> object_;
+    std::unique_ptr<ShockwaveRockVisual> visual_;
     Vector3 position_{};
     Vector3 velocity_{};
     Vector3 rotation_{};

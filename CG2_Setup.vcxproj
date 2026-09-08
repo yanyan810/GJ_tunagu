@@ -242,6 +242,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Engine\Core\FrameProfiler.cpp" />
     <ClCompile Include="Engine\Core\FramePacer.cpp" />
     <ClCompile Include="Game\scene\Main\GameScene.cpp" />
+    <ClCompile Include="Game\environment\SwimFeedback.cpp" />
+    <ClCompile Include="Game\environment\SwimFeedbackMotion.cpp" />
+    <ClCompile Include="Game\boss\BossRockGeometry.cpp" />
+    <ClCompile Include="Game\boss\ShockwaveRockVisual.cpp" />
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp" />
     <ClCompile Include="Game\scene\Test\BossTestScene.cpp" />
     <ClCompile Include="Game\boss\PingBeamAttack.cpp" />
@@ -678,6 +682,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Core\FrameProfiler.h" />
     <ClInclude Include="Engine\Core\FramePacer.h" />
     <ClInclude Include="Game\scene\Main\GameScene.h" />
+    <ClInclude Include="Game\environment\SwimFeedback.h" />
+    <ClInclude Include="Game\environment\SwimFeedbackSettings.h" />
+    <ClInclude Include="Engine\Render\SwimMotionParameters.h" />
+    <ClInclude Include="Game\boss\BossRockGeometry.h" />
+    <ClInclude Include="Game\boss\ShockwaveRockVisual.h" />
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h" />
     <ClInclude Include="Game\scene\Test\BossTestScene.h" />
     <ClInclude Include="Game\scene\Test\TestBattleScene.h" />

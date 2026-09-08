@@ -561,7 +561,7 @@ void RenderManager::EndPreview()
     assert(previewBuffer_);
     previewBuffer_->End();
     previewDisplayBuffer_->BeginForPostEffect();
-    DrawToneMapPass_(previewBuffer_->GetSrvIndex());
+    DrawToneMapPass_(previewBuffer_->GetSrvIndex(),false);
     previewDisplayBuffer_->End();
 }
 
@@ -670,8 +670,8 @@ void RenderManager::CreateCopyImageRootSignature()
     range3.BaseShaderRegister = 3;
     range3.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    // 8 root CBVs (16 DWORD), 4 descriptor tables (4), 4 tone-map constants.
-    // Total 24 DWORD, comfortably inside the D3D12 64-DWORD limit.
+    // 8 root CBVs (16 DWORD), 4 descriptor tables (4), 16 tone-map constants.
+    // Total 36 DWORD, comfortably inside the D3D12 64-DWORD limit.
     D3D12_ROOT_PARAMETER rootParams[13]{};
     // [0]: SRV (t0) Color
     rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -747,7 +747,7 @@ void RenderManager::CreateCopyImageRootSignature()
     rootParams[12].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
     rootParams[12].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParams[12].Constants.ShaderRegister = 8;
-    rootParams[12].Constants.Num32BitValues = 4;
+    rootParams[12].Constants.Num32BitValues = 16;
 
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -815,7 +815,23 @@ void RenderManager::CreatePipelineState(
     assert(SUCCEEDED(hr));
 }
 
-void RenderManager::DrawToneMapPass_(uint32_t srcSrvIndex)
+void RenderManager::SetSwimMotionParameters(const SwimMotionParameters& parameters)
+{
+    const auto safe=[](float v,float fallback,float low,float high){return std::isfinite(v)?std::clamp(v,low,high):fallback;};
+    swimMotion_=parameters;
+    swimMotion_.center={safe(parameters.center.x,.5f,-.5f,1.5f),safe(parameters.center.y,.5f,-.5f,1.5f)};
+    swimMotion_.blurWidth=safe(parameters.blurWidth,0,0,.04f);
+    swimMotion_.streakOpacity=safe(parameters.streakOpacity,0,0,.2f);
+    swimMotion_.clearRadius=safe(parameters.clearRadius,.42f,.25f,.8f);
+    swimMotion_.feather=safe(parameters.feather,.38f,.1f,1);
+    swimMotion_.time=safe(parameters.time,0,0,256);
+    swimMotion_.flowSign=parameters.flowSign<0?-1.0f:1.0f;
+    swimMotion_.aspect=safe(parameters.aspect,16.0f/9, .5f,4);
+    swimMotion_.flowRate=safe(parameters.flowRate,1,.1f,4);
+    swimMotion_.padding[0]=swimMotion_.padding[1]=0;
+}
+
+void RenderManager::DrawToneMapPass_(uint32_t srcSrvIndex,bool swimming)
 {
     auto cpu = FrameProfiler::Get().ScopeCpu("Tone map");
     auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Tone map");
@@ -825,8 +841,10 @@ void RenderManager::DrawToneMapPass_(uint32_t srcSrvIndex)
     cmd->SetPipelineState(toneMapPSO_.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     cmd->SetGraphicsRootDescriptorTable(0, srv_->GetGPUDescriptionHandle(srcSrvIndex));
-    const float parameters[4] = { exposureEV_, toneMapShoulderStart_, 0.0f, 0.0f };
-    cmd->SetGraphicsRoot32BitConstants(12, 4, parameters, 0);
+    struct Constants {float exposure,shoulder,padding[2];SwimMotionParameters swim;};
+    static_assert(sizeof(Constants)==64);
+    const Constants parameters{exposureEV_,toneMapShoulderStart_,{},swimming?swimMotion_:SwimMotionParameters{}};
+    cmd->SetGraphicsRoot32BitConstants(12, 16, &parameters, 0);
     cmd->DrawInstanced(3, 1, 0, 0);
 }
 
