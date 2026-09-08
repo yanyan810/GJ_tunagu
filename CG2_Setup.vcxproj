@@ -245,6 +245,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\PingBeamAttack.cpp" />
     <ClCompile Include="Game\boss\PingBeamEffects.cpp" />
     <ClCompile Include="Game\boss\MineEffects.cpp" />
+    <ClCompile Include="Game\boss\ScrewEffects.cpp" />
     <ClCompile Include="Game\boss\MineBombGeometry.cpp" />
     <ClCompile Include="Game\boss\MineBloom.cpp" />
     <ClCompile Include="Game\scene\Test\ShipScene.cpp" />
@@ -516,6 +517,12 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <FxCompile Include="resources\shaders\MineEffects.PS.hlsl">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="resources\shaders\ScrewEffects.VS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\ScrewEffects.PS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="resources\shaders\MineBomb.PS.hlsl">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
@@ -639,6 +646,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\boss\PingBeamAttack.h" />
     <ClInclude Include="Game\boss\PingBeamEffects.h" />
     <ClInclude Include="Game\boss\MineEffects.h" />
+    <ClInclude Include="Game\boss\ScrewEffects.h" />
     <ClInclude Include="Game\boss\MineBombGeometry.h" />
     <ClInclude Include="Game\boss\MineBloom.h" />
     <ClInclude Include="Game\boss\BossBulletAttack.h" />
@@ -658,6 +666,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <None Include="resources\shaders\CopyImage.hlsli" />
     <None Include="resources\shaders\PingBeamEffects.hlsli" />
     <None Include="resources\shaders\MineEffects.hlsli" />
+    <None Include="resources\shaders\ScrewEffects.hlsli" />
     <None Include="resources\shaders\UnderwaterBackground.hlsli" />
     <None Include="resources\shaders\OceanReceiverLighting.hlsli" />
     <None Include="resources\shaders\OceanSunShadow.hlsli" />
