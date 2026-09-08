@@ -1,5 +1,6 @@
 #include "GameApp.h"
 #include "FrameProfiler.h"
+#include "boss/BossBattleTuning.h"
 #include "SceneManager.h"
 #include "AudioSystem.h"
 #include "scene/Flow/TitleScene.h"
@@ -49,10 +50,8 @@ int GameApp::Run() {
 
         const float dt = 1.0f / 60.0f;
 
-#if defined(USE_IMGUI) || defined(USE_GAME_UI)
-        // ★ ImGui フレーム開始（ここで1回だけ）
-        imgui_->Begin();
-#endif // DEBUG
+        // One shared frame for the editor or the lightweight Release overlay.
+        if (imgui_) imgui_->Begin();
 
         // Input, DebugAI control messages, and scene simulation must pass
         // through the same update path. Bypassing this function leaves
@@ -112,11 +111,10 @@ bool GameApp::Initialize_() {
     skyboxCommon_->Initialize(dx_.get());
 
 
-#if defined(USE_IMGUI) || defined(USE_GAME_UI)
+    BossBattleTuning::Get().Initialize();
     imgui_ = std::make_unique<ImGuiManagaer>();
     imgui_->Initialize(win_.get(), dx_.get(), srv_.get());
     imgui_->SetSceneTexture(render_->GetOffscreenSrvIndex());
-#endif
 
     FrameProfiler::Get().InitializeUi(win_->GetHwnd(), dx_.get(), srv_.get());
 
@@ -297,7 +295,11 @@ void GameApp::Update(float dt) {
     auto updateProfile = FrameProfiler::Get().ScopeCpu("Update total");
 
     input_->Update();
-    if (input_->IsKeyTrigger(DIK_F8)) FrameProfiler::Get().CycleMode();
+    if (input_->IsRawKeyTrigger(DIK_F8)) FrameProfiler::Get().CycleMode();
+    auto& tuning = BossBattleTuning::Get();
+    tuning.Update(tuning.IsEnabled() && input_->IsRawKeyTrigger(DIK_F9));
+    input_->SetGameInputBlocked(tuning.IsOpen());
+    if (imgui_) imgui_->SetInputEnabled(tuning.IsEnabled() && tuning.IsOpen());
     if (audio_) audio_->Update();
 
     unsigned int simulationUpdates = 1;
@@ -314,8 +316,11 @@ void GameApp::Update(float dt) {
                 sceneMgr_->Change(*this, requestedScene);
             }
         }
-        simulationUpdates = debugAI_->ReplaySimulationUpdatesForHostFrame();
+        if (!tuning.IsPaused()) simulationUpdates = debugAI_->ReplaySimulationUpdatesForHostFrame();
     }
+    // Keep rendering and control messages alive while editing. Calling scene
+    // Update with dt=0 would still execute several fixed-step gameplay paths.
+    if (tuning.IsPaused()) return;
 
     for (unsigned int update = 0; update < simulationUpdates; ++update) {
         if (debugAI_) {
@@ -393,7 +398,9 @@ void GameApp::Draw() {
     // ② BackBufferへ
     dx_->PreDraw(false);
 
-    {
+    // A paused scene has not refreshed particle dt/emit flags; do not dispatch
+    // stale values. The previous frame left its buffers in the readable state.
+    if (!BossBattleTuning::Get().IsPaused()) {
         auto cpu = FrameProfiler::Get().ScopeCpu("Particle compute record");
         auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetComputeCommandList(), "Particle compute");
         ParticleManager::GetInstance()->UpdateCompute(dx_->GetComputeCommandList());
@@ -408,7 +415,6 @@ void GameApp::Draw() {
 #ifdef USE_GAME_UI
     // Shipping UI is drawn over the game without the development editor.
     sceneMgr_->DrawImGui(*this);
-    if (imgui_) imgui_->End(dx_->GetCommandList());
 #endif
 #endif
 
@@ -426,6 +432,7 @@ void GameApp::Draw() {
         imgui_->SetPreviewTexture(render_->GetPreviewSrvIndex());
             sceneMgr_->DrawImGui(*this);
             render_->DrawImGui(); // ポストエフェクト切り替えUI
+        BossBattleTuning::Get().DrawPanel();
         FrameProfiler::Get().DrawOverlay(dx_->GetCommandList());
         auto uiGpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Editor UI");
         imgui_->End(dx_->GetCommandList());
@@ -433,9 +440,11 @@ void GameApp::Draw() {
 #endif
 
 #ifndef USE_IMGUI
-    {
-        auto uiGpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Profiler overlay");
+    if (imgui_) {
+        auto uiGpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Runtime overlay");
+        BossBattleTuning::Get().DrawPanel();
         FrameProfiler::Get().DrawOverlay(dx_->GetCommandList());
+        imgui_->End(dx_->GetCommandList());
     }
 #endif
     }

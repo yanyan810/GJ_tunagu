@@ -18,6 +18,11 @@ public:
     // 更新処理（毎フレーム呼び出し）
     void Update();
 
+    // Runtime panels consume gameplay input without losing raw F-key toggles.
+    void SetGameInputBlocked(bool blocked);
+    bool IsGameInputBlocked() const { return gameInputBlocked_; }
+    bool IsRawKeyTrigger(BYTE keyCode) const;
+
     // トリガー（今回押されたが前回押されていない）
     bool IsKeyTrigger(BYTE keyCode) const;
 
@@ -27,7 +32,7 @@ public:
     // 離した瞬間
     bool IsKeyReleased(BYTE keyCode) const;
 
-    bool IsGamepadConnected() const { return gamepadConnected_; }
+    bool IsGamepadConnected() const { return !gameInputBlocked_ && gamepadConnected_; }
     bool IsGamepadButtonPressed(GamepadButton button) const;
     bool IsGamepadButtonTrigger(GamepadButton button) const;
     bool IsGamepadButtonReleased(GamepadButton button) const;
@@ -39,26 +44,34 @@ public:
     POINT mouseDelta_{};
 
     void UpdateMouseDelta();
-    POINT GetMouseDelta() const { return mouseDelta_; }
+    POINT GetMouseDelta() const { return gameInputBlocked_ ? POINT{} : mouseDelta_; }
     // Position in the 1280x720 UI canvas; false outside the active game window.
     bool GetMenuMousePosition(POINT& position) const;
-    int GetMouseDeltaX() const { return mouseDelta_.x; }
-    int GetMouseDeltaY() const { return mouseDelta_.y; }
+    int GetMouseDeltaX() const { return gameInputBlocked_ ? 0 : mouseDelta_.x; }
+    int GetMouseDeltaY() const { return gameInputBlocked_ ? 0 : mouseDelta_.y; }
     void SetCameraControlEnabled(bool enabled);
     bool IsCameraControlEnabled() const { return cameraControlEnabled_; }
 
-    bool IsMouseLeftPressed() const { return mouseLeft_; }
-    bool IsMouseLeftTrigger() const { return mouseLeft_ && !prevMouseLeft_; }
-    bool IsMouseLeftReleased() const { return !mouseLeft_ && prevMouseLeft_; }
+    bool IsMouseLeftPressed() const { return !gameInputBlocked_ && !suppressedMouseLeft_ && mouseLeft_; }
+    bool IsMouseLeftTrigger() const { return !gameInputBlocked_ && !suppressedMouseLeft_ && mouseLeft_ && !prevMouseLeft_; }
+    bool IsMouseLeftReleased() const { return !gameInputBlocked_ && !suppressedMouseLeft_ && !mouseLeft_ && prevMouseLeft_; }
 
-    bool IsMouseRightPressed() const { return mouseRight_; }
-    bool IsMouseRightTrigger() const { return mouseRight_ && !prevMouseRight_; }
+    bool IsMouseRightPressed() const { return !gameInputBlocked_ && !suppressedMouseRight_ && mouseRight_; }
+    bool IsMouseRightTrigger() const { return !gameInputBlocked_ && !suppressedMouseRight_ && mouseRight_ && !prevMouseRight_; }
 
 private:
     IDirectInput8* directInput_ = nullptr;
     IDirectInputDevice8* keyboardDevice_ = nullptr;
     BYTE keys_[256]{};
     BYTE prevKeys_[256]{};
+    bool gameInputBlocked_ = false;
+    bool cameraControlBeforeBlock_ = false;
+    BYTE suppressedKeys_[256]{};
+    WORD suppressedGamepadButtons_ = 0;
+    bool suppressedStickX_ = false;
+    bool suppressedStickY_ = false;
+    bool suppressedMouseLeft_ = false;
+    bool suppressedMouseRight_ = false;
     bool firstMouseUpdate_ = true;
     bool cameraControlEnabled_ = false;
     bool prevToggleKeyState_ = false; // トグル用

@@ -789,6 +789,15 @@
     <ClCompile Include="Game\boss\BossCombatSettings.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
+    <ClCompile Include="Game\boss\BossBattleTuning.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossTuningFields.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossTuningStore.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
     <ClCompile Include="Game\boss\BossPlayerInteraction.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
@@ -808,6 +817,15 @@
       <Filter>Game\Enemy</Filter>
     </ClInclude>
     <ClInclude Include="Game\boss\BossCombatSettings.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossBattleTuning.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossTuningFields.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossTuningStore.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
     <ClInclude Include="Game\boss\BossPlayerInteraction.h">

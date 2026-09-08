@@ -86,4 +86,46 @@ bool SegmentBox(const Vector3& from, const Vector3& to, const Matrix4x4& boxWorl
     }
     return true;
 }
+
+bool SegmentBeam(const Vector3& from, const Vector3& to, const Vector3& origin, const Vector3& end,
+    float halfWidth, float halfHeight, float sphereRadius) {
+    if (!Finite(from) || !Finite(to) || !Finite(origin) || !Finite(end) ||
+        !std::isfinite(halfWidth) || !std::isfinite(halfHeight) || !std::isfinite(sphereRadius) ||
+        halfWidth < 0 || halfHeight < 0 || sphereRadius < 0) return false;
+    struct V { double x, y, z; };
+    const auto dot = [](const V& a, const V& b) { return a.x*b.x + a.y*b.y + a.z*b.z; };
+    const auto cross = [](const V& a, const V& b) {
+        return V{a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x};
+    };
+    V forward{double(end.x)-origin.x,double(end.y)-origin.y,double(end.z)-origin.z};
+    const double length = std::sqrt(dot(forward, forward));
+    const double rx = double(halfWidth) + sphereRadius, ry = double(halfHeight) + sphereRadius;
+    if (length <= 0.000001 || rx <= 0 || ry <= 0) return false;
+    forward = {forward.x/length,forward.y/length,forward.z/length};
+    V right = cross(std::abs(forward.y) < 0.96 ? V{0,1,0} : V{1,0,0}, forward);
+    const double rightLength = std::sqrt(dot(right, right));
+    right = {right.x/rightLength,right.y/rightLength,right.z/rightLength};
+    const V up = cross(forward, right);
+    const V p{double(from.x)-origin.x,double(from.y)-origin.y,double(from.z)-origin.z};
+    const V delta{double(to.x)-from.x,double(to.y)-from.y,double(to.z)-from.z};
+
+    // First restrict the segment to the finite end caps, then minimize radial
+    // distance inside that interval. No quadratic-root subtraction near tangency.
+    double enter = 0, exit = 1;
+    const double z = dot(p, forward), dz = dot(delta, forward);
+    if (std::abs(dz) < 1.0e-12) {
+        if (z < -sphereRadius || z > length+sphereRadius) return false;
+    } else {
+        double first = (-sphereRadius-z)/dz, last = (length+sphereRadius-z)/dz;
+        if (first > last) std::swap(first, last);
+        enter = (std::max)(enter, first); exit = (std::min)(exit, last);
+        if (enter > exit) return false;
+    }
+    const double x = dot(p,right)/rx, y = dot(p,up)/ry;
+    const double dx = dot(delta,right)/rx, dy = dot(delta,up)/ry;
+    const double speedSquared = dx*dx + dy*dy;
+    const double t = speedSquared > 1.0e-20 ? (std::clamp)(-(x*dx+y*dy)/speedSquared,enter,exit) : enter;
+    const double closestX = x+dx*t, closestY = y+dy*t;
+    return closestX*closestX + closestY*closestY <= 1.0 + 1.0e-12;
+}
 }

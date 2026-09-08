@@ -29,80 +29,104 @@ int gTestSceneAttackTuningTarget = 0;
 #endif
 
 
-void ImGuiManagaer::Initialize([[maybe_unused]]WinApp* winApp, [[maybe_unused]] DirectXCommon* dxCommon, [[maybe_unused]] SrvManager* srvManager)
+void ImGuiManagaer::Initialize(WinApp* winApp, DirectXCommon* dxCommon, SrvManager* srvManager)
 {
-#if defined(USE_IMGUI) || defined(USE_GAME_UI)
-
-
-
-    if (initialized_) return;
-
+    if (initialized_ || !winApp || !dxCommon || !srvManager) return;
     winApp_ = winApp;
     dxCommon_ = dxCommon;
     srvManager_ = srvManager;
 
-    // Context・域里縺ｫ縺ゅｌ縺ｰ菴懊ｉ縺ｪ縺・ｼ・
     if (ImGui::GetCurrentContext() == nullptr) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        ownsContext_ = true;
         ImGui::StyleColorsDark();
     }
 
-    ImGuiIO& io = ImGui::GetIO();
+    auto& io = ImGui::GetIO();
+#ifdef USE_IMGUI
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+#endif
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
-    const char* japaneseFontPaths[] = {
-        "resources/tex/font/menu.ttf",
-        "tex/font/menu.ttf",
-        "resources/Fonts/NikumaruFont.otf",
-        "C:/Windows/Fonts/meiryo.ttc",
-        "C:/Windows/Fonts/YuGothM.ttc",
-        "C:/Windows/Fonts/msgothic.ttc",
-    };
-    for (const char* fontPath : japaneseFontPaths) {
-        if (std::filesystem::exists(fontPath)) {
-            io.Fonts->AddFontFromFileTTF(fontPath, 22.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
-            break;
+    io.LogFilename = nullptr;
+    if (ownsContext_) {
+        const char* japaneseFontPaths[] = {
+            "resources/tex/font/menu.ttf", "tex/font/menu.ttf",
+            "resources/Fonts/NikumaruFont.otf", "C:/Windows/Fonts/meiryo.ttc",
+            "C:/Windows/Fonts/YuGothM.ttc", "C:/Windows/Fonts/msgothic.ttc",
+        };
+#ifdef USE_IMGUI
+        constexpr float fontSize = 22.0f;
+#else
+        // Keep the compact F8 overlay's existing line spacing in Release.
+        constexpr float fontSize = 17.0f;
+#endif
+        bool hasFont = false;
+        for (const char* fontPath : japaneseFontPaths) {
+            std::error_code error;
+            if (std::filesystem::is_regular_file(fontPath, error) && !error) {
+                hasFont = io.Fonts->AddFontFromFileTTF(fontPath, fontSize, nullptr,
+                    io.Fonts->GetGlyphRangesJapanese()) != nullptr;
+                if (hasFont) break;
+            }
+        }
+        if (!hasFont) {
+            ImFontConfig font{};
+            font.SizePixels = fontSize;
+            io.Fonts->AddFontDefault(&font);
         }
     }
-    // Win32 backend・域里縺ｫ縺ゅｌ縺ｰInit縺励↑縺・ｼ・
-    if (ImGui::GetIO().BackendPlatformUserData == nullptr) {
-        ImGui_ImplWin32_Init(winApp_->GetHwnd());
+    if (io.BackendPlatformUserData == nullptr) {
+        ownsPlatformBackend_ = ImGui_ImplWin32_Init(winApp_->GetHwnd());
+        if (!ownsPlatformBackend_) { Shutdown(); return; }
     }
-
-    // DX12 backend
-    ID3D12Device* device = dxCommon_->GetDevice();
-
-
-    // 笘・≠縺ｪ縺溘・SwapChain譫壽焚/format縺ｫ蜷医ｏ縺帙ｋ・医→繧翫≠縺医★2譫・UNORM縺ｧOK縺ｪ繧峨％縺ｮ縺ｾ縺ｾ・・
-    const int backBufferCount = 2;
-    const DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-
-    ImGui_ImplDX12_InitInfo initInfo{};
-    initInfo.Device = device;
-    initInfo.CommandQueue = dxCommon_->GetCommandQueue();
-    initInfo.NumFramesInFlight = backBufferCount;
-    initInfo.RTVFormat = rtvFormat;
-    initInfo.SrvDescriptorHeap = srvManager_->GetDescriptorHeap();
-    initInfo.UserData = srvManager_;
-    initInfo.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE* outCpu, D3D12_GPU_DESCRIPTOR_HANDLE* outGpu) {
-        auto* srvManager = static_cast<SrvManager*>(info->UserData);
-        const uint32_t index = srvManager->Allocate();
-        *outCpu = srvManager->GetCPUDescriptionHandle(index);
-        *outGpu = srvManager->GetGPUDescriptionHandle(index);
-    };
-    initInfo.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE) {
-    };
-
-    bool ok = ImGui_ImplDX12_Init(&initInfo);
-    assert(ok && "ImGui_ImplDX12_Init failed");
-    ImGui_ImplDX12_CreateDeviceObjects(); // 笘・％繧後ｒ霑ｽ蜉・磯㍾隕・ｼ・
-
+    if (io.BackendRendererUserData == nullptr) {
+        ImGui_ImplDX12_InitInfo info{};
+        info.Device = dxCommon_->GetDevice();
+        info.CommandQueue = dxCommon_->GetCommandQueue();
+        info.NumFramesInFlight = 2;
+        info.RTVFormat = dxCommon_->GetRTVFormat();
+        info.SrvDescriptorHeap = srvManager_->GetDescriptorHeap();
+        info.UserData = srvManager_;
+        info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo* init,
+            D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3D12_GPU_DESCRIPTOR_HANDLE* gpu) {
+            auto* descriptors = static_cast<SrvManager*>(init->UserData);
+            const uint32_t index = descriptors->Allocate();
+            *cpu = descriptors->GetCPUDescriptionHandle(index);
+            *gpu = descriptors->GetGPUDescriptionHandle(index);
+        };
+        info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*,
+            D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE) {};
+        ownsRendererBackend_ = ImGui_ImplDX12_Init(&info);
+        if (!ownsRendererBackend_) { Shutdown(); return; }
+        ImGui_ImplDX12_CreateDeviceObjects();
+    }
     initialized_ = true;
-#endif // USE_IMGUI
+    SetInputEnabled(false);
+}
 
-
+void ImGuiManagaer::SetInputEnabled([[maybe_unused]] bool enabled)
+{
+    if (!initialized_ || !ImGui::GetCurrentContext()) return;
+    auto& io = ImGui::GetIO();
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
+    // The existing editor / game UI retains its normal input policy.
+    inputEnabled_ = true;
+    io.SetAppAcceptingEvents(true);
+#else
+    if (inputEnabled_ != enabled) {
+        io.ClearInputKeys();
+        io.ClearInputMouse();
+    }
+    inputEnabled_ = enabled;
+    io.SetAppAcceptingEvents(enabled);
+    if (enabled) {
+        io.ConfigFlags &= ~(ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
+    } else {
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange;
+    }
+#endif
 }
 
 void ImGuiManagaer::SetSceneTexture(uint32_t srvIndex)
@@ -119,9 +143,7 @@ void ImGuiManagaer::SetPreviewTexture(uint32_t srvIndex)
 
 void ImGuiManagaer::Begin()
 {
-#if defined(USE_IMGUI) || defined(USE_GAME_UI)
-
-
+    if (!initialized_) return;
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -129,10 +151,6 @@ void ImGuiManagaer::Begin()
     BeginDockSpace_();
     DrawEditorPanels_();
 #endif
-
-#endif // USE_IMGUI
-
-
 }
 
 void ImGuiManagaer::BeginDockSpace_()
@@ -455,35 +473,20 @@ void ImGuiManagaer::DrawEditorPanels_()
 
 void ImGuiManagaer::End(ID3D12GraphicsCommandList* cmd)
 {
-#if defined(USE_IMGUI) || defined(USE_GAME_UI)
-
-
+    if (!initialized_ || !cmd) return;
     ImGui::Render();
-
-    // ImGui謠冗判蜑阪↓ SRV heap 繧偵そ繝・ヨ
     ID3D12DescriptorHeap* heaps[] = { srvManager_->GetDescriptorHeap() };
     cmd->SetDescriptorHeaps(1, heaps);
-
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmd);
-
-#endif // USE_IMGUI
-
-
 }
 
 void ImGuiManagaer::Shutdown()
 {
-
-#if defined(USE_IMGUI) || defined(USE_GAME_UI)
-
-
-    if (!initialized_) return;
-    ImGui_ImplDX12_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-    initialized_ = false;
-
-#endif // USE_IMGUI
-
-
+    if (ImGui::GetCurrentContext()) {
+        if (ownsRendererBackend_) ImGui_ImplDX12_Shutdown();
+        if (ownsPlatformBackend_) ImGui_ImplWin32_Shutdown();
+        if (ownsContext_) ImGui::DestroyContext();
+    }
+    initialized_ = inputEnabled_ = false;
+    ownsRendererBackend_ = ownsPlatformBackend_ = ownsContext_ = false;
 }
