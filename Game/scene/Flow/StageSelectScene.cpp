@@ -158,8 +158,12 @@ void StageSelectScene::Update(GameApp& app, float dt) {
             lastMouseX_ = mouse.x;
             lastMouseY_ = mouse.y;
         }
-        if (input->IsKeyTrigger(DIK_UP)) menuIndex_ = (menuIndex_ + 2) % 3;
-        if (input->IsKeyTrigger(DIK_DOWN)) menuIndex_ = (menuIndex_ + 1) % 3;
+        if (input->IsKeyTrigger(DIK_UP) || input->IsKeyTrigger(DIK_W))
+            menuIndex_ = (menuIndex_ + 2) % 3;
+
+        if (input->IsKeyTrigger(DIK_DOWN) || input->IsKeyTrigger(DIK_S))
+            menuIndex_ = (menuIndex_ + 1) % 3;
+
         if (input->IsKeyTrigger(DIK_ESCAPE) || input->IsKeyTrigger(DIK_BACK)) RequestChangeScene_("Title");
         if (input->IsKeyTrigger(DIK_E)) {
             mode_ = Mode::Encyclopedia;
@@ -186,8 +190,12 @@ void StageSelectScene::Update(GameApp& app, float dt) {
                 else if (inside(30, 674, 120, 32)) mode_ = Mode::StageSelect;
             }
         }
-        if (input->IsKeyTrigger(DIK_LEFT)) Select_(-1);
-        if (input->IsKeyTrigger(DIK_RIGHT)) Select_(1);
+        if (input->IsKeyTrigger(DIK_LEFT) || input->IsKeyTrigger(DIK_A))
+            Select_(-1);
+
+        if (input->IsKeyTrigger(DIK_RIGHT) || input->IsKeyTrigger(DIK_D))
+            Select_(1);
+
         if (input->IsKeyTrigger(DIK_ESCAPE) || input->IsKeyTrigger(DIK_BACK)) mode_ = Mode::StageSelect;
     }
 }

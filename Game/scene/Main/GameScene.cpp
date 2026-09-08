@@ -1,4 +1,4 @@
-#include "GameScene.h"
+﻿#include "GameScene.h"
 #include "boss/BossWaterEffectRenderer.h"
 #include "RenderManager.h"
 #include "FrameProfiler.h"
@@ -481,6 +481,10 @@ SceneLoadTask GameScene::Load(GameApp& app) {
     if (player_) {
         player_->SetAudioHandles(app.Audio(), throwSeHandle_, punchSeHandle_);
     }
+    deathPhase_ = DeathPhase::None;
+    deathFade_ = std::make_unique<Sprite>();
+    deathFade_->Initialize(app.SpriteCom(), app.Dx(), "");
+    deathFade_->SetScale({1280, 720, 1});
     co_return;
 }
 
@@ -535,6 +539,10 @@ void GameScene::OnExit(GameApp& app) {
 }
 
 void GameScene::Update(GameApp& app, float dt) {
+    if (deathPhase_ != DeathPhase::None) { UpdateDeath_(app, dt); return; }
+    if (player_ && (player_->IsDead() || (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F7)))) {
+        BeginDeath_(app); return;
+    }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F5)) {
         RequestChangeScene_("TestBattle");
         return;
@@ -598,6 +606,7 @@ void GameScene::Update(GameApp& app, float dt) {
             warningTimer_ <= 0.0f && !debugCameraEnabled_ && bossShip_->IsAttacksEnabled();
     };
     if (bossCombat_ && player_) bossCombat_->BeginPlayerFrame(dt, *player_, combatEnabled());
+    if (player_ && player_->IsDead()) { BeginDeath_(app); return; }
     if (player_ && app.GetInput() && !debugCameraEnabled_) {
         auto cpu = FrameProfiler::Get().ScopeCpu("Player update and collision");
         player_->Update(dt, *app.GetInput(), debrisList_);
@@ -605,6 +614,7 @@ void GameScene::Update(GameApp& app, float dt) {
         player_->CheckDebrisCollision(debrisList_);
     }
 
+    if (player_ && player_->IsDead()) { BeginDeath_(app); return; }
     // ボス船の更新と攻撃・被弾衝突判定
     if (bossShip_ && player_) {
         bossShip_->SetCombatMovementLocked(combatEnabled() && bossCombat_ && bossCombat_->WantsStationaryShip());
@@ -613,8 +623,10 @@ void GameScene::Update(GameApp& app, float dt) {
     if (bossCombat_ && player_) bossCombat_->Update(dt, *player_, oceanFlow_.center, combatEnabled(),
         underwaterEnvironment_ ? underwaterEnvironment_->GetFloorHeight() : -22.0f,
         underwaterEnvironment_ ? underwaterEnvironment_->GetBeamCollisionWorld() : nullptr);
+    if (player_ && player_->IsDead()) { BeginDeath_(app); return; }
     if (bossShip_ && player_) {
         if (combatEnabled()) bossShip_->CheckCollisionWithPlayer(player_.get());
+        if (player_->IsDead()) { BeginDeath_(app); return; }
 
         // ボスが画面内に映っている時のみエイムアシスト・ホーミングターゲット位置を連携
         bool isBossVisibleInScreen = IsBossInScreen(bossShip_->GetPosition(), camera_.get());
@@ -638,8 +650,7 @@ void GameScene::Update(GameApp& app, float dt) {
 
     // プレイヤー死亡時判定
     if (player_ && player_->IsDead()) {
-        if (bossCombat_) bossCombat_->Reset(player_.get());
-        app.Scenes().Change(app, "GameOver");
+        BeginDeath_(app);
         return;
     }
 
@@ -938,6 +949,12 @@ void GameScene::Draw(GameApp& app) {
 }
 
 void GameScene::DrawOverlay2D(GameApp&) {
+    if (deathPhase_ != DeathPhase::None) {
+        deathFade_->SetColor({0, 0, 0, deathAlpha_});
+        deathFade_->Update(Matrix4x4::MakeIdentity4x4(), Matrix4x4::MakeOrthographicMatrix(0,0,1280,720,0,1));
+        deathFade_->Draw();
+        return;
+    }
     if (IsBossEntrance_()) return;
 
     // 2D UI スプライト HPバーの描画
@@ -1382,4 +1399,52 @@ void GameScene::DrawImGui(GameApp& app) {
         }
     }
 #endif
+}
+
+namespace {
+constexpr float kDeathMove = 2.2f, kDeathArc = 2.5f, kDeathDistance = 8.0f;
+constexpr float kDeathHold = 0.65f, kDeathFade = 0.85f;
+}
+void GameScene::BeginDeath_(GameApp& app) {
+    if (deathPhase_ != DeathPhase::None || !player_ || !camera_) return;
+    deathPhase_ = DeathPhase::CameraMove; deathTime_ = deathAlpha_ = 0;
+    deathTarget_ = player_->GetPosition(); deathStart_ = camera_->GetTranslate();
+    deathRotation_ = camera_->GetRotate();
+    const Vector3 offset = deathStart_ - deathTarget_;
+    deathAngle_ = std::atan2(offset.x, offset.z);
+    deathRadius_ = std::sqrt(offset.x*offset.x + offset.z*offset.z);
+    if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(false);
+    if (bossCombat_) bossCombat_->PauseWarnings();
+}
+void GameScene::UpdateDeath_(GameApp& app, float dt) {
+    deathTime_ += std::max(0.0f, dt);
+    if (deathPhase_ == DeathPhase::CameraMove) {
+        const float t = std::clamp(deathTime_ / kDeathMove, 0.0f, 1.0f);
+        const float u = t*t*(3-2*t);
+        float arc = std::remainder(player_->GetYaw() + 0.35f - deathAngle_, 6.2831853f);
+        if (std::abs(arc) < 0.4f) arc += kDeathArc;
+        const float angle = deathAngle_ + arc*u;
+        const float radius = deathRadius_ + (kDeathDistance-deathRadius_)*u;
+        Vector3 pos{deathTarget_.x + std::sin(angle)*radius,
+            deathStart_.y + (deathTarget_.y+2.0f-deathStart_.y)*u,
+            deathTarget_.z + std::cos(angle)*radius};
+        const Vector3 look = deathTarget_ - pos;
+        const float yaw = std::atan2(look.x, look.z);
+        const float pitch = -std::atan2(look.y, std::sqrt(look.x*look.x+look.z*look.z));
+        camera_->SetTranslate(pos);
+        camera_->SetRotate({deathRotation_.x+(pitch-deathRotation_.x)*u,
+            deathRotation_.y+std::remainder(yaw-deathRotation_.y,6.2831853f)*u,deathRotation_.z*(1-u)});
+        deathAlpha_ = 0.12f*u;
+        player_->SetDeathSpotlight(pos, deathTarget_ - pos, 2.5f*u);
+        if (t >= 1) { deathPhase_ = DeathPhase::Hold; deathTime_ = 0; }
+    } else if (deathPhase_ == DeathPhase::Hold && deathTime_ >= kDeathHold) {
+        deathPhase_ = DeathPhase::Fade; deathTime_ = 0;
+    } else if (deathPhase_ == DeathPhase::Fade) {
+        deathAlpha_ = 0.12f + 0.88f*std::clamp(deathTime_/kDeathFade,0.0f,1.0f);
+        if (deathAlpha_ >= 1) { deathPhase_ = DeathPhase::Black; deathTime_ = 0; }
+    } else if (deathPhase_ == DeathPhase::Black) {
+        RequestChangeScene_("GameOver");
+    }
+    camera_->Update();
+    ParticleManager::GetInstance()->Update(0.0f, *camera_);
 }

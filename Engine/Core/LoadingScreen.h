@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "GameApp.h"
 #include "Sprite.h"
 #include <array>
@@ -36,7 +36,13 @@ public:
     }
     void Reset() { time_ = 0.0f; progress_ = 0.0f; }
     void Update(float dt, float progress) { time_ += std::max(0.0f, dt); progress_ = std::clamp(progress, 0.0f, 1.0f); }
+    void DrawBlack() {
+        background_->SetColor({0,0,0,1});
+        background_->Update(Matrix4x4::MakeIdentity4x4(), Matrix4x4::MakeOrthographicMatrix(0,0,1280,720,0,1));
+        background_->Draw();
+    }
     void Draw() {
+        background_->SetColor({0.015f,0.065f,0.10f,1});
         const auto view = Matrix4x4::MakeIdentity4x4();
         const auto projection = Matrix4x4::MakeOrthographicMatrix(0, 0, 1280, 720, 0, 1);
         auto draw = [&](Sprite& sprite) { sprite.Update(view, projection); sprite.Draw(); };

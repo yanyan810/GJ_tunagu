@@ -1,4 +1,4 @@
-#include "Player.h"
+﻿#include "Player.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
@@ -551,4 +551,16 @@ void Player::DrawImGui() {
         mouseSensitivity_ = 0.0003f;
     }
 #endif
+}
+
+void Player::SetDeathSpotlight(const Vector3& position, const Vector3& direction, float intensity) {
+    if (!model_) return;
+    model_->SetSpotLightPos(position);
+    model_->SetSpotLightDirection(direction);
+    model_->SetSpotLightColor({1.0f, 0.95f, 0.82f, 1});
+    model_->SetSpotLightDistance(40.0f);
+    model_->SetSpotLightDecay(1.0f);
+    model_->SetSpotLightCosAngle(0.80f);
+    model_->SetSpotLightCosFalloffStart(0.95f);
+    model_->SetSpotLightIntensity(intensity);
 }
