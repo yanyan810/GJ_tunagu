@@ -249,6 +249,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\BossWaterEffectRenderer.cpp" />
     <ClCompile Include="Game\boss\ShockwaveEffects.cpp" />
     <ClCompile Include="Game\boss\AnchorEffects.cpp" />
+    <ClCompile Include="Game\boss\BossCombatController.cpp" />
+    <ClCompile Include="Game\boss\BossCombatRig.cpp" />
+    <ClCompile Include="Game\boss\BossCombatSettings.cpp" />
+    <ClCompile Include="Game\boss\BossPlayerInteraction.cpp" />
+    <ClCompile Include="Game\boss\BossCombatCollision.cpp" />
     <ClCompile Include="Game\boss\MineBombGeometry.cpp" />
     <ClCompile Include="Game\boss\MineBloom.cpp" />
     <ClCompile Include="Game\scene\Test\ShipScene.cpp" />
@@ -662,6 +667,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\boss\BossWaterEffectRenderer.h" />
     <ClInclude Include="Game\boss\ShockwaveEffects.h" />
     <ClInclude Include="Game\boss\AnchorEffects.h" />
+    <ClInclude Include="Game\boss\BossCombatController.h" />
+    <ClInclude Include="Game\boss\BossCombatRig.h" />
+    <ClInclude Include="Game\boss\BossCombatSettings.h" />
+    <ClInclude Include="Game\boss\BossPlayerInteraction.h" />
+    <ClInclude Include="Game\boss\BossCombatCollision.h" />
     <ClInclude Include="Game\boss\MineBombGeometry.h" />
     <ClInclude Include="Game\boss\MineBloom.h" />
     <ClInclude Include="Game\boss\BossBulletAttack.h" />

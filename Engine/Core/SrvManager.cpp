@@ -1,7 +1,10 @@
 ﻿#include "SrvManager.h"
 #include <cassert>
+#include <stdexcept>
 
-const uint32_t SrvManager::kMaxSRVCount = 512;
+// The ocean scene prepares skinned creatures and boss presentation together.
+// Reserve enough descriptors up front; moving the heap would invalidate handles.
+const uint32_t SrvManager::kMaxSRVCount = 8192;
 
 void SrvManager::Initialize(DirectXCommon* dxCommon)
 {
@@ -24,7 +27,7 @@ void SrvManager::Initialize(DirectXCommon* dxCommon)
 uint32_t SrvManager::Allocate()
 {
     if (useIndex >= kMaxSRVCount) {
-        assert(!"SRV index overflow");
+        throw std::runtime_error("SRV descriptor heap exhausted");
     }
     return useIndex++;
 }

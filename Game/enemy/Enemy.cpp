@@ -17,6 +17,15 @@
 Enemy::Enemy() = default;
 Enemy::~Enemy() = default;
 
+void Enemy::SetManagedCombat(bool managed) {
+    if (managedCombat_ == managed) return;
+    managedCombat_ = managed;
+    combatMovementLocked_ = false;
+    // Switching owners cannot leave hidden legacy projectiles waiting to hit.
+    if (bulletAttack_) bulletAttack_->Reset();
+    if (netAttack_) netAttack_->Reset();
+}
+
 void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam) {
     objCommon_ = objCommon;
     dx_ = dx;
@@ -72,7 +81,7 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
 
     // 1. 水面上でプレイヤーを中心に旋回移動
     const Vector3 previousPosition = pos_;
-    if (movementEnabled_) {
+    if (movementEnabled_ && !combatMovementLocked_) {
         moveAngle_ += orbitAngularSpeed_ * dt;
         const Vector3 orbitCenter = fixedBattleCenter_ ? battleCenter_ : playerPos;
         float targetX = orbitCenter.x + std::cos(moveAngle_) * orbitRadius_;
@@ -115,17 +124,17 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
 
         shipModel_->SetScale(scale_);
         shipModel_->SetEnableLighting(shipLightingEnabled_ ? 1 : 0);
-        screwAnimation_.Update(*shipModel_, dt, false,
+        if (!managedCombat_) screwAnimation_.Update(*shipModel_, dt, false,
             movement.x * movement.x + movement.z * movement.z > 0.000001f);
         readability_.Apply(*shipModel_, camera_, damageFlashTimer_ > 0.0f);
         shipModel_->Update(dt);
     }
 
-    if (attacksEnabled_ && bulletAttack_) {
+    if (!managedCombat_ && attacksEnabled_ && bulletAttack_) {
         bulletAttack_->TryFire(dt, pos_, playerPos);
         bulletAttack_->Update(dt);
     }
-    if (attacksEnabled_ && netAttack_) {
+    if (!managedCombat_ && attacksEnabled_ && netAttack_) {
         netAttack_->TryCast(dt, pos_, playerPos);
         netAttack_->Update(dt);
     }
@@ -183,6 +192,7 @@ bool Enemy::CheckCollisionWithDebris(Debris* debris) {
 }
 
 void Enemy::CheckCollisionWithPlayer(Player* player) {
+    if (managedCombat_) return;
     if (!player || player->IsDead()) return;
 
     if (bulletAttack_) bulletAttack_->CheckCollision(*player);
@@ -194,8 +204,8 @@ void Enemy::Draw() {
         shipModel_->Draw();
     }
 
-    if (bulletAttack_) bulletAttack_->Draw();
-    if (netAttack_) netAttack_->Draw();
+    if (!managedCombat_ && bulletAttack_) bulletAttack_->Draw();
+    if (!managedCombat_ && netAttack_) netAttack_->Draw();
     if (showOrbitDebug_ && orbitDebugModel_) orbitDebugModel_->Draw();
     if (showCollisionDebug_ && collisionDebugModel_) collisionDebugModel_->Draw();
 }

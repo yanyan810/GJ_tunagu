@@ -43,6 +43,8 @@ public:
         Object3dCommon* objectCommon, DirectXCommon* dx, Camera* camera,
         const MineEmissionSample& emission, const MineMotionSettings& settings);
     void Update(float dt);
+    // Reuse the preallocated instance when the main-game host launches again.
+    void Relaunch(const MineEmissionSample& emission, const MineMotionSettings& settings);
     void Draw();
 
     // A simple velocity impulse shared by future screw, shockwave and explosion forces.

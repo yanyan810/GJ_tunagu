@@ -749,6 +749,36 @@
     <ClCompile Include="Game\boss\AnchorEffects.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
+    <ClCompile Include="Game\boss\BossCombatController.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossCombatRig.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossCombatSettings.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossPlayerInteraction.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossCombatCollision.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClInclude Include="Game\boss\BossCombatController.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossCombatRig.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossCombatSettings.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossPlayerInteraction.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\BossCombatCollision.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
     <ClInclude Include="Game\boss\BossWaterEffectRenderer.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
