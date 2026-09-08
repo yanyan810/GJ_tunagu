@@ -35,7 +35,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     // --- ドロップ・基本 ---
     case DebrisType::Uni:
         name_ = "ウニ";
-        modelPath = "suzanne.obj";
+        modelPath = "sea_urchin/sea_urchin.gltf";
         weight_ = 1.2f;
         hpBuff_ = 30.0f;          // HP +30
         throwAtkBuff_ = 0.5f;     // 投擲ダメージ +50%
@@ -64,7 +64,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     // --- 普通に拾える海洋生物 (8種) ---
     case DebrisType::Archerfish:
         name_ = "テッポウウオ";
-        modelPath = "plane.obj";
+        modelPath = "Archerfish/Archerfish.gltf";
         weight_ = 0.6f;
         atk_ = 15.0f;
         scale_ = { 1.0f, 0.4f, 0.4f };
@@ -72,7 +72,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Pufferfish:
         name_ = "ハリセンボン";
-        modelPath = "suzanne.obj";
+        modelPath = "pufferfish/pufferfish.gltf";
         weight_ = 1.0f;
         atk_ = 50.0f;
         throwAtkBuff_ = 0.8f;
@@ -81,7 +81,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Remora:
         name_ = "コバンザメ";
-        modelPath = "plane.obj";
+        modelPath = "suckfish/suckfish.gltf";
         weight_ = 0.5f;
         speedBuff_ = 0.10f;
         scale_ = { 1.1f, 0.3f, 0.35f };
@@ -89,7 +89,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Shell:
         name_ = "貝";
-        modelPath = "ring.obj";
+        modelPath = "shell/shell.gltf";
         weight_ = 1.5f;
         hpBuff_ = 25.0f;
         defenseBuff_ = 0.25f;
@@ -98,7 +98,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Shrimp:
         name_ = "エビ";
-        modelPath = "ring.obj";
+        modelPath = "shrimp/shrimp_walk.gltf";
         weight_ = 0.4f;
         atkBuff_ = 0.30f;
         scale_ = { 0.9f, 0.9f, 0.9f };
@@ -106,7 +106,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Jellyfish:
         name_ = "クラゲ";
-        modelPath = "teapot.obj";
+        modelPath = "jellyfish/jellyfish.gltf";
         weight_ = 0.3f;
         chargeSpeedBuff_ = 0.50f;
         scale_ = { 1.0f, 1.0f, 1.0f };
@@ -114,7 +114,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Halfbeak:
         name_ = "サヨリ";
-        modelPath = "plane.obj";
+        modelPath = "Halfbeak/halfbeak.gltf";
         weight_ = 0.3f;
         speedBuff_ = 0.25f;
         scale_ = { 1.3f, 0.3f, 0.3f };
@@ -122,7 +122,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Starfish:
         name_ = "ヒトデ";
-        modelPath = "suzanne.obj";
+        modelPath = "Starfish/Starfish.gltf";
         weight_ = 0.5f;
         throwAtkBuff_ = 0.40f;
         scale_ = { 1.1f, 1.1f, 1.1f };
@@ -132,7 +132,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     // --- 倒してから装備できる強力な海洋生物 (6種) ---
     case DebrisType::Marlin:
         name_ = "カジキ";
-        modelPath = "plane.obj";
+        modelPath = "marlin/marlin.gltf";
         weight_ = 1.8f;
         atk_ = 90.0f;
         throwAtkBuff_ = 1.00f;
@@ -141,7 +141,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Dolphin:
         name_ = "イルカ";
-        modelPath = "suzanne.obj";
+        modelPath = "dolphin/dolphin.gltf";
         weight_ = 0.8f;
         speedBuff_ = 0.50f;
         chargeSpeedBuff_ = 0.40f;
@@ -150,7 +150,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Orca:
         name_ = "シャチ";
-        modelPath = "teapot.obj";
+        modelPath = "orca/orca.gltf";
         weight_ = 2.5f;
         atkBuff_ = 0.70f;
         defenseBuff_ = 0.20f;
@@ -159,7 +159,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Crab:
         name_ = "カニ";
-        modelPath = "ring.obj";
+        modelPath = "crab/crab.gltf";
         weight_ = 2.0f;
         hpBuff_ = 45.0f;
         defenseBuff_ = 0.35f;
@@ -168,7 +168,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::MantisShrimp:
         name_ = "シャコ";
-        modelPath = "suzanne.obj";
+        modelPath = "mantis_shrimp/mantis_shrimp.gltf";
         weight_ = 1.2f;
         atk_ = 60.0f;
         atkBuff_ = 0.40f;
@@ -177,7 +177,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Shark:
         name_ = "サメ";
-        modelPath = "teapot.obj";
+        modelPath = "shark/shark.gltf";
         weight_ = 2.2f;
         atk_ = 40.0f;
         atkBuff_ = 0.50f;
@@ -194,12 +194,39 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     model_->Initialize(objCommon, dx);
     model_->SetCamera(cam);
     model_->SetModel(modelPath);
+    modelCenter_ = {};
+    modelRotation_ = {};
+    marineModel_ = type_ != DebrisType::Teapot && type_ != DebrisType::Screw;
+    if (marineModel_) {
+        // Preserve proportions and normalize authored sizes around the pickup point.
+        AABB bounds{};
+        if (model_->GetModel()->GetLocalAABB(bounds)) {
+            const Vector3 extent = bounds.max - bounds.min;
+            const float authoredSize = std::max({ extent.x, extent.y, extent.z, 0.001f });
+            const float desiredSize = 2.0f * std::max({ scale_.x, scale_.y, scale_.z });
+            const float uniformScale = desiredSize / authoredSize;
+            scale_ = { uniformScale, uniformScale, uniformScale };
+            modelCenter_ = (bounds.min + bounds.max) * 0.5f;
+        }
+        if (type_ == DebrisType::Archerfish) modelRotation_.y = 3.14159265f;
+        if (type_ == DebrisType::Shrimp || type_ == DebrisType::Pufferfish)
+            modelRotation_.y = -1.5707963f;
+        model_->SetMaterialColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+        model_->PlayAnimation("", true);
+    }
     model_->SetScale(scale_);
     
     rot_ = { 0.0f, 0.0f, 0.0f };
-    model_->SetTranslate(pos_);
-    model_->SetRotate(rot_);
+    ApplyModelTransform_(rot_);
     model_->SetEnableLighting(1);
+    model_->Update(0.0f);
+}
+
+void Debris::ApplyModelTransform_(const Vector3& rotation) {
+    const Vector3 visualRotation = rotation + modelRotation_;
+    const Matrix4x4 basis = Matrix4x4::MakeAffineMatrix(scale_, visualRotation, {});
+    model_->SetTranslate(pos_ - TransformCoord(modelCenter_, basis));
+    model_->SetRotate(visualRotation);
 }
 
 void Debris::UpdateFloating(float dt) {
@@ -214,10 +241,9 @@ void Debris::UpdateFloating(float dt) {
 
     // ゆっくり回転させて漂っている感を出す
     rot_.y += 0.4f * dt;
-    rot_.x += 0.2f * dt;
+    if (!marineModel_) rot_.x += 0.2f * dt;
 
-    model_->SetTranslate(pos_);
-    model_->SetRotate(rot_);
+    ApplyModelTransform_(rot_);
     model_->Update(dt);
 }
 
@@ -287,8 +313,7 @@ void Debris::UpdateAttached(
     // ※マグロ自身の描画時に-90度回転されているため、アタッチされたオブジェクトの向きをマグロと合わせる
     // 親のワールド行列で座標変換しているため、SetRotateには追加のオフセット回転を適用する
     const float kParentYawOffset = -1.5707963f; // マグロの表示オフセット
-    model_->SetTranslate(pos_);
-    model_->SetRotate({ rot_.x, rot_.y + kParentYawOffset, rot_.z });
+    ApplyModelTransform_({ rot_.x, rot_.y + kParentYawOffset, rot_.z });
     model_->Update(dt);
 }
 
@@ -350,8 +375,7 @@ void Debris::UpdateThrown(float dt) {
         isDead_ = true;
     }
 
-    model_->SetTranslate(pos_);
-    model_->SetRotate(rot_);
+    ApplyModelTransform_(rot_);
     model_->Update(dt);
 }
 
