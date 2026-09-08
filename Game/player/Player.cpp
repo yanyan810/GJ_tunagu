@@ -5,6 +5,7 @@
 #include "Camera.h"
 #include "Input.h"
 #include "Debris.h"
+#include "AudioSystem.h"
 #include <cmath>
 #include <algorithm>
 #ifdef USE_IMGUI
@@ -23,6 +24,14 @@ namespace {
         result.y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + m.m[3][1];
         result.z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + m.m[3][2];
         return result;
+    }
+}
+
+void Player::TakeDamage(float damage) {
+    float finalDamage = damage * (1.0f - std::clamp(defenseBuff_, 0.0f, 0.8f));
+    hp_ = std::clamp(hp_ - finalDamage, 0.0f, maxHp_);
+    if (audio_ && punchSeHandle_ != 0 && damage > 0.0f) {
+        audio_->Play(punchSeHandle_, 1.0f);
     }
 }
 
@@ -388,6 +397,11 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
 
                     // ゴミを飛ばす
                     debris->Throw(startPos, velocity);
+
+                    // 投擲SEの再生（水面に石を投げる）
+                    if (audio_ && throwSeHandle_ != 0) {
+                        audio_->Play(throwSeHandle_, 0.9f);
+                    }
 
                     // シーンのリストに追加
                     debrisList.push_back(std::move(debris));

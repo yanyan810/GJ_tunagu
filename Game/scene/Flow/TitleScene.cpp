@@ -80,6 +80,7 @@ void TitleScene::OnEnter(GameApp& app) {
         app.Audio()->StopAll();
         bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/Title.mp3", true);
         app.Audio()->Play(bgmHandle_, 0.6f);
+        divingSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/ダイビング（水中）.mp3", false);
     }
 }
 
@@ -136,6 +137,9 @@ void TitleScene::Update(GameApp& app, float dt) {
         if (app.GetInput()->IsKeyTrigger(DIK_SPACE) ||
             app.GetInput()->IsKeyTrigger(DIK_RETURN) ||
             app.GetInput()->IsMouseLeftTrigger()) {
+            if (app.Audio() && divingSeHandle_ != 0) {
+                app.Audio()->Play(divingSeHandle_, 1.0f);
+            }
             app.Scenes().Change(app, "Game");
             return;
         }

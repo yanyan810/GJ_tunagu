@@ -332,11 +332,17 @@ void GameScene::OnEnter(GameApp& app) {
         arenaWalls_.push_back(std::move(wall));
     }
 
-    // GameScene.mp3 BGM の再生開始
+    // GameScene.mp3 BGM の再生開始および各種 SE の読み込み
     if (app.Audio()) {
         app.Audio()->StopAll();
         bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/GameScene.mp3", true);
         app.Audio()->Play(bgmHandle_, 0.5f);
+        throwSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/水面に石投げ2.mp3", false);
+        punchSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/小パンチ.mp3", false);
+        explosionSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/爆発1.mp3", false);
+    }
+    if (player_) {
+        player_->SetAudioHandles(app.Audio(), throwSeHandle_, punchSeHandle_);
     }
 }
 
@@ -351,10 +357,11 @@ void GameScene::OnExit(GameApp& app) {
     };
     if (bossCombat_) bossCombat_->Reset(player_.get());
     bossCombat_.reset();
-    if (app.Audio() && bgmHandle_ != 0) {
-        app.Audio()->Stop(bgmHandle_);
-        app.Audio()->Unload(bgmHandle_);
-        bgmHandle_ = 0;
+    if (app.Audio()) {
+        if (bgmHandle_ != 0) { app.Audio()->Stop(bgmHandle_); app.Audio()->Unload(bgmHandle_); bgmHandle_ = 0; }
+        if (throwSeHandle_ != 0) { app.Audio()->Unload(throwSeHandle_); throwSeHandle_ = 0; }
+        if (punchSeHandle_ != 0) { app.Audio()->Unload(punchSeHandle_); punchSeHandle_ = 0; }
+        if (explosionSeHandle_ != 0) { app.Audio()->Unload(explosionSeHandle_); explosionSeHandle_ = 0; }
     }
     preparedBoss_.reset();
     report("Prepared boss");
@@ -473,6 +480,9 @@ void GameScene::Update(GameApp& app, float dt) {
                     if (bossShip_->CheckCollisionWithDebris(debris.get())) {
                         debris->SetDead(true);
                         bossHpShakeTimer_ = 0.35f; // 被弾時にHPバーを振動させる
+                        if (app.Audio() && punchSeHandle_ != 0) {
+                            app.Audio()->Play(punchSeHandle_, 1.0f);
+                        }
                     }
                 }
             }
@@ -493,6 +503,9 @@ void GameScene::Update(GameApp& app, float dt) {
 
         if (clearTransitionTimer_ == 0.0f) {
             bossShip_->TriggerExplosion(); // 初回フレームで爆散シーケンス（パーツ拡散運動）開始！
+            if (app.Audio() && explosionSeHandle_ != 0) {
+                app.Audio()->Play(explosionSeHandle_, 1.0f);
+            }
         }
         clearTransitionTimer_ += dt;
         bossShip_->UpdateExplosion(dt); // 毎フレーム爆散物理シミュレーションを更新
@@ -529,6 +542,9 @@ void GameScene::Update(GameApp& app, float dt) {
                     if (distSq <= hitDist * hitDist) {
                         targetDebris->TakeDamage(thrownDebris->GetAtk());
                         thrownDebris->SetDead(true);
+                        if (app.Audio() && punchSeHandle_ != 0) {
+                            app.Audio()->Play(punchSeHandle_, 0.9f);
+                        }
                         break;
                     }
                 }

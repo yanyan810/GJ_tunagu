@@ -67,4 +67,7 @@ private:
     bool simulationPaused_ = false;
     bool stepOneFrame_ = false;
     int bgmHandle_ = 0;
+    int throwSeHandle_ = 0;
+    int punchSeHandle_ = 0;
+    int explosionSeHandle_ = 0;
 };
