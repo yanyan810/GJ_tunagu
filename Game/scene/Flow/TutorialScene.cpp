@@ -85,6 +85,12 @@ void TutorialScene::OnEnter(GameApp& app) {
 }
 
 void TutorialScene::OnExit(GameApp& app) {
+    if (app.Audio()) {
+        for (int* handle : {&throwSeHandle_, &punchSeHandle_, &clearSeHandle_, &divingSeHandle_}) {
+            if (*handle != 0) app.Audio()->Unload(*handle);
+            *handle = 0;
+        }
+    }
     if (app.Audio() && bgmHandle_ != 0) {
         app.Audio()->Stop(bgmHandle_);
         app.Audio()->Unload(bgmHandle_);
@@ -94,6 +100,7 @@ void TutorialScene::OnExit(GameApp& app) {
         sprite.reset();
     }
     debrisList_.clear();
+    enemyHpBars_.Clear();
     dummyEnemy_.reset();
     player_.reset();
     underwaterEnvironment_.reset();
@@ -213,7 +220,7 @@ void TutorialScene::Update(GameApp& app, float dt) {
             stepProgress_ = 0.0f;
             showSuccessMessage_ = true;
             stepSuccessTimer_ = 0.0f;
-            if (app.Audio() && clearSeHandle_ != 0) app.Audio()->Play(clearSeHandle_, 0.8f);
+            if (app.Audio() && clearSeHandle_ != 0) { app.Audio()->Stop(clearSeHandle_); app.Audio()->Play(clearSeHandle_, 0.8f); }
 
             SpawnDebrisNearPlayer_(app, 3);
         }
@@ -230,7 +237,7 @@ void TutorialScene::Update(GameApp& app, float dt) {
             stepTimer_ = 0.0f;
             showSuccessMessage_ = true;
             stepSuccessTimer_ = 0.0f;
-            if (app.Audio() && clearSeHandle_ != 0) app.Audio()->Play(clearSeHandle_, 0.8f);
+            if (app.Audio() && clearSeHandle_ != 0) { app.Audio()->Stop(clearSeHandle_); app.Audio()->Play(clearSeHandle_, 0.8f); }
         }
         break;
     }
@@ -246,7 +253,7 @@ void TutorialScene::Update(GameApp& app, float dt) {
             stepTimer_ = 0.0f;
             showSuccessMessage_ = true;
             stepSuccessTimer_ = 0.0f;
-            if (app.Audio() && clearSeHandle_ != 0) app.Audio()->Play(clearSeHandle_, 0.8f);
+            if (app.Audio() && clearSeHandle_ != 0) { app.Audio()->Stop(clearSeHandle_); app.Audio()->Play(clearSeHandle_, 0.8f); }
 
             if (player_->GetAttachedDebrisCount() == 0) {
                 SpawnDebrisNearPlayer_(app, 4);
@@ -275,7 +282,7 @@ void TutorialScene::Update(GameApp& app, float dt) {
         if (enemyHit_) {
             step_ = Step::Completed;
             stepTimer_ = 0.0f;
-            if (app.Audio() && clearSeHandle_ != 0) app.Audio()->Play(clearSeHandle_, 1.0f);
+            if (app.Audio() && clearSeHandle_ != 0) { app.Audio()->Stop(clearSeHandle_); app.Audio()->Play(clearSeHandle_, 1.0f); }
         }
         break;
     }
@@ -312,7 +319,23 @@ void TutorialScene::Draw(GameApp& /*app*/) {
     }
 }
 
-void TutorialScene::DrawOverlay2D(GameApp& /*app*/) {
+void TutorialScene::DrawOverlay2D(GameApp& app) {
+    enemyHpBars_.Begin();
+    if (camera_) {
+
+        const auto vp = camera_->GetViewProjectionMatrix();
+        const auto viewer = camera_->GetTranslate();
+        for (const auto& debris : debrisList_) {
+            if (debris && debris->GetState() == DebrisState::Floating && !debris->IsCatchable()) {
+                enemyHpBars_.Draw(app, vp, viewer, debris->GetPosition(), debris->GetHeadPosition(), debris->GetHp(), debris->GetMaxHp());
+            }
+        }
+        if (dummyEnemy_ && !dummyEnemy_->IsDead()) {
+            const auto p = dummyEnemy_->GetPosition();
+            enemyHpBars_.Draw(app, vp, viewer, p, {p.x, p.y + 8.0f, p.z}, dummyEnemy_->GetHp(), dummyEnemy_->GetMaxHp());
+        }
+    }
+
     // ★ Release ビルド・本番ゲーム画面パスで100%確実に 2D 直描画されるスプライトテロップ ★
     int index = static_cast<int>(step_);
     if (index >= 0 && index < 5 && telopSprites_[index]) {

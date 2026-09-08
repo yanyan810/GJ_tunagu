@@ -9,6 +9,7 @@
 class GameApp;
 class IScene;
 class LoadingScreen;
+class BubbleTransition;
 
 class SceneManager {
 public:
@@ -41,6 +42,11 @@ public:
     }
 
 private:
+    std::unique_ptr<BubbleTransition> bubbles_;
+    std::string bubbleDestination_;
+    float bubbleTime_ = 0;
+    bool bubbleCovered_ = false;
+    bool completingBubble_ = false;
     std::unique_ptr<LoadingScreen> loadingScreen_;
     SceneLoadTask loadingTask_;
     bool loading_ = false;

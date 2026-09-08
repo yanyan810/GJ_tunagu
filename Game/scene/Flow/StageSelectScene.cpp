@@ -77,7 +77,19 @@ SceneLoadTask StageSelectScene::Load(GameApp& app) {
         names_.push_back(makeText(entry->GetName(), 154, 32, 18, true));
         std::ostringstream text;
         text << entry->GetName() << "\n\n" << EffectText_(entry->GetType())
-             << "\n\n重さ: " << entry->GetWeight() << "\n投げる攻撃力: " << entry->GetAtk();
+             << "\n\n投げる攻撃力: " << entry->GetAtk();
+        // Read the actual equipment values so the encyclopedia follows balance changes.
+        if (entry->GetHpBuff() > 0) text << "\n装備時の体力: +" << entry->GetHpBuff();
+        const auto percent = [&text](const char* label, float value) {
+            if (value > 0) text << "\n" << label << ": +" << std::lround(value * 100.0f) << "%";
+        };
+        percent("移動速度", entry->GetSpeedBuff());
+        percent("攻撃力", entry->GetAtkBuff());
+        percent("チャージ速度", entry->GetChargeSpeedBuff());
+        if (entry->GetDefenseBuff() > 0)
+            text << "\nダメージ軽減: " << std::lround(entry->GetDefenseBuff() * 100.0f) << "%";
+        percent("投げるダメージ", entry->GetThrowAtkBuff());
+        percent("投げる速度", entry->GetThrowSpeedBuff());
         descriptions_.push_back(makeText(text.str(), 560, 400, 24, false));
     }
     for (int i = 0; i < 100; ++i) {

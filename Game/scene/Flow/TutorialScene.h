@@ -1,5 +1,6 @@
 #pragma once
 #include "IScene.h"
+#include "../EnemyHpBars.h"
 #include "Sprite.h"
 #include "Player.h"
 #include "enemy/Enemy.h"
@@ -33,6 +34,8 @@ public:
 
 private:
     void SpawnDebrisNearPlayer_(GameApp& app, int count);
+
+    EnemyHpBars enemyHpBars_;
 
     Step step_ = Step::Movement;
     float stepTimer_ = 0.0f;

@@ -15,6 +15,7 @@ constexpr float kBounceHeight = 0.7f, kBounceTime = 0.6f;
 constexpr float kRotateTime = 0.8f, kLightTime = 0.7f;
 constexpr float kHeadingDelay = 0.25f, kHeadingFade = 0.6f;
 constexpr float kMenuDelay = 0.35f, kMenuFade = 0.5f;
+constexpr float kLaunchTime = 0.65f, kTunaAppearTime = 0.8f, kReviveHoldTime = 0.55f;
 // Label UV center faces model +X; importer mirrors X. Aim that side toward the camera.
 constexpr float kLabelYaw = -1.76f, kStartYaw = -0.35f, kRestY = 0.56f;
 float Smooth(float t) { t = std::clamp(t,0.0f,1.0f); return t*t*(3-2*t); }
@@ -70,6 +71,14 @@ void GameOverScene::OnEnter(GameApp& app) {
     can_->SetTranslate({-2.5f, kRestY + kDropHeight, 0.0f});
     can_->SetRotate({0.0f, -0.35f, 0.0f});
     can_->Update(0.0f);
+    tuna_ = object("tuna/tuna.obj");
+    tuna_->SetTexture("tuna/tuna+fish+3d+model_basecolor.jpg");
+    tuna_->SetIntensity(0.3f);
+    tuna_->SetSpotLightIntensity(5.0f);
+    tuna_->SetScale({0.01f,0.01f,0.01f});
+    tuna_->SetTranslate({-2.5f,kRestY,0});
+    tuna_->SetRotate({0,-1.2f,0});
+    tuna_->Update(0.0f);
     floor_ = object("cube/cube.obj");
     floor_->SetScale({20.0f, 0.1f, 20.0f});
     floor_->SetTranslate({0.0f, -0.1f, 0.0f});
@@ -82,24 +91,30 @@ void GameOverScene::OnEnter(GameApp& app) {
     mouseX_ = mouseY_ = -1;
     if (app.Audio()) {
         app.Audio()->StopAll();
-        bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/GameOver.mp3", true);
+        bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/gameover.mp3", true);
+        impactSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/tunacan.mp3", false);
         app.Audio()->Play(bgmHandle_, 0.6f);
     }
 }
 
 void GameOverScene::OnExit(GameApp& app) {
+    if (app.Audio() && impactSeHandle_ != 0) {
+        app.Audio()->Stop(impactSeHandle_);
+        app.Audio()->Unload(impactSeHandle_);
+        impactSeHandle_ = 0;
+    }
     if (app.Audio() && bgmHandle_ != 0) {
         app.Audio()->Stop(bgmHandle_);
         app.Audio()->Unload(bgmHandle_);
         bgmHandle_ = 0;
     }
     heading_.reset(); retry_.reset(); quit_.reset();
-    can_.reset(); floor_.reset(); bgSprite_.reset(); camera_.reset();
+    can_.reset(); floor_.reset(); tuna_.reset(); bgSprite_.reset(); camera_.reset();
 }
 
 void GameOverScene::Update(GameApp& app, float dt) {
     timer_ += dt;
-    UpdatePresentation_(dt);
+    UpdatePresentation_(app, dt);
     Input* input = app.GetInput();
     if (!input) return;
     if (input->IsCameraControlEnabled()) input->SetCameraControlEnabled(false);
@@ -125,7 +140,12 @@ void GameOverScene::Update(GameApp& app, float dt) {
 
     if (input->IsKeyTrigger(DIK_RETURN) || input->IsKeyTrigger(DIK_SPACE) ||
         (hovered >= 0 && input->IsMouseLeftTrigger())) {
-        RequestChangeScene_(selection_ == 0 ? "Game" : "Title");
+        if (selection_ == 0) {
+            phase_ = Phase::CanLaunch;
+            phaseTime_ = headingAlpha_ = menuAlpha_ = 0;
+        } else {
+            RequestChangeScene_("Title");
+        }
     }
 }
 
@@ -135,7 +155,8 @@ void GameOverScene::Draw(GameApp& /*app*/) {
     bgSprite_->Update(view, projection);
     bgSprite_->Draw();
     floor_->Draw();
-    can_->Draw();
+    if (phase_ != Phase::TunaAppear && phase_ != Phase::ReviveHold) can_->Draw();
+    if (phase_ == Phase::TunaAppear || phase_ == Phase::ReviveHold) tuna_->Draw();
 }
 
 void GameOverScene::DrawOverlay2D(GameApp& /*app*/) {
@@ -152,14 +173,17 @@ void GameOverScene::DrawOverlay2D(GameApp& /*app*/) {
 
 void GameOverScene::DrawImGui(GameApp& /*app*/) {}
 
-void GameOverScene::UpdatePresentation_(float dt) {
+void GameOverScene::UpdatePresentation_(GameApp& app, float dt) {
     phaseTime_ += std::max(0.0f, dt);
     const auto next = [this](Phase phase) { phase_ = phase; phaseTime_ = 0; };
     switch (phase_) {
     case Phase::Drop: {
         const float t = std::clamp(phaseTime_/kDropTime,0.0f,1.0f);
         can_->SetTranslate({-2.5f,kRestY+kDropHeight*(1-t*t),0});
-        if (t>=1) next(Phase::Bounce);
+        if (t>=1) {
+            if (app.Audio() && impactSeHandle_ != 0) app.Audio()->Play(impactSeHandle_, 0.8f);
+            next(Phase::Bounce);
+        }
         break;
     }
     case Phase::Bounce: {
@@ -167,7 +191,10 @@ void GameOverScene::UpdatePresentation_(float dt) {
         can_->SetTranslate({-2.5f,kRestY+4*kBounceHeight*t*(1-t),0});
         const float squash = 0.08f*std::exp(-12*t);
         can_->SetScale({1.1f+squash,1.1f-squash,1.1f+squash});
-        if (t>=1) { can_->SetScale({1.1f,1.1f,1.1f}); next(Phase::Rotate); }
+        if (t>=1) {
+            if (app.Audio() && impactSeHandle_ != 0) app.Audio()->Play(impactSeHandle_, 0.4f);
+            can_->SetScale({1.1f,1.1f,1.1f}); next(Phase::Rotate);
+        }
         break;
     }
     case Phase::Rotate: {
@@ -190,6 +217,26 @@ void GameOverScene::UpdatePresentation_(float dt) {
         if (menuAlpha_>=1) next(Phase::Ready);
         break;
     case Phase::Ready: break;
+    case Phase::CanLaunch: {
+        const float t = std::clamp(phaseTime_/kLaunchTime,0.0f,1.0f);
+        can_->SetTranslate({-2.5f-9.0f*t,kRestY+15.0f*t-3.0f*t*t,0});
+        can_->SetRotate({t*8.0f,kLabelYaw+t*10.0f,t*4.0f});
+        if (t>=1) next(Phase::TunaAppear);
+        break;
+    }
+    case Phase::TunaAppear: {
+        const float t = Smooth(phaseTime_/kTunaAppearTime);
+        const float size = 0.01f+1.79f*t;
+        tuna_->SetScale({size,size,size});
+        tuna_->SetTranslate({-2.5f,kRestY+1.1f*t,0});
+        tuna_->Update(dt);
+        if (phaseTime_>=kTunaAppearTime) next(Phase::ReviveHold);
+        break;
+    }
+    case Phase::ReviveHold:
+        tuna_->Update(dt);
+        if (phaseTime_>=kReviveHoldTime) RequestChangeScene_("Game");
+        break;
     }
     can_->Update(0.0f); floor_->Update(0.0f);
 }

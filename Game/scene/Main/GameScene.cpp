@@ -1,4 +1,4 @@
-﻿#include "GameScene.h"
+#include "GameScene.h"
 #include "boss/BossWaterEffectRenderer.h"
 #include "RenderManager.h"
 #include "FrameProfiler.h"
@@ -48,29 +48,6 @@ namespace {
 
         // 画面内（マージンを含めて ±1.15 の範囲）に収まっているか判定
         return (ndcX >= -1.15f && ndcX <= 1.15f && ndcY >= -1.15f && ndcY <= 1.15f && ndcZ >= 0.0f && ndcZ <= 1.0f);
-    }
-
-    // 3Dワールド座標をスクリーン2D座標へ変換するヘルパー関数
-    Vector3 WorldToScreen(const Vector3& worldPos, const Matrix4x4& vpMat, float screenWidth = 1280.0f, float screenHeight = 720.0f) {
-        float x = worldPos.x * vpMat.m[0][0] + worldPos.y * vpMat.m[1][0] + worldPos.z * vpMat.m[2][0] + vpMat.m[3][0];
-        float y = worldPos.x * vpMat.m[0][1] + worldPos.y * vpMat.m[1][1] + worldPos.z * vpMat.m[2][1] + vpMat.m[3][1];
-        float z = worldPos.x * vpMat.m[0][2] + worldPos.y * vpMat.m[1][2] + worldPos.z * vpMat.m[2][2] + vpMat.m[3][2];
-        float w = worldPos.x * vpMat.m[0][3] + worldPos.y * vpMat.m[1][3] + worldPos.z * vpMat.m[2][3] + vpMat.m[3][3];
-
-        if (w <= 0.001f) return { -1.0f, -1.0f, -1.0f };
-
-        float ndcX = x / w;
-        float ndcY = y / w;
-        float ndcZ = z / w;
-
-        if (ndcX < -1.2f || ndcX > 1.2f || ndcY < -1.2f || ndcY > 1.2f || ndcZ < 0.0f || ndcZ > 1.0f) {
-            return { -1.0f, -1.0f, -1.0f };
-        }
-
-        float screenX = (ndcX + 1.0f) * 0.5f * screenWidth;
-        float screenY = (1.0f - ndcY) * 0.5f * screenHeight;
-
-        return { screenX, screenY, ndcZ };
     }
 
     // 通常生物・基本ドロップを高確率（85%）で選出する重み付けスポーン関数
@@ -342,15 +319,6 @@ SceneLoadTask GameScene::Load(GameApp& app) {
     hpBarFillSprite_->SetPosition({ 34.0f, 34.0f });
     hpBarFillSprite_->SetColor({ 0.0f, 1.0f, 0.0f, 1.0f }); // 初期値：緑
 
-    // 強力生物の頭上 HPバー用スプライト初期化
-    creatureHpBarBgSprite_ = std::make_unique<Sprite>();
-    creatureHpBarBgSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
-    creatureHpBarBgSprite_->SetColor({ 0.10f, 0.10f, 0.10f, 0.85f }); // ダークグレー背景
-
-    creatureHpBarFillSprite_ = std::make_unique<Sprite>();
-    creatureHpBarFillSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
-    creatureHpBarFillSprite_->SetColor({ 0.0f, 1.0f, 0.0f, 1.0f });
-
     // 2D UI スプライトで構築する画面右上 ボスHPバーの初期化
     bossHpBarFrameSprite_ = std::make_unique<Sprite>();
     bossHpBarFrameSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
@@ -516,8 +484,7 @@ void GameScene::OnExit(GameApp& app) {
     bossHpBarCatchupSprite_.reset();
     bossHpBarBgSprite_.reset();
     bossHpBarFrameSprite_.reset();
-    creatureHpBarFillSprite_.reset();
-    creatureHpBarBgSprite_.reset();
+    enemyHpBars_.Clear();
     hpBarFillSprite_.reset();
     hpBarBgSprite_.reset();
     for (auto& sprite : timerDigitSprites_) {
@@ -948,7 +915,7 @@ void GameScene::Draw(GameApp& app) {
 
 }
 
-void GameScene::DrawOverlay2D(GameApp&) {
+void GameScene::DrawOverlay2D(GameApp& app) {
     if (deathPhase_ != DeathPhase::None) {
         deathFade_->SetColor({0, 0, 0, deathAlpha_});
         deathFade_->Update(Matrix4x4::MakeIdentity4x4(), Matrix4x4::MakeOrthographicMatrix(0,0,1280,720,0,1));
@@ -969,72 +936,21 @@ void GameScene::DrawOverlay2D(GameApp&) {
         if (bossHpBarFillSprite_) bossHpBarFillSprite_->Draw();
     }
 
-    // ----------------------------------------------------
-    // 常時 2D スプライト描画による強力生物の頭上 HPバー
-    // ----------------------------------------------------
-    if (creatureHpBarBgSprite_ && creatureHpBarFillSprite_ && camera_) {
-        Matrix4x4 activeVpMat = camera_->GetViewProjectionMatrix();
-        if (debugCameraEnabled_ && debugCamera_) {
-            activeVpMat = debugCamera_->GetViewMatrix() * camera_->GetProjectionMatrix();
-        }
-
-        Matrix4x4 viewMat = Matrix4x4::MakeIdentity4x4();
-        Matrix4x4 projMat = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
-
-        const DirectX::TexMetadata& bgMeta = TextureManager::GetInstance()->GetMetaData(creatureHpBarBgSprite_->GetTextureFilePath());
-        float bgTexW = (std::max)(1.0f, static_cast<float>(bgMeta.width));
-        float bgTexH = (std::max)(1.0f, static_cast<float>(bgMeta.height));
-
-        const DirectX::TexMetadata& fillMeta = TextureManager::GetInstance()->GetMetaData(creatureHpBarFillSprite_->GetTextureFilePath());
-        float fillTexW = (std::max)(1.0f, static_cast<float>(fillMeta.width));
-        float fillTexH = (std::max)(1.0f, static_cast<float>(fillMeta.height));
-
+    enemyHpBars_.Begin();
+    if (camera_) {
+        const bool debugView = debugCameraEnabled_ && debugCamera_;
+        const auto vp = debugView ? debugCamera_->GetViewMatrix() * camera_->GetProjectionMatrix() : camera_->GetViewProjectionMatrix();
+        const auto viewer = debugView ? debugCamera_->GetPosition() : camera_->GetTranslate();
         for (const auto& debris : debrisList_) {
-            if (debris && debris->GetState() == DebrisState::Floating && debris->IsStrongCreature() && !debris->IsCatchable()) {
-                Vector3 headWorldPos = debris->GetHeadPosition();
-                Vector3 screenPos = WorldToScreen(headWorldPos, activeVpMat, 1280.0f, 720.0f);
-                    if (screenPos.z >= 0.0f) {
-                        float ratio = (debris->GetMaxHp() > 0.0f) ? (debris->GetHp() / debris->GetMaxHp()) : 0.0f;
-                        ratio = std::clamp(ratio, 0.0f, 1.0f);
-
-                        // Playerと同配色の「緑 (100%) -> 黄 (50%) -> 赤 (0%)」グラデーション補間
-                        float r = 0.0f, g = 0.0f, b = 0.0f;
-                        if (ratio >= 0.5f) {
-                            float t = (ratio - 0.5f) * 2.0f;
-                            r = 1.0f - t;
-                            g = 1.0f;
-                        } else {
-                            float t = ratio * 2.0f;
-                            r = 1.0f;
-                            g = t;
-                        }
-
-                        float barWidth = 80.0f;
-                        float barHeight = 10.0f;
-                        float posX = screenPos.x - barWidth * 0.5f;
-                        float posY = screenPos.y;
-
-                        // 背景バー設定＆描画
-                        creatureHpBarBgSprite_->SetPosition({ posX - 2.0f, posY - 2.0f });
-                        creatureHpBarBgSprite_->SetScale({ (barWidth + 4.0f) / bgTexW, (barHeight + 4.0f) / bgTexH, 1.0f });
-                        creatureHpBarBgSprite_->SetColor({ 0.10f, 0.10f, 0.10f, 0.85f });
-                        creatureHpBarBgSprite_->Update(viewMat, projMat);
-                        creatureHpBarBgSprite_->Draw();
-
-                        // メインHPバー設定＆描画
-                        float fillWidth = barWidth * ratio;
-                        if (fillWidth > 0.0f) {
-                            creatureHpBarFillSprite_->SetPosition({ posX, posY });
-                            creatureHpBarFillSprite_->SetScale({ fillWidth / fillTexW, barHeight / fillTexH, 1.0f });
-                            creatureHpBarFillSprite_->SetColor({ r, g, b, 1.0f });
-                            creatureHpBarFillSprite_->Update(viewMat, projMat);
-                            creatureHpBarFillSprite_->Draw();
-                        }
-                    }
-                }
+            if (debris && debris->GetState() == DebrisState::Floating && !debris->IsCatchable()) {
+                enemyHpBars_.Draw(app, vp, viewer, debris->GetPosition(), debris->GetHeadPosition(), debris->GetHp(), debris->GetMaxHp());
             }
         }
-
+        if (bossShip_ && !bossShip_->IsDead()) {
+            const auto p = bossShip_->GetPosition();
+            enemyHpBars_.Draw(app, vp, viewer, p, {p.x, p.y + 8.0f, p.z}, bossShip_->GetHp(), bossShip_->GetMaxHp());
+        }
+    }
     if (bossCombat_) bossCombat_->DrawWarnings();
 
     // ----------------------------------------------------
@@ -1334,70 +1250,6 @@ void GameScene::DrawImGui(GameApp& app) {
     }
     ImGui::End();
 
-    // ----------------------------------------------------
-    // 未撃破の強力生物の頭上に Player と同配色の HP バーを描画
-    // ----------------------------------------------------
-    if (camera_) {
-        ImDrawList* drawList = ImGui::GetForegroundDrawList();
-        Matrix4x4 activeVpMat = camera_->GetViewProjectionMatrix();
-        if (debugCameraEnabled_ && debugCamera_) {
-            activeVpMat = debugCamera_->GetViewMatrix() * camera_->GetProjectionMatrix();
-        }
-
-        for (const auto& debris : debrisList_) {
-            if (debris && debris->GetState() == DebrisState::Floating && debris->IsStrongCreature() && !debris->IsCatchable()) {
-                Vector3 headWorldPos = debris->GetHeadPosition();
-                Vector3 screenPos = WorldToScreen(headWorldPos, activeVpMat, 1280.0f, 720.0f);
-                if (screenPos.z >= 0.0f) {
-                    float ratio = (debris->GetMaxHp() > 0.0f) ? (debris->GetHp() / debris->GetMaxHp()) : 0.0f;
-                    ratio = std::clamp(ratio, 0.0f, 1.0f);
-
-                    // Playerと同配色の「緑 (100%) -> 黄 (50%) -> 赤 (0%)」グラデーション補間
-                    float r = 0.0f, g = 0.0f, b = 0.0f;
-                    if (ratio >= 0.5f) {
-                        float t = (ratio - 0.5f) * 2.0f;
-                        r = 1.0f - t;
-                        g = 1.0f;
-                    } else {
-                        float t = ratio * 2.0f;
-                        r = 1.0f;
-                        g = t;
-                    }
-
-                    float barWidth = 90.0f;
-                    float barHeight = 10.0f;
-                    float posX = screenPos.x - barWidth * 0.5f;
-                    float posY = screenPos.y;
-
-                    // 1. 黒枠・背景バー
-                    drawList->AddRectFilled(
-                        ImVec2(posX - 2.0f, posY - 2.0f),
-                        ImVec2(posX + barWidth + 2.0f, posY + barHeight + 2.0f),
-                        IM_COL32(15, 15, 15, 230), 3.0f
-                    );
-
-                    // 2. メインHPゲージ (グラデーションカラー)
-                    float fillWidth = barWidth * ratio;
-                    if (fillWidth > 0.0f) {
-                        drawList->AddRectFilled(
-                            ImVec2(posX, posY),
-                            ImVec2(posX + fillWidth, posY + barHeight),
-                            IM_COL32(static_cast<int>(r * 255), static_cast<int>(g * 255), static_cast<int>(b * 255), 255), 2.0f
-                        );
-                    }
-
-                    // 3. 名称とHP数値テキスト
-                    char hpText[64];
-                    snprintf(hpText, sizeof(hpText), "%s HP %.0f/%.0f", debris->GetName().c_str(), debris->GetHp(), debris->GetMaxHp());
-                    drawList->AddText(
-                        ImVec2(posX, posY - 16.0f),
-                        IM_COL32(255, 255, 255, 255),
-                        hpText
-                    );
-                }
-            }
-        }
-    }
 #endif
 }
 

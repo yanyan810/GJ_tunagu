@@ -1,5 +1,6 @@
-﻿#pragma once
+#pragma once
 #include "IScene.h"
+#include "../EnemyHpBars.h"
 #include "Sprite.h"
 #include "OceanBattleFlow.h"
 #include "Player.h"
@@ -65,8 +66,7 @@ private:
     std::unique_ptr<Sprite> hpBarFillSprite_;
 
     // 2D UI スプライトで構築する強力生物頭上 HPバー
-    std::unique_ptr<Sprite> creatureHpBarBgSprite_;
-    std::unique_ptr<Sprite> creatureHpBarFillSprite_;
+    EnemyHpBars enemyHpBars_;
 
     // 2D UI スプライトで構築する画面右上 ボスHPバー
     std::unique_ptr<Sprite> bossHpBarFrameSprite_;   // 外枠 (ダークゴールド/ブロンズ)
