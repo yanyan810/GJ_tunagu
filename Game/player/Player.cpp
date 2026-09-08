@@ -48,6 +48,8 @@ void Player::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     maxHp_ = 100.0f;
     hp_ = maxHp_;
     isOverweight_ = false;
+    externalVelocity_ = {};
+    externalSpeedScale_ = 1.0f;
 
     // 初期座標と向き
     pos_ = { 0.0f, 0.0f, 0.0f };
@@ -248,11 +250,13 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     vel_.x = moveDir.x * maxForwardSpeed_;
     vel_.y = moveDir.y * maxForwardSpeed_;
     vel_.z = moveDir.z * maxForwardSpeed_;
+    vel_ *= externalSpeedScale_;
 
     // 前進移動による尾びれの新しいワールド位置
     currentTailPos.x += vel_.x * dt;
     currentTailPos.y += vel_.y * dt;
     currentTailPos.z += vel_.z * dt;
+    currentTailPos += externalVelocity_ * dt;
 
     // ボスの高さ (Y=35.0f) の上に行かないようにプレイヤーの高さ上限を14.5fに制限
     currentTailPos.y = std::clamp(currentTailPos.y, -25.0f, 14.5f);

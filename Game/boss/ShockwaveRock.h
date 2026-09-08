@@ -18,11 +18,13 @@ public:
     void Initialize(Object3dCommon* objectCommon, DirectXCommon* dx, Camera* camera,
         const ShockwaveRockSpawn& spawn, const ShockwaveRockSettings& settings, std::mt19937& random);
     void Update(float dt);
+    void Relaunch(const ShockwaveRockSpawn& spawn, const ShockwaveRockSettings& settings, std::mt19937& random);
     void Draw();
 
     bool IsAlive() const { return alive_; }
     const Vector3& GetPosition() const { return position_; }
     const Vector3& GetVelocity() const { return velocity_; }
+    Vector3 GetHalfSize() const { return scale_; }
     float GetDamage() const { return damage_; }
     float GetMoveSpeedDamage() const { return moveSpeedDamage_; }
 

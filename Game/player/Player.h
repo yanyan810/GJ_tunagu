@@ -22,6 +22,7 @@ public:
     void DrawImGui();
     using MotionResolver = std::function<Vector3(const Vector3&, const Vector3&)>;
     void SetMotionResolver(MotionResolver resolver) { motionResolver_ = std::move(resolver); }
+    void SetExternalMovement(const Vector3& velocity, float speedScale) { externalVelocity_ = velocity; externalSpeedScale_ = std::clamp(speedScale, 0.0f, 1.0f); }
 
     // カメラの追従やアタッチの計算に必要なgetter
     const Vector3& GetPosition() const { return pos_; }
@@ -76,6 +77,8 @@ private:
     Vector3 pos_ = { 0.0f, 0.0f, 0.0f };
     MotionResolver motionResolver_;
     Vector3 vel_ = { 0.0f, 0.0f, 0.0f };
+    Vector3 externalVelocity_{};
+    float externalSpeedScale_ = 1.0f;
     float yaw_ = 0.0f;          // 左右旋回
     float pitch_ = 0.0f;        // マグロモデルの上下向き
     float roll_ = 0.0f;         // 旋回時の体の傾き (Roll/Bank)

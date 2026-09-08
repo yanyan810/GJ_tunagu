@@ -48,6 +48,23 @@ void Mine::Initialize(
     explosionVisual_->Update(0.0f);
 }
 
+void Mine::Relaunch(const MineEmissionSample& emission, const MineMotionSettings& settings) {
+    settings_ = settings;
+    state_ = stateBeforeTriggered_ = State::Flying;
+    position_ = visualPosition_ = basePosition_ = emission.spawnPosition;
+    targetPosition_ = emission.targetPosition;
+    velocity_ = emission.initialVelocity;
+    rotation_ = {};
+    floatingTime_ = triggerTimeRemaining_ = triggerFuseDuration_ = explosionVisualTime_ = 0;
+    explosionEventPending_ = explosionVisualActive_ = false;
+    explosionPosition_ = {};
+    phaseOffset_ = std::fmod(std::abs(position_.x * 0.37f + position_.y * 0.61f + position_.z * 0.23f), 6.2831853f);
+    if (object_) {
+        object_->SetTranslate(position_); object_->SetRotate({}); object_->SetScale({0.7f,0.7f,0.7f});
+        object_->SetMaterialColor({0.8f,0.1f,0.15f,1}); object_->Update(0);
+    }
+}
+
 void Mine::Update(float dt) {
     if (!object_ || dt <= 0.0f) return;
 

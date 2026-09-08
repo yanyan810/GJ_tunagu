@@ -12,6 +12,7 @@ class Debris;
 class UnderwaterEnvironment;
 class DebugCamera;
 class Object3d;
+class BossCombatController;
 
 // 新しいゲームの実装を始めるための最小シーンです。
 class GameScene final : public IScene {
@@ -37,6 +38,7 @@ private:
     std::unique_ptr<Player> player_;
     std::unique_ptr<Enemy> bossShip_;
     std::unique_ptr<Enemy> preparedBoss_;
+    std::unique_ptr<BossCombatController> bossCombat_;
     std::vector<std::unique_ptr<Debris>> spareDebris_;
     std::vector<std::unique_ptr<Enemy>> enemies_;
     std::vector<std::unique_ptr<Debris>> debrisList_;

@@ -13,6 +13,7 @@
 #include "Debris.h"
 #include "ParticleManager.h"
 #include "environment/UnderwaterEnvironment.h"
+#include "boss/BossCombatController.h"
 #ifdef USE_IMGUI
 #include "imgui.h"
 #endif
@@ -314,6 +315,10 @@ void GameScene::OnEnter(GameApp& app) {
     bossShip_.reset();
     preparedBoss_ = std::make_unique<Enemy>();
     preparedBoss_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
+    preparedBoss_->SetManagedCombat(true);
+    preparedBoss_->Update(0.0f, player_->GetPosition());
+    bossCombat_ = std::make_unique<BossCombatController>();
+    bossCombat_->Initialize(app.ObjCom(), app.Dx(), app.Srv(), camera_.get(), preparedBoss_->GetCombatModel());
     PopulateOcean_(app, 24);
     ModelManager::GetInstance()->LoadModel("cube/cube.obj");
     arenaWalls_.clear();
@@ -344,6 +349,8 @@ void GameScene::OnExit(GameApp& app) {
         OutputDebugStringA(message.c_str());
         checkpoint = now;
     };
+    if (bossCombat_) bossCombat_->Reset(player_.get());
+    bossCombat_.reset();
     if (app.Audio() && bgmHandle_ != 0) {
         app.Audio()->Stop(bgmHandle_);
         app.Audio()->Unload(bgmHandle_);
@@ -420,16 +427,15 @@ void GameScene::Update(GameApp& app, float dt) {
     stepOneFrame_ = false;
 
     UpdateOcean_(app, dt);
+    const auto combatEnabled = [this]() {
+        return bossShip_ && !bossShip_->IsDead() && player_ && !player_->IsDead() &&
+            warningTimer_ <= 0.0f && !debugCameraEnabled_ && bossShip_->IsAttacksEnabled();
+    };
+    if (bossCombat_ && player_) bossCombat_->BeginPlayerFrame(dt, *player_, combatEnabled());
     if (player_ && app.GetInput() && !debugCameraEnabled_) {
         player_->Update(dt, *app.GetInput(), debrisList_);
         // プレイヤーと漂うゴミとの衝突判定
         player_->CheckDebrisCollision(debrisList_);
-
-        // プレイヤーのHPが0以下になったらゲームオーバーシーンへ遷移
-        if (player_->IsDead()) {
-            app.Scenes().Change(app, "GameOver");
-            return;
-        }
     }
 
     // 1分間 (60秒) の海洋生物収集タイムとボス出現タイマー
@@ -453,8 +459,13 @@ void GameScene::Update(GameApp& app, float dt) {
 
     // ボス船の更新と攻撃・被弾衝突判定
     if (bossShip_ && player_) {
+        bossShip_->SetCombatMovementLocked(combatEnabled() && bossCombat_ && bossCombat_->WantsStationaryShip());
         bossShip_->Update(dt, player_->GetPosition());
-        bossShip_->CheckCollisionWithPlayer(player_.get());
+    }
+    if (bossCombat_ && player_) bossCombat_->Update(dt, *player_, oceanFlow_.center, combatEnabled(),
+        underwaterEnvironment_ ? underwaterEnvironment_->GetFloorHeight() : -22.0f);
+    if (bossShip_ && player_) {
+        if (combatEnabled()) bossShip_->CheckCollisionWithPlayer(player_.get());
 
         // ボスが画面内に映っている時のみエイムアシスト・ホーミングターゲット位置を連携
         bool isBossVisibleInScreen = IsBossInScreen(bossShip_->GetPosition(), camera_.get());
@@ -489,6 +500,24 @@ void GameScene::Update(GameApp& app, float dt) {
                     bossHpShakeTimer_ = 0.35f; // 被弾時にHPバーを振動させる
                 }
             }
+        }
+    }
+
+    // Include deaths from this frame's attacks and thrown creatures before drawing.
+    if (bossShip_ && bossShip_->IsDead()) {
+        if (bossCombat_) bossCombat_->Reset(player_.get());
+        if (player_) player_->SetTargetPos(bossShip_->GetPosition(), false);
+    }
+    if (player_ && player_->IsDead()) {
+        if (bossCombat_) bossCombat_->Reset(player_.get());
+        app.Scenes().Change(app, "GameOver");
+        return;
+    }
+    if (bossShip_ && bossShip_->IsDead()) {
+        clearTransitionTimer_ += dt;
+        if (clearTransitionTimer_ >= 1.5f) {
+            app.Scenes().Change(app, "GameClear");
+            return;
         }
     }
 
@@ -711,6 +740,7 @@ void GameScene::Draw(GameApp& app) {
     if (underwaterEnvironment_) underwaterEnvironment_->Draw();
     if (player_) player_->Draw();
     if (bossShip_) bossShip_->Draw();
+    if (bossCombat_) bossCombat_->DrawOpaque();
 
     // 漂うゴミの描画
     for (auto& debris : debrisList_) {
@@ -727,6 +757,8 @@ void GameScene::Draw(GameApp& app) {
         underwaterEnvironment_->DrawWaterDepth();
         underwaterEnvironment_->DrawWaterSurface();
     }
+    if (bossCombat_) bossCombat_->DrawEffects(
+        app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 
     ParticleManager::GetInstance()->Draw(app.Dx()->GetCommandList());
 
@@ -901,6 +933,11 @@ void GameScene::DrawImGui(GameApp& app) {
 
     if (bossShip_) {
         bossShip_->DrawImGui();
+        if (bossCombat_) {
+            ImGui::Begin("Boss Ship Status");
+            bossCombat_->DrawImGui();
+            ImGui::End();
+        }
 
         ImGui::SetNextWindowPos(ImVec2(750.0f, 6.0f), ImGuiCond_Always);
         ImGui::SetNextWindowBgAlpha(0.0f);

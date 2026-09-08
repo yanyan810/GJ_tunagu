@@ -13,6 +13,17 @@ ShockwaveRock::~ShockwaveRock() = default;
 void ShockwaveRock::Initialize(
     Object3dCommon* objectCommon, DirectXCommon* dx, Camera* camera,
     const ShockwaveRockSpawn& spawn, const ShockwaveRockSettings& settings, std::mt19937& random) {
+    object_ = std::make_unique<Object3d>();
+    object_->Initialize(objectCommon, dx);
+    object_->SetCamera(camera);
+    object_->SetModel("cube/cube.obj");
+    object_->SetEnableLighting(0);
+    object_->SetMaterialColor({ 0.38f, 0.28f, 0.18f, 1.0f });
+    Relaunch(spawn, settings, random);
+}
+
+void ShockwaveRock::Relaunch(const ShockwaveRockSpawn& spawn,
+    const ShockwaveRockSettings& settings, std::mt19937& random) {
     std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     const auto range = [&](float minValue, float maxValue) {
         if (minValue > maxValue) std::swap(minValue, maxValue);
@@ -38,15 +49,10 @@ void ShockwaveRock::Initialize(
     moveSpeedDamage_ = std::max(0.0f, settings.moveSpeedDamage);
     alive_ = lifetime_ > 0.0f;
 
-    object_ = std::make_unique<Object3d>();
-    object_->Initialize(objectCommon, dx);
-    object_->SetCamera(camera);
-    object_->SetModel("cube/cube.obj");
+    if (!object_) return;
     object_->SetTranslate(position_);
     object_->SetRotate(rotation_);
     object_->SetScale(scale_);
-    object_->SetEnableLighting(0);
-    object_->SetMaterialColor({ 0.38f, 0.28f, 0.18f, 1.0f });
     object_->Update(0.0f);
 }
 
