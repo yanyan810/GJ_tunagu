@@ -7,6 +7,13 @@ void SceneManager::Register(const std::string& name, Factory factory) {
     factories_[name] = std::move(factory);
 }
 
+void SceneManager::Shutdown(GameApp& app) {
+    if (current_) current_->OnExit(app);
+    current_.reset();
+    retiredScenes_.clear();
+    currentName_.clear();
+}
+
 void SceneManager::Change(GameApp& app, const std::string& name) {
     auto it = factories_.find(name);
     assert(it != factories_.end());

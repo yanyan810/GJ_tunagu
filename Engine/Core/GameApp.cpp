@@ -5,6 +5,7 @@
 #include "scene/Flow/GameOverScene.h"
 #include "scene/Flow/GameClearScene.h"
 #include "scene/Test/BossTestScene.h"
+#include "scene/Test/TestBattleScene.h"
 #include "scene/Test/ShipScene.h"
 
 #include "WinApp.h"
@@ -25,6 +26,8 @@
 #include "RenderManager.h"
 
 #include <Windows.h>
+#include <chrono>
+#include <string>
 
 GameApp::GameApp() = default;
 GameApp::~GameApp() = default;
@@ -205,6 +208,7 @@ bool GameApp::Initialize_() {
     sceneMgr_->Register("Title", [] { return std::make_unique<TitleScene>(); });
     sceneMgr_->Register("Game", [] { return std::make_unique<GameScene>(); });
     sceneMgr_->Register("BossTest", [] { return std::make_unique<BossTestScene>(); });
+    sceneMgr_->Register("TestBattle", [] { return std::make_unique<TestBattleScene>(); });
     sceneMgr_->Register("Ship", [] { return std::make_unique<ShipScene>(); });
     sceneMgr_->Register("GameOver", [] { return std::make_unique<GameOverScene>(); });
     sceneMgr_->Register("GameClear", [] { return std::make_unique<GameClearScene>(); });
@@ -217,20 +221,30 @@ bool GameApp::Initialize_() {
 
 
 void GameApp::Finalize_() {
-    // Scene 終了（必要ならここで current_->OnExit 呼んでもOK）
-
-    if (imgui_) imgui_->Shutdown();
+    auto checkpoint = std::chrono::steady_clock::now();
+    auto report = [&](const char* stage) {
+        const auto now = std::chrono::steady_clock::now();
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - checkpoint).count();
+        const std::string message = std::string("[Shutdown] ") + stage + ": " + std::to_string(ms) + " ms\n";
+        OutputDebugStringA(message.c_str());
+        checkpoint = now;
+    };
     if (debugAI_) debugAI_->Shutdown();
+    report("DebugAI");
+    if (dx_) dx_->WaitForGPU();
+    report("GPU wait");
+    // Instances and OnExit depend on the renderer and shared asset managers.
+    if (sceneMgr_) sceneMgr_->Shutdown(*this);
+    sceneMgr_.reset();
+    report("Scenes and creature pool");
+    if (imgui_) imgui_->Shutdown();
+    render_.reset();
+    report("Renderer");
 
     ParticleManager::GetInstance()->Finalize();
-    TextureManager::GetInstance()->Finalize();
     ModelManager::GetInstance()->Finalize();
-
-    if (win_) win_->Finalize();
-
-    render_.reset();
-
-    sceneMgr_.reset();
+    TextureManager::GetInstance()->Finalize();
+    report("Shared assets");
     input_.reset();
     debugAI_.reset();
     debugAIApiBot_.reset();
@@ -245,9 +259,13 @@ void GameApp::Finalize_() {
     spriteCommon_.reset();
     skinCom_.reset(); // SkinningCommonも確実にリセット
     srv_.reset();
+    report("Graphics services");
     
     dx_.reset();
+    report("DirectX device / driver");
+    if (win_) win_->Finalize();
     win_.reset();
+    report("Window");
 }
 
 void GameApp::Update(float dt) {

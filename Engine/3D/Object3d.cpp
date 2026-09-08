@@ -205,32 +205,26 @@ static Matrix4x4 ApplyMeshExplosionOffset(
 
 void Object3d::RebuildNodeTransformResources_()
 {
-	nodeTransformationResources_.clear();
-	nodeTransformationData_.clear();
-	if (!dx_ || !model_) {
-		return;
-	}
-
-	const size_t count = model_->GetNodeInstances().size();
-	meshInstanceExplosionOffsets_.assign(count, {});
-	nodeTransformationResources_.reserve(count);
-	nodeTransformationData_.reserve(count);
-	for (size_t i = 0; i < count; ++i) {
-		auto resource = dx_->CreateBufferResource(sizeof(TransformationMatrix));
-		TransformationMatrix* mapped = nullptr;
-		if (resource) {
-			resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
-			if (mapped) {
-				mapped->WVP = Matrix4x4::MakeIdentity4x4();
-				mapped->World = Matrix4x4::MakeIdentity4x4();
-				mapped->WorldInverseTranspose = Matrix4x4::MakeIdentity4x4();
-			}
-		}
-		nodeTransformationResources_.push_back(std::move(resource));
-		nodeTransformationData_.push_back(mapped);
-	}
+    nodeTransformationResource_.Reset();
+    nodeTransformationData_.clear();
+    if (!dx_ || !model_) return;
+    const size_t count = model_->GetNodeInstances().size();
+    meshInstanceExplosionOffsets_.assign(count, {});
+    if (count == 0) return;
+    nodeTransformationResource_ = dx_->CreateBufferResource(kNodeTransformStride * count);
+    char* mapped = nullptr;
+    HRESULT hr = nodeTransformationResource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped));
+    assert(SUCCEEDED(hr));
+    if (!mapped) return;
+    nodeTransformationData_.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        auto* transform = reinterpret_cast<TransformationMatrix*>(mapped + kNodeTransformStride * i);
+        transform->WVP = Matrix4x4::MakeIdentity4x4();
+        transform->World = Matrix4x4::MakeIdentity4x4();
+        transform->WorldInverseTranspose = Matrix4x4::MakeIdentity4x4();
+        nodeTransformationData_.push_back(transform);
+    }
 }
-
 void Object3d::SetModel(Model* model)
 {
 	model_ = model;
@@ -656,9 +650,10 @@ void Object3d::Draw()
 				nodeTransform->WVP = wvpM;
 				nodeTransform->WorldInverseTranspose = Matrix4x4::Transpose(Matrix4x4::Inverse(world));
 
-				ID3D12Resource* nodeResource = instanceIndex < nodeTransformationResources_.size()
-					? nodeTransformationResources_[instanceIndex].Get() : transformationMatrixResourceModel.Get();
-				cmd->SetGraphicsRootConstantBufferView(1, nodeResource->GetGPUVirtualAddress());
+				const D3D12_GPU_VIRTUAL_ADDRESS nodeAddress = instanceIndex < nodeTransformationData_.size()
+                    ? nodeTransformationResource_->GetGPUVirtualAddress() + kNodeTransformStride * instanceIndex
+                    : transformationMatrixResourceModel->GetGPUVirtualAddress();
+                cmd->SetGraphicsRootConstantBufferView(1, nodeAddress);
 				
 				if (enableOutline_ && object3dCommon) {
 					object3dCommon->SetGraphicsPipelineStateOutline(outlineThickness_ < 0.0f);
@@ -775,9 +770,10 @@ void Object3d::Draw()
 				nodeTransform->WVP = wvp;
 				nodeTransform->WorldInverseTranspose = Matrix4x4::Transpose(Matrix4x4::Inverse(world));
 
-				ID3D12Resource* nodeResource = instanceIndex < nodeTransformationResources_.size()
-					? nodeTransformationResources_[instanceIndex].Get() : transformationMatrixResourceModel.Get();
-				cmd->SetGraphicsRootConstantBufferView(1, nodeResource->GetGPUVirtualAddress());
+				const D3D12_GPU_VIRTUAL_ADDRESS nodeAddress = instanceIndex < nodeTransformationData_.size()
+                    ? nodeTransformationResource_->GetGPUVirtualAddress() + kNodeTransformStride * instanceIndex
+                    : transformationMatrixResourceModel->GetGPUVirtualAddress();
+                cmd->SetGraphicsRootConstantBufferView(1, nodeAddress);
 
 				if (enableOutline_ && object3dCommon) {
 					object3dCommon->SetGraphicsPipelineStateOutline(outlineThickness_ < 0.0f);

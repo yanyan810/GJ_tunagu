@@ -158,15 +158,28 @@ void UnderwaterEnvironment::SyncCollisionSettings_() {
 }
 
 Vector3 UnderwaterEnvironment::ResolvePlayerMotion_(const Vector3& start, const Vector3& desired) {
-    if (!environmentCollisionEnabled_ || !reefScene_) { return desired; }
-    SyncCollisionSettings_();
-    return reefScene_->GetCollisionWorld().MoveSphere(start, desired, playerCollisionRadius_);
+    Vector3 result = desired;
+    if (environmentCollisionEnabled_ && reefScene_) {
+        SyncCollisionSettings_();
+        result = reefScene_->GetCollisionWorld().MoveSphere(start, desired, playerCollisionRadius_);
+    }
+    if (arenaHalfSize_ > 0.0f) {
+        const float limit = std::max(0.0f, arenaHalfSize_ - playerCollisionRadius_);
+        result.x = std::clamp(result.x, arenaCenter_.x - limit, arenaCenter_.x + limit);
+        result.z = std::clamp(result.z, arenaCenter_.z - limit, arenaCenter_.z + limit);
+    }
+    return result;
 }
 
 Vector3 UnderwaterEnvironment::ConstrainCamera(const Vector3& target, const Vector3& desired) {
     if (!cameraCollisionEnabled_ || !reefScene_) { return desired; }
     SyncCollisionSettings_();
     return reefScene_->GetCollisionWorld().ConstrainCamera(target, desired, cameraCollisionRadius_);
+}
+
+Vector3 UnderwaterEnvironment::FindOpenWaterPosition(const Vector3& desired) {
+    SyncCollisionSettings_();
+    return reefScene_ ? reefScene_->GetCollisionWorld().ResolveSphere(desired, 2.0f) : desired;
 }
 
 void UnderwaterEnvironment::Update(float dt) {

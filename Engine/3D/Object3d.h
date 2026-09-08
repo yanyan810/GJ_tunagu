@@ -282,7 +282,10 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourceModel;/* = dxCommon->CreateBufferResource(sizeof(TransformationMatrix));*/
 	TransformationMatrix* transformationMatrixDataModel = nullptr;
-	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> nodeTransformationResources_;
+    static constexpr size_t kNodeTransformStride = (sizeof(TransformationMatrix) +
+        D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1) &
+        ~(size_t(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT) - 1);
+    Microsoft::WRL::ComPtr<ID3D12Resource> nodeTransformationResource_;
 	std::vector<TransformationMatrix*> nodeTransformationData_;
 	struct MeshInstanceExplosionOffset {
 		Vector3 translate{};

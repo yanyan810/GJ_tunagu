@@ -55,7 +55,7 @@ void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam
     netAttack_ = std::make_unique<BossNetAttack>();
     netAttack_->Initialize(objCommon, dx, cam);
 
-    pos_ = { 0.0f, 14.0f, 0.0f }; // 水上・戦闘高度
+    pos_ = kDefaultPosition; // 水上・戦闘高度
     hp_ = maxHp_;
     isDead_ = false;
     damageFlashTimer_ = 0.0f;
@@ -74,11 +74,12 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
     const Vector3 previousPosition = pos_;
     if (movementEnabled_) {
         moveAngle_ += orbitAngularSpeed_ * dt;
-        float targetX = playerPos.x + std::cos(moveAngle_) * orbitRadius_;
-        float targetZ = playerPos.z + std::sin(moveAngle_) * orbitRadius_;
+        const Vector3 orbitCenter = fixedBattleCenter_ ? battleCenter_ : playerPos;
+        float targetX = orbitCenter.x + std::cos(moveAngle_) * orbitRadius_;
+        float targetZ = orbitCenter.z + std::sin(moveAngle_) * orbitRadius_;
         const float follow = std::clamp(orbitFollowSpeed_ * dt, 0.0f, 1.0f);
         pos_.x += (targetX - pos_.x) * follow;
-        pos_.y = 14.0f;
+        pos_.y = kDefaultPosition.y;
         pos_.z += (targetZ - pos_.z) * follow;
     }
 

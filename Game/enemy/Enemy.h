@@ -18,6 +18,8 @@ class BossNetAttack;
 // 水面で活動するボス船クラス
 class Enemy {
 public:
+    inline static const Vector3 kDefaultScale{ 6.0f, 6.0f, 6.0f };
+    inline static const Vector3 kDefaultPosition{ 0.0f, 25.5f, 0.0f };
     Enemy();
     ~Enemy();
 
@@ -37,6 +39,11 @@ public:
     bool IsDead() const { return isDead_; }
     const Vector3& GetPosition() const { return pos_; }
     void SetReadabilityEnabled(bool enabled) { readability_.SetEnabled(enabled); }
+    void SetBattleCenter(const Vector3& center) {
+        battleCenter_ = center;
+        fixedBattleCenter_ = true;
+        pos_ = { center.x + orbitRadius_, kDefaultPosition.y, center.z };
+    }
 
     void TakeDamage(float damage);
 
@@ -53,9 +60,9 @@ private:
     DirectXCommon* dx_ = nullptr;
 
     // トランスフォーム
-    Vector3 pos_ = { 0.0f, 14.0f, 0.0f }; // 水上・戦闘高度
+    Vector3 pos_ = kDefaultPosition; // 水上・戦闘高度
     Vector3 rot_ = { 0.0f, 0.0f, 0.0f };
-    Vector3 scale_ = { 6.0f, 6.0f, 6.0f }; // 大型のボス船サイズ
+    Vector3 scale_ = kDefaultScale; // 大型のボス船サイズ
     Vector3 visualOffset_ = { 0.0f, 0.0f, 0.0f };
     Vector3 lastTargetPosition_{};
     float radius_ = 12.0f;
@@ -68,6 +75,8 @@ private:
 
     // 行動AIパラメータ
     float moveAngle_ = 0.0f;
+    Vector3 battleCenter_{};
+    bool fixedBattleCenter_ = false;
     float orbitRadius_ = 35.0f;
     float orbitAngularSpeed_ = 0.18f;
     float orbitFollowSpeed_ = 0.8f;
