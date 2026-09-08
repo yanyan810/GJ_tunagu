@@ -161,6 +161,9 @@ void GameScene::OnEnter(GameApp& app) {
     bossHpCatchupRatio_ = 1.0f;
     bossHpShakeTimer_ = 0.0f;
     clearTransitionTimer_ = 0.0f;
+    bossSpawnTimer_ = 60.0f;     // 60秒間（1分間）の海洋生物収集タイム
+    isBossSpawned_ = false;       // 開始時点では未出現
+    warningTimer_ = 0.0f;
 
     // 漂う海洋生物・装備の初期スポーン
     debrisList_.clear();
@@ -200,9 +203,8 @@ void GameScene::OnEnter(GameApp& app) {
         debrisList_.push_back(std::move(debris));
     }
 
-    // ボス船の生成・初期化
-    bossShip_ = std::make_unique<Enemy>();
-    bossShip_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
+    // 開始時はボス船を出現させない
+    bossShip_.reset();
 }
 
 void GameScene::OnExit(GameApp& /*app*/) {
@@ -275,6 +277,22 @@ void GameScene::Update(GameApp& app, float dt) {
         }
     }
 
+    // 1分間 (60秒) の海洋生物収集タイムとボス出現タイマー
+    if (!isBossSpawned_) {
+        bossSpawnTimer_ -= dt;
+        if (bossSpawnTimer_ <= 0.0f) {
+            bossSpawnTimer_ = 0.0f;
+            isBossSpawned_ = true;
+            warningTimer_ = 3.5f; // WARNING 警告演出 3.5秒
+
+            // 1分経過後にボスの船を生成・初期化
+            bossShip_ = std::make_unique<Enemy>();
+            bossShip_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
+        }
+    } else if (warningTimer_ > 0.0f) {
+        warningTimer_ -= dt;
+    }
+
     // ボス船の更新と攻撃・被弾衝突判定
     if (bossShip_ && player_) {
         bossShip_->Update(dt, player_->GetPosition());
@@ -302,27 +320,27 @@ void GameScene::Update(GameApp& app, float dt) {
                 }
             }
         }
+    }
 
-        // 投げられたゴミ/海洋生物と未撃破の強力生物の衝突判定
-        for (auto& thrownDebris : debrisList_) {
-            if (thrownDebris->GetState() == DebrisState::Thrown && !thrownDebris->IsDead()) {
-                for (auto& targetDebris : debrisList_) {
-                    if (targetDebris.get() != thrownDebris.get() &&
-                        targetDebris->GetState() == DebrisState::Floating &&
-                        targetDebris->IsStrongCreature() &&
-                        !targetDebris->IsCatchable()) {
+    // 投げられたゴミ/海洋生物と未撃破の強力生物の衝突判定（ボス出現前・出現後を問わず常時作動）
+    for (auto& thrownDebris : debrisList_) {
+        if (thrownDebris->GetState() == DebrisState::Thrown && !thrownDebris->IsDead()) {
+            for (auto& targetDebris : debrisList_) {
+                if (targetDebris.get() != thrownDebris.get() &&
+                    targetDebris->GetState() == DebrisState::Floating &&
+                    targetDebris->IsStrongCreature() &&
+                    !targetDebris->IsCatchable()) {
 
-                        Vector3 tPos = targetDebris->GetPosition();
-                        Vector3 thPos = thrownDebris->GetPosition();
-                        float distSq = (tPos.x - thPos.x) * (tPos.x - thPos.x) +
-                                       (tPos.y - thPos.y) * (tPos.y - thPos.y) +
-                                       (tPos.z - thPos.z) * (tPos.z - thPos.z);
-                        float hitDist = 2.5f;
-                        if (distSq <= hitDist * hitDist) {
-                            targetDebris->TakeDamage(thrownDebris->GetAtk());
-                            thrownDebris->SetDead(true);
-                            break;
-                        }
+                    Vector3 tPos = targetDebris->GetPosition();
+                    Vector3 thPos = thrownDebris->GetPosition();
+                    float distSq = (tPos.x - thPos.x) * (tPos.x - thPos.x) +
+                                   (tPos.y - thPos.y) * (tPos.y - thPos.y) +
+                                   (tPos.z - thPos.z) * (tPos.z - thPos.z);
+                    float hitDist = 3.5f; // ヒット判定半径を3.5fへ調整
+                    if (distSq <= hitDist * hitDist) {
+                        targetDebris->TakeDamage(thrownDebris->GetAtk());
+                        thrownDebris->SetDead(true);
+                        break;
                     }
                 }
             }
@@ -548,11 +566,13 @@ void GameScene::DrawOverlay2D(GameApp&) {
     if (hpBarBgSprite_) hpBarBgSprite_->Draw();
     if (hpBarFillSprite_) hpBarFillSprite_->Draw();
 
-    // 2D UI スプライト ボスHPバーの描画（画面右上 ボスHPバー）
-    if (bossHpBarFrameSprite_) bossHpBarFrameSprite_->Draw();
-    if (bossHpBarBgSprite_) bossHpBarBgSprite_->Draw();
-    if (bossHpBarCatchupSprite_) bossHpBarCatchupSprite_->Draw();
-    if (bossHpBarFillSprite_) bossHpBarFillSprite_->Draw();
+    // 2D UI スプライト ボスHPバーの描画（画面右上 ボスHPバー：ボス出現時のみ描画）
+    if (bossShip_ && isBossSpawned_) {
+        if (bossHpBarFrameSprite_) bossHpBarFrameSprite_->Draw();
+        if (bossHpBarBgSprite_) bossHpBarBgSprite_->Draw();
+        if (bossHpBarCatchupSprite_) bossHpBarCatchupSprite_->Draw();
+        if (bossHpBarFillSprite_) bossHpBarFillSprite_->Draw();
+    }
 
     // ----------------------------------------------------
     // 常時 2D スプライト描画による強力生物の頭上 HPバー
@@ -647,6 +667,47 @@ void GameScene::DrawImGui(GameApp& app) {
     }
     ImGui::Text("State: %s", simulationPaused_ ? "PAUSED" : "RUNNING");
     ImGui::End();
+
+    // 収集タイム中のタイマー表示およびボス出現警告
+    if (!isBossSpawned_) {
+        ImGui::SetNextWindowPos(ImVec2(380.0f, 20.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(520.0f, 80.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.65f);
+
+        ImGuiWindowFlags flags =
+            ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoInputs |
+            ImGuiWindowFlags_NoSavedSettings;
+
+        ImGui::Begin("CollectionTimerOverlay", nullptr, flags);
+        ImGui::SetWindowFontScale(1.2f);
+        ImGui::TextColored(ImVec4(0.3f, 0.95f, 1.0f, 1.0f), " COLLECT CREATURES & ENHANCE YOUR FISH! ");
+        ImGui::SetWindowFontScale(1.1f);
+        int secondsLeft = static_cast<int>(std::ceil(bossSpawnTimer_));
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "     Boss Arrival in: %02d:%02d     ", secondsLeft / 60, secondsLeft % 60);
+        ImGui::End();
+    } else if (warningTimer_ > 0.0f) {
+        ImGui::SetNextWindowPos(ImVec2(360.0f, 140.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(560.0f, 90.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.75f);
+
+        ImGuiWindowFlags flags =
+            ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoInputs |
+            ImGuiWindowFlags_NoSavedSettings;
+
+        ImGui::Begin("BossWarningOverlay", nullptr, flags);
+        ImGui::SetWindowFontScale(2.0f);
+        float blink = (std::sin(warningTimer_ * 10.0f) + 1.0f) * 0.5f;
+        ImGui::TextColored(ImVec4(1.0f, 0.15f, 0.15f, blink), " WARNING! BOSS APPROACHING! ");
+        ImGui::SetWindowFontScale(1.0f);
+        ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.8f, 0.9f), "     Enemy Battleship has entered the area!     ");
+        ImGui::End();
+    }
 
     if (bossShip_) bossShip_->DrawImGui();
     if (bossShip_) {
