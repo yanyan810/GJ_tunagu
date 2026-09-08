@@ -142,6 +142,15 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
     }
 }
 
+void Enemy::SetEntrancePose(const Vector3& position, float pitch, float tint, float yawOffset) {
+    pos_ = position;
+    if (!shipModel_) return;
+    shipModel_->SetTranslate(pos_ + visualOffset_);
+    shipModel_->SetRotate({ pitch, rot_.y + yawOffset, 0.0f });
+    shipModel_->SetMaterialColor({ tint, tint, tint, 1.0f });
+    shipModel_->Update(0.0f);
+}
+
 void Enemy::TakeDamage(float damage) {
     if (isDead_) return;
     hp_ -= damage;

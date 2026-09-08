@@ -45,6 +45,8 @@ public:
         pos_ = { center.x + orbitRadius_, kDefaultPosition.y, center.z };
     }
 
+    // Presentation only: does not advance AI or attacks.
+    void SetEntrancePose(const Vector3& position, float pitch, float tint, float yawOffset = 0.0f);
     void TakeDamage(float damage);
 
 private:
