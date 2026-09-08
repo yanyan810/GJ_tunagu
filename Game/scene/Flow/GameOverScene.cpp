@@ -1,6 +1,7 @@
 #include "GameOverScene.h"
 #include "GameApp.h"
 #include "Input.h"
+#include "AudioSystem.h"
 #include "Camera.h"
 #include "TextureManager.h"
 #include "SpriteCommon.h"
@@ -28,9 +29,21 @@ void GameOverScene::OnEnter(GameApp& app) {
     bgSprite_->SetScale({ 1280.0f / texW, 720.0f / texH, 1.0f });
 
     timer_ = 0.0f;
+
+    // GameOver.mp3 BGM の再生開始
+    if (app.Audio()) {
+        app.Audio()->StopAll();
+        bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/GameOver.mp3", true);
+        app.Audio()->Play(bgmHandle_, 0.6f);
+    }
 }
 
-void GameOverScene::OnExit(GameApp& /*app*/) {
+void GameOverScene::OnExit(GameApp& app) {
+    if (app.Audio() && bgmHandle_ != 0) {
+        app.Audio()->Stop(bgmHandle_);
+        app.Audio()->Unload(bgmHandle_);
+        bgmHandle_ = 0;
+    }
     bgSprite_.reset();
     camera_.reset();
 }

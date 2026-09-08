@@ -5,11 +5,14 @@
 #include "MathStruct.h"
 #include "boss/ShipScrewAnimation.h"
 
+#include "boss/BossReadability.h"
+#include "Player.h"
+
+
 class Object3d;
 class Object3dCommon;
 class DirectXCommon;
 class Camera;
-class Player;
 class Debris;
 class BossBulletAttack;
 class BossNetAttack;
@@ -47,7 +50,12 @@ public:
         pos_ = { center.x + orbitRadius_, kDefaultPosition.y, center.z };
     }
 
+    // Presentation only: does not advance AI or attacks.
+    void SetEntrancePose(const Vector3& position, float pitch, float tint, float yawOffset = 0.0f);
     void TakeDamage(float damage);
+    void TriggerExplosion();
+    void UpdateExplosion(float dt);
+    Object3d* GetShipModel() const { return shipModel_.get(); }
 
 private:
     std::unique_ptr<Object3d> shipModel_;
@@ -65,12 +73,21 @@ private:
     Vector3 rot_ = { 0.0f, 0.0f, 0.0f };
     Vector3 scale_ = kDefaultScale; // 大型のボス船サイズ
     Vector3 visualOffset_ = { 0.0f, 0.0f, 0.0f };
+
+    struct ExplosionFragment {
+        Vector3 position{};
+        Vector3 velocity{};
+        Vector3 rotation{};
+        Vector3 angularVelocity{};
+    };
+    std::vector<ExplosionFragment> explosionFragments_;
+    bool explosionActive_ = false;
     Vector3 lastTargetPosition_{};
     float radius_ = 12.0f;
 
     // ステータス
-    float maxHp_ = 1000.0f;
-    float hp_ = 1000.0f;
+    float maxHp_ = 4000.0f;
+    float hp_ = 4000.0f;
     bool isDead_ = false;
     float damageFlashTimer_ = 0.0f; // 被弾フラッシュタイマー
 

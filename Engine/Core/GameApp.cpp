@@ -1,5 +1,6 @@
 #include "GameApp.h"
 #include "SceneManager.h"
+#include "AudioSystem.h"
 #include "scene/Flow/TitleScene.h"
 #include "scene/Main/GameScene.h"
 #include "scene/Flow/GameOverScene.h"
@@ -203,6 +204,10 @@ bool GameApp::Initialize_() {
 
     WarmupAssets_();
 
+    // AudioSystem 初期化
+    audio_ = std::make_unique<AudioSystem>();
+    audio_->Initialize();
+
     // SceneManager
     sceneMgr_ = std::make_unique<SceneManager>();
     sceneMgr_->Register("Title", [] { return std::make_unique<TitleScene>(); });
@@ -238,12 +243,22 @@ void GameApp::Finalize_() {
     sceneMgr_.reset();
     report("Scenes and creature pool");
     if (imgui_) imgui_->Shutdown();
+    if (debugAI_) debugAI_->Shutdown();
+    if (audio_) audio_->Finalize();
     render_.reset();
     report("Renderer");
 
     ParticleManager::GetInstance()->Finalize();
     ModelManager::GetInstance()->Finalize();
     TextureManager::GetInstance()->Finalize();
+    ModelManager::GetInstance()->Finalize();
+
+    if (win_) win_->Finalize();
+
+    render_.reset();
+    audio_.reset();
+
+    sceneMgr_.reset();
     report("Shared assets");
     input_.reset();
     debugAI_.reset();
@@ -271,6 +286,7 @@ void GameApp::Finalize_() {
 void GameApp::Update(float dt) {
 
     input_->Update();
+    if (audio_) audio_->Update();
 
     unsigned int simulationUpdates = 1;
     if (debugAI_) {

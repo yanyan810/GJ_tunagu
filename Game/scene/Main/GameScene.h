@@ -2,10 +2,11 @@
 #include "IScene.h"
 #include "Sprite.h"
 #include "OceanBattleFlow.h"
+#include "Player.h"
 #include <memory>
 #include <vector>
+#include <array>
 
-class Player;
 class Enemy;
 class Camera;
 class Debris;
@@ -13,6 +14,7 @@ class UnderwaterEnvironment;
 class DebugCamera;
 class Object3d;
 class BossCombatController;
+class BossWaterEffectRenderer;
 
 // 新しいゲームの実装を始めるための最小シーンです。
 class GameScene final : public IScene {
@@ -20,6 +22,7 @@ public:
     GameScene();
     ~GameScene() override;
     void OnEnter(GameApp& app) override;
+    SceneLoadTask Load(GameApp& app) override;
     void OnExit(GameApp& app) override;
     void Update(GameApp& app, float dt) override;
     void Draw(GameApp& app) override;
@@ -27,6 +30,13 @@ public:
     void DrawImGui(GameApp& app) override;
 
 private:
+    bool IsBossEntrance_() const { return oceanFlow_.locked && !oceanFlow_.BattleReady(); }
+    void UpdateBossEntrance_(GameApp& app, float dt);
+    std::unique_ptr<Object3d> entranceSun_;
+    std::unique_ptr<BossWaterEffectRenderer> entranceSplash_;
+    Vector3 entranceStartCamera_{};
+    Vector3 entranceStartRotation_{};
+    bool entranceWasDebug_ = false;
     void UpdateOcean_(GameApp& app, float dt);
     void PopulateOcean_(GameApp& app, int budget);
     OceanBattleFlow oceanFlow_;
@@ -66,4 +76,12 @@ private:
     bool debugCameraEnabled_ = false;
     bool simulationPaused_ = false;
     bool stepOneFrame_ = false;
+    int bgmHandle_ = 0;
+    int throwSeHandle_ = 0;
+    int punchSeHandle_ = 0;
+    int explosionSeHandle_ = 0;
+
+    // number ディレクトリのアセットによるタイマー用2Dスプライト (全4桁 + コロン)
+    std::array<std::unique_ptr<Sprite>, 4> timerDigitSprites_;
+    std::unique_ptr<Sprite> timerColonSprite_;
 };

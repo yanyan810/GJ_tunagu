@@ -445,8 +445,9 @@ void Debris::Update(float dt) {
 void Debris::UpdateThrown(float dt) {
     if (!model_) return;
 
-    // ボスへのエイムアシスト（飛行中に緩やかに吸い込まれる誘導）
-    if (hasTarget_) {
+    // 自動追尾・ホーミング能力を持つ海洋生物（サメ等）のみ追尾し、通常の投擲物はまっすぐ飛ぶ
+    bool isHomingCreature = (type_ == DebrisType::Shark);
+    if (hasTarget_ && isHomingCreature) {
         Vector3 toTarget = { targetPos_.x - pos_.x, targetPos_.y - pos_.y, targetPos_.z - pos_.z };
         float len = std::sqrt(toTarget.x * toTarget.x + toTarget.y * toTarget.y + toTarget.z * toTarget.z);
         if (len > 0.001f) {

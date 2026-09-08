@@ -1,4 +1,4 @@
-﻿#include "AudioSystem.h"
+#include "AudioSystem.h"
 
 #include <cassert>
 #include <fstream>
@@ -88,6 +88,7 @@ AudioSystem::SoundHandle AudioSystem::LoadAudioFile(const std::wstring& filepath
 
 
 void AudioSystem::Unload(SoundHandle handle) {
+    Stop(handle);
     auto it = sounds_.find(handle);
     if (it != sounds_.end()) {
         sounds_.erase(it);
@@ -95,6 +96,7 @@ void AudioSystem::Unload(SoundHandle handle) {
 }
 
 void AudioSystem::UnloadAll() {
+    StopAll();
     sounds_.clear();
 }
 

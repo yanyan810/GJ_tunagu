@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Vector3.h"
+#include "Player.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -13,8 +14,11 @@ class Object3dCommon;
 class DirectXCommon;
 class SrvManager;
 class Camera;
+
 class Player;
 class ReefCollisionWorld;
+
+
 struct ID3D12Resource;
 
 // Main-game host for reusable boss attacks. Owns scheduling, hit bookkeeping,

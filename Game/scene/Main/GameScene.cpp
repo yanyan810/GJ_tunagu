@@ -1,6 +1,9 @@
 #include "GameScene.h"
+#include "boss/BossWaterEffectRenderer.h"
+#include "RenderManager.h"
 #include "GameApp.h"
 #include "Input.h"
+#include "AudioSystem.h"
 #include "Player.h"
 #include "Enemy.h"
 #include "Camera.h"
@@ -98,7 +101,15 @@ GameScene::~GameScene() = default;
 void GameScene::UpdateOcean_(GameApp& app, float dt) {
     if (!player_) return;
     warningTimer_ = std::max(0.0f, warningTimer_ - dt);
+    const bool wasLocked = oceanFlow_.locked;
     oceanFlow_.Update(dt, player_->GetPosition());
+    if (!wasLocked && oceanFlow_.locked) {
+        entranceStartCamera_ = camera_->GetTranslate();
+        entranceStartRotation_ = camera_->GetRotate();
+        entranceWasDebug_ = debugCameraEnabled_;
+        debugCameraEnabled_ = false;
+        if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(false);
+    }
     bossSpawnTimer_ = std::max(0.0f, OceanBattleFlow::kExploreSeconds - oceanFlow_.elapsed);
     if (!oceanFlow_.locked) return;
     const float half = oceanFlow_.HalfSize();
@@ -108,18 +119,112 @@ void GameScene::UpdateOcean_(GameApp& app, float dt) {
         const bool alongX = i < 2;
         const float side = (i % 2 == 0) ? -1.0f : 1.0f;
         arenaWalls_[i]->SetTranslate({ center.x + (alongX ? 0.0f : side * half),
-            3.0f, center.z + (alongX ? side * half : 0.0f) });
-        arenaWalls_[i]->SetScale(alongX ? Vector3{ half, 25.0f, 0.15f }
-            : Vector3{ 0.15f, 25.0f, half });
+            3.0f + 65.0f * (1.0f - std::clamp((oceanFlow_.elapsed - OceanBattleFlow::kExploreSeconds - 2.0f) / 2.0f, 0.0f, 1.0f)),
+            center.z + (alongX ? side * half : 0.0f) });
+        arenaWalls_[i]->SetScale({ half, 25.0f, 0.35f });
         arenaWalls_[i]->Update(dt);
     }
     if (oceanFlow_.BattleReady() && !bossShip_) {
         bossShip_ = std::move(preparedBoss_);
         if (!bossShip_) return;
         bossShip_->SetBattleCenter(center);
+        bossShip_->SetEntrancePose(bossShip_->GetPosition(), 0.0f, 1.0f);
+        debugCameraEnabled_ = entranceWasDebug_;
+        if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(debugCameraEnabled_);
+        entranceSplash_->Clear();
         isBossSpawned_ = true;
         warningTimer_ = 3.5f;
     }
+}
+
+void GameScene::UpdateBossEntrance_(GameApp& /*app*/, float dt) {
+    const float t = oceanFlow_.elapsed - OceanBattleFlow::kExploreSeconds;
+    const Vector3 c = oceanFlow_.center;
+    auto smooth = [](float x) { x = std::clamp(x, 0.0f, 1.0f); return x * x * (3.0f - 2.0f * x); };
+    auto lerp = [](const Vector3& a, const Vector3& b, float u) { return a + (b - a) * u; };
+    const Vector3 landing{ c.x + 35.0f, Enemy::kDefaultPosition.y, c.z };
+    const Vector3 eye{ landing.x, 34.0f, c.z - 65.0f };
+    // The sun is directly behind the falling ship at y=180, from this eye.
+    const Vector3 sun{ landing.x, 326.0f, c.z + 65.0f };
+    // Fixed opening composition: enter from screen-right, far behind the landing point.
+    Vector3 position = landing;
+    if (t < 2.0f) {
+        position = lerp(landing + Vector3{ 40.0f, 0.0f, 100.0f }, landing, std::clamp(t / 2.0f, 0.0f, 1.0f));
+    }
+    if (t >= 6.0f && t < 7.0f) {
+        // Keep the whole hull outside the right edge before it enters the shot.
+        // Constant horizontal speed avoids a visible pause at the start.
+        const float fly = std::clamp(t - 6.0f, 0.0f, 1.0f);
+        position.x += 400.0f * (1.0f - fly);
+        position.y = 210.0f - 30.0f * fly;
+    } else if (t >= 7.0f) {
+        // Cross the sun first, then accelerate downward into the water.
+        const float fall = std::clamp((t - 7.0f) / 1.5f, 0.0f, 1.0f);
+        // Preserve the incoming downward velocity through the sun crossing.
+        position.y = 180.0f - 45.0f * fall - (180.0f - landing.y - 45.0f) * fall * fall;
+    }
+    const float splashAge = t - 8.5f;
+    if (splashAge >= 0.0f) position.y -= 3.0f * std::sin(splashAge * 7.0f) * std::exp(-splashAge * 3.0f);
+    const float silhouette = (t >= 6.0f && t < 7.6f) ? 0.12f : 1.0f;
+    if (preparedBoss_) preparedBoss_->SetEntrancePose(position,
+        t >= 6.0f && t < 8.5f ? -0.08f : 0.0f, silhouette,
+        t < 2.0f ? std::atan2(-40.0f, -100.0f) : (t >= 6.0f ? -1.5707963f : 0.0f));
+
+    Vector3 cameraPosition = eye;
+    Vector3 target = landing;
+    if (t >= 2.0f && t < 4.0f) {
+        // Follow the fence downward during its dedicated placement shot.
+        const float placed = std::clamp((t - 2.0f) / 2.0f, 0.0f, 1.0f);
+        target = { c.x + oceanFlow_.HalfSize(), 12.0f + 65.0f * (1.0f - placed), c.z };
+    } else if (t >= 4.0f && t < 6.0f) {
+        target = lerp(Vector3{ c.x + oceanFlow_.HalfSize(), 12.0f, c.z }, sun, smooth((t - 4.0f) / 1.4f));
+    } else if (t >= 6.0f) {
+        target = lerp(sun, position, smooth((t - 7.0f) / 0.5f));
+    }
+    Vector3 direction = target - cameraPosition;
+    Vector3 rotation{ -std::atan2(direction.y, std::sqrt(direction.x * direction.x + direction.z * direction.z)),
+        std::atan2(direction.x, direction.z), 0.0f };
+    if (splashAge >= 0.0f) {
+        const float shake = 0.6f * std::exp(-splashAge * 4.0f);
+        cameraPosition.x += std::sin(splashAge * 71.0f) * shake;
+        cameraPosition.y += std::sin(splashAge * 93.0f) * shake;
+    }
+    if (t > 9.0f) {
+        const float back = smooth(t - 9.0f);
+        cameraPosition = lerp(cameraPosition, entranceStartCamera_, back);
+        rotation = lerp(rotation, entranceStartRotation_, back);
+    }
+    camera_->SetTranslate(cameraPosition);
+    camera_->SetRotate(rotation);
+    camera_->Update();
+    entranceSun_->SetTranslate(sun);
+    entranceSun_->SetRotate(rotation);
+    entranceSun_->Update(0.0f);
+
+    entranceSplash_->Begin(t);
+    if (splashAge >= 0.0f) {
+        const float alpha = std::clamp(1.0f - splashAge / 1.5f, 0.0f, 1.0f);
+        std::vector<BossWaterEffectRenderer::Point> ring;
+        for (int i = 0; i <= 96; ++i) {
+            const float a = i * 6.2831853f / 96.0f;
+            const float radius = 12.0f + splashAge * 30.0f;
+            ring.push_back({ { landing.x + std::cos(a) * radius, 28.2f,
+                landing.z + std::sin(a) * radius }, 1.4f * alpha });
+        }
+        entranceSplash_->Ribbon(ring, { 0.65f, 0.95f, 1.0f, alpha }, 1.8f);
+        for (int i = 0; i < 72; ++i) {
+            const float a = i * 2.3999632f;
+            const float speed = 12.0f + (i % 7) * 2.0f;
+            const float radius = 9.0f + speed * splashAge;
+            const float height = 28.0f + (18.0f + i % 9) * splashAge - 20.0f * splashAge * splashAge;
+            if (height < 27.5f) continue;
+            entranceSplash_->Billboard({ landing.x + std::cos(a) * radius, height,
+                landing.z + std::sin(a) * radius }, 0.6f + (i % 4) * 0.25f,
+                { 0.75f, 0.95f, 1.0f, alpha }, BossWaterEffectRenderer::Particle::Bubble, 1.4f);
+        }
+    }
+    if (underwaterEnvironment_) underwaterEnvironment_->Update(dt);
+    ParticleManager::GetInstance()->Update(dt, *camera_);
 }
 
 void GameScene::PopulateOcean_(GameApp& /*app*/, int budget) {
@@ -188,6 +293,12 @@ void GameScene::PopulateOcean_(GameApp& /*app*/, int budget) {
 }
 
 void GameScene::OnEnter(GameApp& app) {
+    auto task = Load(app);
+    while (!task.Done()) task.Step();
+}
+
+SceneLoadTask GameScene::Load(GameApp& app) {
+    co_yield 0.0f;
     // 乱数の初期化
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
@@ -208,14 +319,17 @@ void GameScene::OnEnter(GameApp& app) {
     simulationPaused_ = false;
     stepOneFrame_ = false;
 
+    co_yield 0.03f;
     underwaterEnvironment_ = std::make_unique<UnderwaterEnvironment>();
     underwaterEnvironment_->Initialize(
         app.ObjCom(), app.Dx(), camera_.get(), app.Render());
 
+    co_yield 0.15f;
     player_ = std::make_unique<Player>();
     player_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
     underwaterEnvironment_->BindPlayer(*player_);
 
+    co_yield 0.22f;
     // 2D UI スプライトで構築する画面左上 HPバーの初期化
     hpBarBgSprite_ = std::make_unique<Sprite>();
     hpBarBgSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
@@ -253,6 +367,14 @@ void GameScene::OnEnter(GameApp& app) {
     bossHpBarFillSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
     bossHpBarFillSprite_->SetColor({ 0.95f, 0.15f, 0.15f, 1.0f }); // ボスメインゲージ (深赤)
 
+    // 画面中央上 タイマー用数字(4桁)・コロンスプライトの初期化 (resources/number/)
+    for (int i = 0; i < 4; ++i) {
+        timerDigitSprites_[i] = std::make_unique<Sprite>();
+        timerDigitSprites_[i]->Initialize(app.SpriteCom(), app.Dx(), "number/0.png");
+    }
+    timerColonSprite_ = std::make_unique<Sprite>();
+    timerColonSprite_->Initialize(app.SpriteCom(), app.Dx(), "number/colon.png");
+
     bossHpCatchupRatio_ = 1.0f;
     bossHpShakeTimer_ = 0.0f;
     clearTransitionTimer_ = 0.0f;
@@ -272,6 +394,7 @@ void GameScene::OnEnter(GameApp& app) {
         auto debris = std::make_unique<Debris>();
         debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), static_cast<DebrisType>(i % 17), {});
         spareDebris_.push_back(std::move(debris));
+        co_yield 0.25f + 0.45f * (i + 1) / kPreparedCreatures;
     }
 
     // プレイヤーのすぐ周辺にアビリティ確認用の海洋生物を確定スポーン
@@ -287,10 +410,12 @@ void GameScene::OnEnter(GameApp& app) {
         { DebrisType::Dolphin,    { -6.0f, 0.0f, 15.0f } }, // イルカ (爆速移動)
     };
 
+    int loadedInitial = 0;
     for (const auto& spawn : initialSpawns) {
         auto debris = std::make_unique<Debris>();
         debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), spawn.first, spawn.second);
         debrisList_.push_back(std::move(debris));
+        co_yield 0.70f + 0.05f * (++loadedInitial) / 9.0f;
     }
 
     // 通常生物・基本ドロップを高確率（85%）で優先してマップ全体（45個）に広範囲配置
@@ -307,17 +432,29 @@ void GameScene::OnEnter(GameApp& app) {
         auto debris = std::make_unique<Debris>();
         debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), type, { x, y, z });
         debrisList_.push_back(std::move(debris));
+        co_yield 0.75f + 0.15f * (i + 1) / 45.0f;
     }
 
+    entranceSun_ = std::make_unique<Object3d>();
+    entranceSun_->Initialize(app.ObjCom(), app.Dx());
+    entranceSun_->SetCamera(camera_.get());
+    entranceSun_->SetModel("bossEntrance/sun.obj");
+    entranceSun_->SetEnableLighting(0);
+    entranceSun_->SetMaterialColor({ 1.0f, 0.93f, 0.65f, 1.0f });
+    entranceSun_->SetScale({ 13.0f, 13.0f, 13.0f });
+    entranceSplash_ = std::make_unique<BossWaterEffectRenderer>();
+    entranceSplash_->Initialize(app.Dx(), app.Srv(), camera_.get());
     oceanFlow_ = {};
     populationTimer_ = 0.0f;
     bossShip_.reset();
+    co_yield 0.94f;
     preparedBoss_ = std::make_unique<Enemy>();
     preparedBoss_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
     preparedBoss_->SetManagedCombat(true);
     preparedBoss_->Update(0.0f, player_->GetPosition());
     bossCombat_ = std::make_unique<BossCombatController>();
     bossCombat_->Initialize(app.ObjCom(), app.Dx(), app.Srv(), camera_.get(), preparedBoss_->GetCombatModel());
+    co_yield 0.98f;
     PopulateOcean_(app, 24);
     ModelManager::GetInstance()->LoadModel("cube/cube.obj");
     arenaWalls_.clear();
@@ -325,13 +462,28 @@ void GameScene::OnEnter(GameApp& app) {
         auto wall = std::make_unique<Object3d>();
         wall->Initialize(app.ObjCom(), app.Dx());
         wall->SetCamera(camera_.get());
-        wall->SetModel("cube/cube.obj");
+        wall->SetModel("bossEntrance/fence.obj");
+        wall->SetRotate({ 0.0f, i < 2 ? 0.0f : 1.5707963f, 0.0f });
         wall->SetEnableLighting(0);
-        wall->SetMaterialColor({ 0.05f, 0.75f, 1.0f, 0.18f });
+        wall->SetMaterialColor({ 0.15f, 0.65f, 0.8f, 0.8f });
         arenaWalls_.push_back(std::move(wall));
     }
+    // GameScene.mp3 BGM の再生開始および各種 SE の読み込み
+    if (app.Audio()) {
+        app.Audio()->StopAll();
+        bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/GameScene.mp3", true);
+        app.Audio()->Play(bgmHandle_, 0.5f);
+        throwSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/水面に石投げ2.mp3", false);
+        punchSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/小パンチ.mp3", false);
+        explosionSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/爆発1.mp3", false);
+    }
+    if (player_) {
+        player_->SetAudioHandles(app.Audio(), throwSeHandle_, punchSeHandle_);
+    }
+    co_return;
 }
-void GameScene::OnExit(GameApp& /*app*/) {
+
+void GameScene::OnExit(GameApp& app) {
     auto checkpoint = std::chrono::steady_clock::now();
     auto report = [&](const char* stage) {
         const auto now = std::chrono::steady_clock::now();
@@ -342,6 +494,14 @@ void GameScene::OnExit(GameApp& /*app*/) {
     };
     if (bossCombat_) bossCombat_->Reset(player_.get());
     bossCombat_.reset();
+    if (app.Audio()) {
+        if (bgmHandle_ != 0) { app.Audio()->Stop(bgmHandle_); app.Audio()->Unload(bgmHandle_); bgmHandle_ = 0; }
+        if (throwSeHandle_ != 0) { app.Audio()->Unload(throwSeHandle_); throwSeHandle_ = 0; }
+        if (punchSeHandle_ != 0) { app.Audio()->Unload(punchSeHandle_); punchSeHandle_ = 0; }
+        if (explosionSeHandle_ != 0) { app.Audio()->Unload(explosionSeHandle_); explosionSeHandle_ = 0; }
+    }
+    entranceSplash_.reset();
+    entranceSun_.reset();
     preparedBoss_.reset();
     report("Prepared boss");
     spareDebris_.clear();
@@ -355,6 +515,10 @@ void GameScene::OnExit(GameApp& /*app*/) {
     creatureHpBarBgSprite_.reset();
     hpBarFillSprite_.reset();
     hpBarBgSprite_.reset();
+    for (auto& sprite : timerDigitSprites_) {
+        sprite.reset();
+    }
+    timerColonSprite_.reset();
     report("Walls and UI");
     debrisList_.clear();
     report("Active creatures");
@@ -375,15 +539,18 @@ void GameScene::Update(GameApp& app, float dt) {
         return;
     }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F3)) {
-        RequestChangeScene_("Ship");
-        return;
+        if (bossShip_ && !bossShip_->IsDead()) {
+            bossShip_->TakeDamage(99999.0f);
+        } else {
+            RequestChangeScene_("Ship");
+            return;
+        }
     }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F2)) {
         RequestChangeScene_("BossTest");
         return;
     }
-
-    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F1)) {
+    if (!IsBossEntrance_() && app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F1)) {
         debugCameraEnabled_ = !debugCameraEnabled_;
         app.GetInput()->SetCameraControlEnabled(debugCameraEnabled_);
         if (debugCameraEnabled_ && camera_ && debugCamera_) {
@@ -392,7 +559,11 @@ void GameScene::Update(GameApp& app, float dt) {
         }
     }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F4)) {
-        simulationPaused_ = !simulationPaused_;
+        if (bossShip_ && !bossShip_->IsDead()) {
+            bossShip_->TakeDamage(99999.0f);
+        } else {
+            simulationPaused_ = !simulationPaused_;
+        }
     }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
         app.RequestQuit();
@@ -413,7 +584,14 @@ void GameScene::Update(GameApp& app, float dt) {
     }
     stepOneFrame_ = false;
 
+    if (!oceanFlow_.locked && app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F6)) {
+        oceanFlow_.elapsed = OceanBattleFlow::kExploreSeconds;
+    }
     UpdateOcean_(app, dt);
+    if (IsBossEntrance_()) {
+        UpdateBossEntrance_(app, dt);
+        return;
+    }
     const auto combatEnabled = [this]() {
         return bossShip_ && !bossShip_->IsDead() && player_ && !player_->IsDead() &&
             warningTimer_ <= 0.0f && !debugCameraEnabled_ && bossShip_->IsAttacksEnabled();
@@ -440,30 +618,52 @@ void GameScene::Update(GameApp& app, float dt) {
         bool isBossVisibleInScreen = IsBossInScreen(bossShip_->GetPosition(), camera_.get());
         player_->SetTargetPos(bossShip_->GetPosition(), (!bossShip_->IsDead() && isBossVisibleInScreen));
 
-        // 投げられたゴミ/海洋生物とボス船の衝突判定
-        for (auto& debris : debrisList_) {
-            if (debris->GetState() == DebrisState::Thrown && !debris->IsDead()) {
-                if (bossShip_->CheckCollisionWithDebris(debris.get())) {
-                    debris->SetDead(true);
-                    bossHpShakeTimer_ = 0.35f; // 被弾時にHPバーを振動させる
+        // 投げられたゴミ/海洋生物とボス船の衝突判定（生存時のみ）
+        if (!bossShip_->IsDead()) {
+            for (auto& debris : debrisList_) {
+                if (debris->GetState() == DebrisState::Thrown && !debris->IsDead()) {
+                    if (bossShip_->CheckCollisionWithDebris(debris.get())) {
+                        debris->SetDead(true);
+                        bossHpShakeTimer_ = 0.35f; // 被弾時にHPバーを振動させる
+                        if (app.Audio() && punchSeHandle_ != 0) {
+                            app.Audio()->Play(punchSeHandle_, 1.0f);
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Include deaths from this frame's attacks and thrown creatures before drawing.
-    if (bossShip_ && bossShip_->IsDead()) {
-        if (bossCombat_) bossCombat_->Reset(player_.get());
-        if (player_) player_->SetTargetPos(bossShip_->GetPosition(), false);
-    }
+    // プレイヤー死亡時判定
     if (player_ && player_->IsDead()) {
         if (bossCombat_) bossCombat_->Reset(player_.get());
         app.Scenes().Change(app, "GameOver");
         return;
     }
+
+    // ボス撃破時の爆散演出＆クリア画面自動遷移タイマー処理
     if (bossShip_ && bossShip_->IsDead()) {
+        if (bossCombat_) bossCombat_->Reset(player_.get());
+        if (player_) player_->SetTargetPos(bossShip_->GetPosition(), false);
+
+        if (clearTransitionTimer_ == 0.0f) {
+            bossShip_->TriggerExplosion(); // 初回フレームで爆散シーケンス（パーツ拡散運動）開始！
+            if (app.Audio() && explosionSeHandle_ != 0) {
+                app.Audio()->Play(explosionSeHandle_, 1.0f);
+            }
+        }
         clearTransitionTimer_ += dt;
-        if (clearTransitionTimer_ >= 1.5f) {
+        bossShip_->UpdateExplosion(dt); // 毎フレーム爆散物理シミュレーションを更新
+
+        // カメラの臨場感ある微振動（爆発シェイク）
+        if (camera_ && clearTransitionTimer_ < 2.5f) {
+            float shake = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * 0.8f;
+            Vector3 currentCamPos = camera_->GetTranslate();
+            camera_->SetTranslate({ currentCamPos.x + shake, currentCamPos.y + shake * 0.5f, currentCamPos.z + shake });
+        }
+
+        // 爆散演出が終わったら（2.8秒経過後）、ゲームクリアシーンへ遷移
+        if (clearTransitionTimer_ >= 2.8f) {
             app.Scenes().Change(app, "GameClear");
             return;
         }
@@ -487,6 +687,9 @@ void GameScene::Update(GameApp& app, float dt) {
                     if (distSq <= hitDist * hitDist) {
                         targetDebris->TakeDamage(thrownDebris->GetAtk());
                         thrownDebris->SetDead(true);
+                        if (app.Audio() && punchSeHandle_ != 0) {
+                            app.Audio()->Play(punchSeHandle_, 0.9f);
+                        }
                         break;
                     }
                 }
@@ -687,6 +890,11 @@ void GameScene::Draw(GameApp& app) {
     if (underwaterEnvironment_) underwaterEnvironment_->DrawBackground();
     if (underwaterEnvironment_) underwaterEnvironment_->Draw();
     if (player_) player_->Draw();
+    if (IsBossEntrance_()) {
+        const float t = oceanFlow_.elapsed - OceanBattleFlow::kExploreSeconds;
+        if (t >= 4.0f && t < 8.5f) entranceSun_->Draw();
+        if (preparedBoss_ && (t < 2.0f || t >= 6.0f)) preparedBoss_->Draw();
+    }
     if (bossShip_) bossShip_->Draw();
     if (bossCombat_) bossCombat_->DrawOpaque();
 
@@ -697,7 +905,8 @@ void GameScene::Draw(GameApp& app) {
 
     for (const auto& enemy : enemies_) enemy->Draw();
 
-    if (oceanFlow_.locked) {
+    if (oceanFlow_.locked &&
+        oceanFlow_.elapsed >= OceanBattleFlow::kExploreSeconds + 2.0f) {
         for (const auto& wall : arenaWalls_) wall->Draw();
     }
 
@@ -708,11 +917,16 @@ void GameScene::Draw(GameApp& app) {
     if (bossCombat_) bossCombat_->DrawEffects(
         app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 
+    if (IsBossEntrance_()) {
+        entranceSplash_->Draw(app.Render()->GetOffscreen()->GetResource(),
+            app.Dx()->GetDepthStencilResource(), { 1.5f, 1.0f, 1.2f, 5.0f });
+    }
     ParticleManager::GetInstance()->Draw(app.Dx()->GetCommandList());
 
 }
 
 void GameScene::DrawOverlay2D(GameApp&) {
+    if (IsBossEntrance_()) return;
 
     // 2D UI スプライト HPバーの描画
     if (hpBarBgSprite_) hpBarBgSprite_->Draw();
@@ -791,11 +1005,108 @@ void GameScene::DrawOverlay2D(GameApp&) {
                 }
             }
         }
+
     if (bossCombat_) bossCombat_->DrawWarnings();
+
+    // ----------------------------------------------------
+    // resources/number/ の数字画像を用いたボス出現カウントダウンタイマー描画
+    // ----------------------------------------------------
+    if (!isBossSpawned_) {
+        int secondsLeft = static_cast<int>(std::ceil((std::max)(0.0f, bossSpawnTimer_)));
+        int minutes = secondsLeft / 60;
+        int seconds = secondsLeft % 60;
+
+        int digits[4] = {
+            minutes / 10,
+            minutes % 10,
+            seconds / 10,
+            seconds % 10
+        };
+
+        Matrix4x4 viewMat = Matrix4x4::MakeIdentity4x4();
+        Matrix4x4 projMat = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
+
+        // カラー (通常時: 明るいシアン, 残り10秒以下: 赤色点滅)
+        Vector4 color = { 0.3f, 0.95f, 1.0f, 1.0f };
+        if (secondsLeft <= 10) {
+            float blink = (std::sin(bossSpawnTimer_ * 12.0f) + 1.0f) * 0.5f;
+            color = { 1.0f, 0.2f * blink, 0.2f * blink, 1.0f };
+        }
+
+        float targetHeight = 48.0f; // 数字・コロン共通の高さ
+        float posY = 30.0f;
+
+        // 4桁それぞれ独立したスプライトへ現在の数字のテクスチャをセット
+        for (int i = 0; i < 4; ++i) {
+            int num = std::clamp(digits[i], 0, 9);
+            std::string texPath = "number/" + std::to_string(num) + ".png";
+            if (timerDigitSprites_[i]) {
+                timerDigitSprites_[i]->SetTextureFilePath(texPath);
+            }
+        }
+
+        // テクスチャのアスペクト比を維持した描画幅の取得
+        auto getDrawWidth = [&](const std::string& path) -> float {
+            const auto& meta = TextureManager::GetInstance()->GetMetaData(path);
+            float texW = (std::max)(1.0f, static_cast<float>(meta.width));
+            float texH = (std::max)(1.0f, static_cast<float>(meta.height));
+            return (targetHeight / texH) * texW;
+        };
+
+        auto drawSpriteWithScale = [&](Sprite* sprite, float posX, float drawW) {
+            if (!sprite) return;
+            const auto& meta = TextureManager::GetInstance()->GetMetaData(sprite->GetTextureFilePath());
+            float texW = (std::max)(1.0f, static_cast<float>(meta.width));
+            float texH = (std::max)(1.0f, static_cast<float>(meta.height));
+            sprite->SetPosition({ posX, posY });
+            sprite->SetScale({ drawW / texW, targetHeight / texH, 1.0f });
+            sprite->SetColor(color);
+            sprite->Update(viewMat, projMat);
+            sprite->Draw();
+        };
+
+        // 各エレメントのアスペクト比維持描画幅算出
+        float colonWidth = timerColonSprite_ ? getDrawWidth(timerColonSprite_->GetTextureFilePath()) : 20.0f;
+        colonWidth = (std::max)(16.0f, colonWidth);
+
+        float digitWidths[4] = {};
+        for (int i = 0; i < 4; ++i) {
+            if (timerDigitSprites_[i]) {
+                digitWidths[i] = getDrawWidth(timerDigitSprites_[i]->GetTextureFilePath());
+                digitWidths[i] = (std::max)(24.0f, digitWidths[i]);
+            }
+        }
+
+        // 画面中央センタリング
+        float gap = 4.0f;
+        float totalWidth = digitWidths[0] + digitWidths[1] + digitWidths[2] + digitWidths[3] + colonWidth + (gap * 4.0f);
+        float currentX = 640.0f - (totalWidth * 0.5f);
+
+        // 分 10の位
+        drawSpriteWithScale(timerDigitSprites_[0].get(), currentX, digitWidths[0]);
+        currentX += digitWidths[0] + gap;
+
+        // 分 1の位
+        drawSpriteWithScale(timerDigitSprites_[1].get(), currentX, digitWidths[1]);
+        currentX += digitWidths[1] + gap;
+
+        // コロン :
+        drawSpriteWithScale(timerColonSprite_.get(), currentX, colonWidth);
+        currentX += colonWidth + gap;
+
+        // 秒 10の位
+        drawSpriteWithScale(timerDigitSprites_[2].get(), currentX, digitWidths[2]);
+        currentX += digitWidths[2] + gap;
+
+        // 秒 1の位
+        drawSpriteWithScale(timerDigitSprites_[3].get(), currentX, digitWidths[3]);
+
     }
+}
 
 
 void GameScene::DrawImGui(GameApp& app) {
+    if (IsBossEntrance_()) return;
 #ifdef USE_IMGUI
     if (oceanFlow_.locked) {
         ImGui::SetNextWindowPos(ImVec2(430.0f, 12.0f), ImGuiCond_Always);
@@ -857,7 +1168,7 @@ void GameScene::DrawImGui(GameApp& app) {
         ImGui::TextColored(ImVec4(0.3f, 0.95f, 1.0f, 1.0f), " COLLECT CREATURES & ENHANCE YOUR FISH! ");
         ImGui::SetWindowFontScale(1.1f);
         int secondsLeft = static_cast<int>(std::ceil(bossSpawnTimer_));
-        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "     Boss Arrival in: %02d:%02d     ", secondsLeft / 60, secondsLeft % 60);
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "  Boss Arrival: %02d:%02d  [ Press 'B' to Spawn Now ]  ", secondsLeft / 60, secondsLeft % 60);
         ImGui::End();
     } else if (warningTimer_ > 0.0f) {
         ImGui::SetNextWindowPos(ImVec2(360.0f, 140.0f), ImGuiCond_Always);

@@ -10,6 +10,7 @@
 #include "boss/BossNetAttack.h"
 #include <cmath>
 #include <algorithm>
+#include <random>
 #ifdef USE_IMGUI
 #include "imgui.h"
 #endif
@@ -151,6 +152,15 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
     }
 }
 
+void Enemy::SetEntrancePose(const Vector3& position, float pitch, float tint, float yawOffset) {
+    pos_ = position;
+    if (!shipModel_) return;
+    shipModel_->SetTranslate(pos_ + visualOffset_);
+    shipModel_->SetRotate({ pitch, rot_.y + yawOffset, 0.0f });
+    shipModel_->SetMaterialColor({ tint, tint, tint, 1.0f });
+    shipModel_->Update(0.0f);
+}
+
 void Enemy::TakeDamage(float damage) {
     if (isDead_) return;
     hp_ -= damage;
@@ -200,7 +210,7 @@ void Enemy::CheckCollisionWithPlayer(Player* player) {
 }
 
 void Enemy::Draw() {
-    if (!isDead_ && shipModel_) {
+    if ((!isDead_ || explosionActive_) && shipModel_) {
         shipModel_->Draw();
     }
 
@@ -208,6 +218,50 @@ void Enemy::Draw() {
     if (!managedCombat_ && netAttack_) netAttack_->Draw();
     if (showOrbitDebug_ && orbitDebugModel_) orbitDebugModel_->Draw();
     if (showCollisionDebug_ && collisionDebugModel_) collisionDebugModel_->Draw();
+}
+
+void Enemy::TriggerExplosion() {
+    if (!shipModel_) return;
+    size_t instanceCount = shipModel_->GetMeshInstanceCount();
+    if (instanceCount == 0) return;
+
+    explosionFragments_.clear();
+    explosionFragments_.resize(instanceCount);
+    shipModel_->ResetMeshInstanceExplosionOffsets();
+
+    static std::mt19937 random{ std::random_device{}() };
+    std::uniform_real_distribution<float> horizontal(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> vertical(0.2f, 1.2f);
+    std::uniform_real_distribution<float> speed(8.0f, 22.0f);
+    std::uniform_real_distribution<float> spin(-4.0f, 4.0f);
+
+    for (auto& fragment : explosionFragments_) {
+        Vector3 dir{ horizontal(random), vertical(random), horizontal(random) };
+        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+        if (len > 0.001f) dir = dir * (1.0f / len);
+        float spd = speed(random);
+        fragment.velocity = dir * spd;
+        fragment.velocity.y += 5.0f;
+        fragment.angularVelocity = { spin(random), spin(random), spin(random) };
+    }
+    explosionActive_ = true;
+}
+
+void Enemy::UpdateExplosion(float dt) {
+    if (!explosionActive_ || !shipModel_ || explosionFragments_.empty()) return;
+
+    float gravity = 9.8f;
+    float drag = 0.5f;
+    float damping = std::max(0.0f, 1.0f - drag * dt);
+
+    for (size_t i = 0; i < explosionFragments_.size(); ++i) {
+        auto& fragment = explosionFragments_[i];
+        fragment.velocity.y -= gravity * dt;
+        fragment.velocity = fragment.velocity * damping;
+        fragment.position += fragment.velocity * dt;
+        fragment.rotation += fragment.angularVelocity * dt;
+        shipModel_->SetMeshInstanceExplosionOffset(i, fragment.position, fragment.rotation);
+    }
 }
 
 void Enemy::DrawImGui() {

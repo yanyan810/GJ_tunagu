@@ -12,6 +12,7 @@ class DirectXCommon;
 class Camera;
 class Input;
 class Debris;
+class AudioSystem;
 
 // 新しいゲーム向けのプレイヤー骨組みです。
 class Player {
@@ -23,6 +24,12 @@ public:
     using MotionResolver = std::function<Vector3(const Vector3&, const Vector3&)>;
     void SetMotionResolver(MotionResolver resolver) { motionResolver_ = std::move(resolver); }
     void SetExternalMovement(const Vector3& velocity, float speedScale) { externalVelocity_ = velocity; externalSpeedScale_ = std::clamp(speedScale, 0.0f, 1.0f); }
+
+    void SetAudioHandles(AudioSystem* audio, int throwSe, int punchSe) {
+        audio_ = audio;
+        throwSeHandle_ = throwSe;
+        punchSeHandle_ = punchSe;
+    }
 
     // カメラの追従やアタッチの計算に必要なgetter
     const Vector3& GetPosition() const { return pos_; }
@@ -41,10 +48,7 @@ public:
     float GetHp() const { return hp_; }
     float GetMaxHp() const { return maxHp_; }
     void SetHp(float hp) { hp_ = std::clamp(hp, 0.0f, maxHp_); }
-    void TakeDamage(float damage) {
-        float finalDamage = damage * (1.0f - std::clamp(defenseBuff_, 0.0f, 0.8f));
-        hp_ = std::clamp(hp_ - finalDamage, 0.0f, maxHp_);
-    }
+    void TakeDamage(float damage);
     void Heal(float amount) { hp_ = std::clamp(hp_ + amount, 0.0f, maxHp_); }
     bool IsDead() const { return hp_ <= 0.0f; }
 
@@ -131,4 +135,9 @@ private:
 
     // 自動攻撃タイマー
     float autoShootTimer_ = 0.0f;
+
+    // SE再生用
+    AudioSystem* audio_ = nullptr;
+    int throwSeHandle_ = 0;
+    int punchSeHandle_ = 0;
 };
