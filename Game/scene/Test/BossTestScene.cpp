@@ -1,4 +1,8 @@
 #include "BossTestScene.h"
+#include "Player.h"
+#include "Debris.h"
+#include "environment/UnderwaterEnvironment.h"
+#include "enemy/Enemy.h"
 
 #include "Camera.h"
 #include "DebugCamera.h"
@@ -22,7 +26,7 @@
 #include "imgui.h"
 #endif
 
-BossTestScene::BossTestScene() = default;
+BossTestScene::BossTestScene(bool battleScale) : battleScale_(battleScale) {}
 BossTestScene::~BossTestScene() = default;
 
 namespace {
@@ -187,6 +191,12 @@ std::unique_ptr<Object3d> CreatePrimitiveObject(
 
 void BossTestScene::OnEnter(GameApp& app) {
     LoadMineSettings_();
+    if (battleScale_) {
+        bossPosition_ = Enemy::kDefaultPosition;
+        bossRotation_ = { 0.0f, -1.5707963f, 0.0f };
+        bossScale_ = Enemy::kDefaultScale;
+        bossVisualOffset_ = {};
+    }
     camera_ = std::make_unique<Camera>();
     debugCamera_ = std::make_unique<DebugCamera>();
     debugCamera_->Initialize();
@@ -198,12 +208,22 @@ void BossTestScene::OnEnter(GameApp& app) {
 
     camera_->SetTranslate(debugCamera_->GetPosition());
     camera_->SetRotate(debugCamera_->GetRotation());
-    camera_->SetFarClip(2000.0f);
+    if (!battleScale_) camera_->SetFarClip(2000.0f);
     camera_->Update();
     app.ObjCom()->SetDefaultCamera(camera_.get());
 
     CreateTestField_(app);
     CreateTemporaryBoss_(app);
+    if (battleScale_) {
+        floor_.reset();
+        battleEnvironment_ = std::make_unique<UnderwaterEnvironment>();
+        battleEnvironment_->Initialize(app.ObjCom(), app.Dx(), camera_.get(), app.Render());
+        battlePlayer_ = std::make_unique<Player>();
+        battlePlayer_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
+        battleEnvironment_->BindPlayer(*battlePlayer_);
+        battlePlayer_->Update(0.0f, *app.GetInput(), battleDebris_);
+        pingBeamTargetPosition_ = battlePlayer_->GetPosition();
+    }
     pingBeamEffects_ = std::make_unique<PingBeamEffects>();
     pingBeamEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
     screwAnimation_.Initialize(*boss_);
@@ -334,6 +354,7 @@ void BossTestScene::OnEnter(GameApp& app) {
     mineSpawnPoints_[1].Settings().scatterDirection = { 1.0f, 0.0f, 0.0f };
     mineSpawnPoints_[2].Settings().localPosition = { 0.0f, 0.0f, -0.8f };
     mineSpawnPoints_[2].Settings().scatterDirection = { 0.0f, 0.0f, -1.0f };
+    LoadMineSettings_();
     RebuildMineDebugObjects_(app);
     if (app.GetInput()) {
         // Start in UI mode. F1 explicitly switches to captured mouse-look mode.
@@ -342,6 +363,10 @@ void BossTestScene::OnEnter(GameApp& app) {
 }
 
 void BossTestScene::OnExit(GameApp& app) {
+    battleDebris_.clear();
+    battlePlayer_.reset();
+    if (battleEnvironment_) battleEnvironment_->Shutdown();
+    battleEnvironment_.reset();
     pingBeamEffects_.reset();
     if (app.GetInput()) {
         app.GetInput()->SetCameraControlEnabled(false);
@@ -452,6 +477,11 @@ void BossTestScene::ResetTestObjects_() {
     bossPosition_ = { 0.0f, 3.0f, 25.0f };
     bossRotation_ = { 0.0f, -1.5707963f, 0.0f };
     bossScale_ = { 1.5f, 1.5f, 1.5f };
+    if (battleScale_) {
+        bossPosition_ = Enemy::kDefaultPosition;
+        bossScale_ = Enemy::kDefaultScale;
+        bossVisualOffset_ = {};
+    }
     ApplyBossTransform_();
     mines_.clear();
     pendingMineEmissions_.clear();
@@ -1244,6 +1274,18 @@ bool BossTestScene::SaveMineSettings_() {
         std::filesystem::create_directories(path.parent_path());
         nlohmann::json root;
         root["version"] = 1;
+        root["mine"]["spawnPoints"] = nlohmann::json::array();
+        for (const auto& point : mineSpawnPoints_) {
+            const auto& s = point.Settings();
+            root["mine"]["spawnPoints"].push_back({
+                { "localPosition", { s.localPosition.x, s.localPosition.y, s.localPosition.z } },
+                { "scatterRange", { s.scatterRange.x, s.scatterRange.y, s.scatterRange.z } },
+                { "scatterDirection", { s.scatterDirection.x, s.scatterDirection.y, s.scatterDirection.z } },
+                { "mineCount", s.mineCount }, { "scatterDistance", s.scatterDistance },
+                { "minimumSpacing", s.minimumSpacing }, { "scatterAngleDegrees", s.scatterAngleDegrees },
+                { "initialSpeed", s.initialSpeed }
+            });
+        }
         root["mine"]["explosion"] = {
             { "damage", mineMotionSettings_.damage },
             { "moveSpeedDamage", mineMotionSettings_.moveSpeedDamage },
@@ -1655,6 +1697,34 @@ bool BossTestScene::LoadMineSettings_() {
                 modelRotationOffset[0].get<float>(), modelRotationOffset[1].get<float>(), modelRotationOffset[2].get<float>()
             };
         }
+        const auto mine = root.value("mine", nlohmann::json::object());
+        if (mine.contains("spawnPoints") && mine["spawnPoints"].is_array()) {
+            std::vector<MineSpawnPoint> points;
+            for (const auto& point : mine["spawnPoints"]) {
+                if (points.size() >= 256) break;
+                MineSpawnPoint spawn;
+                auto& s = spawn.Settings();
+                auto readVector = [&](const char* key, Vector3 fallback) {
+                    const auto v = point.value(key, nlohmann::json::array());
+                    return v.is_array() && v.size() == 3
+                        ? Vector3{ v[0].get<float>(), v[1].get<float>(), v[2].get<float>() } : fallback;
+                };
+                s.localPosition = readVector("localPosition", s.localPosition);
+                s.scatterRange = readVector("scatterRange", s.scatterRange);
+                s.scatterRange.x = std::max(0.0f, s.scatterRange.x);
+                s.scatterRange.y = std::max(0.0f, s.scatterRange.y);
+                s.scatterRange.z = std::max(0.0f, s.scatterRange.z);
+                s.scatterDirection = readVector("scatterDirection", s.scatterDirection);
+                s.mineCount = std::clamp(point.value("mineCount", s.mineCount), 1, 256);
+                s.scatterDistance = std::max(0.0f, point.value("scatterDistance", s.scatterDistance));
+                s.minimumSpacing = std::max(0.0f, point.value("minimumSpacing", s.minimumSpacing));
+                s.scatterAngleDegrees = std::clamp(point.value("scatterAngleDegrees", s.scatterAngleDegrees), 0.0f, 80.0f);
+                s.initialSpeed = std::max(0.0f, point.value("initialSpeed", s.initialSpeed));
+                points.push_back(spawn);
+            }
+            mineSpawnPoints_ = std::move(points);
+            selectedMineSpawnPoint_ = 0;
+        }
         ApplyExplosionSettingsToMines_();
         mineSettingsStatus_ = "Loaded: " + path.generic_string();
         return true;
@@ -1665,10 +1735,22 @@ bool BossTestScene::LoadMineSettings_() {
 }
 
 void BossTestScene::Update(GameApp& app, float dt) {
+    if (pendingLoadSettings_) {
+        if (LoadMineSettings_()) RebuildMineDebugObjects_(app);
+        pendingLoadSettings_ = false;
+    }
     Input* input = app.GetInput();
     // BossTestScene always leaves the cursor available to ImGui. Keyboard
     // camera translation remains active, but F1/Tab cannot recapture it.
-    if (input && input->IsCameraControlEnabled()) {
+    if (battleScale_ && input && input->IsKeyTrigger(DIK_F1)) {
+        battlePlayerControl_ = !battlePlayerControl_;
+        if (!battlePlayerControl_) {
+            debugCamera_->SetPosition(camera_->GetTranslate());
+            debugCamera_->SetRotation(camera_->GetRotate());
+        }
+    }
+    if (battleScale_ && input) input->SetCameraControlEnabled(battlePlayerControl_);
+    if (!battleScale_ && input && input->IsCameraControlEnabled()) {
         input->SetCameraControlEnabled(false);
     }
     if (input && input->IsKeyTrigger(DIK_F2)) {
@@ -1763,13 +1845,29 @@ void BossTestScene::Update(GameApp& app, float dt) {
         return;
     }
 
-    if (debugCamera_ && camera_) {
+    if (battlePlayer_ && battlePlayerControl_ && input) {
+        battlePlayer_->Update(dt, *input, battleDebris_);
+        const Vector3 target = battlePlayer_->GetTailPosition();
+        const float yaw = battlePlayer_->GetCameraYaw();
+        const float pitch = battlePlayer_->GetCameraPitch();
+        const Vector3 desired = target + Vector3{
+            -std::sin(yaw) * std::cos(pitch) * 11.5f,
+            std::sin(pitch) * 11.5f, -std::cos(yaw) * std::cos(pitch) * 11.5f };
+        camera_->SetTranslate(battleEnvironment_->ConstrainCamera(target, desired));
+        camera_->SetRotate({ pitch, yaw, 0.0f });
+        camera_->Update();
+    } else if (debugCamera_ && camera_) {
         debugCamera_->Update(dt);
         camera_->SetTranslate(debugCamera_->GetPosition());
         camera_->SetRotate(debugCamera_->GetRotation());
         camera_->Update();
     }
 
+    if (battlePlayer_) {
+        pingBeamTargetPosition_ = battlePlayer_->GetPosition();
+        battleEnvironment_->SetPlayerSnapshot(battlePlayer_->GetPosition(), battlePlayer_->GetYaw(), battlePlayer_->GetPitch());
+        battleEnvironment_->Update(dt);
+    }
     ApplyBossTransform_();
 	if (causticsAnimationEnabled_ && causticsLoopDuration_ > 0.0f) {
 		causticsPlaybackTime_ = std::fmod(
@@ -1800,8 +1898,13 @@ void BossTestScene::Update(GameApp& app, float dt) {
 }
 
 void BossTestScene::Draw(GameApp& app) {
+    if (battleEnvironment_) {
+        battleEnvironment_->DrawBackground();
+        battleEnvironment_->Draw();
+    }
+    if (battlePlayer_) battlePlayer_->Draw();
     if (floor_) floor_->Draw();
-    if (pingBeamEffects_ && pingBeamEffects_->IsEnabled() && pingBeamEffects_->IsSoloPreview()) {
+    if (!battleScale_ && pingBeamEffects_ && pingBeamEffects_->IsEnabled() && pingBeamEffects_->IsSoloPreview()) {
         if (boss_) boss_->Draw();
         pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
         return;
@@ -1857,13 +1960,24 @@ void BossTestScene::Draw(GameApp& app) {
         for (const auto& marker : pingBeamTargetAngleDebug_) if (marker) marker->Draw();
         for (const auto& marker : pingBeamUnitPositionDebug_) if (marker) marker->Draw();
     }
+    if (battleEnvironment_) {
+        battleEnvironment_->DrawWaterDepth();
+        battleEnvironment_->DrawWaterSurface();
+    }
     if (pingBeamEffects_) pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 }
 
 void BossTestScene::DrawImGui(GameApp& app) {
 #ifdef USE_IMGUI
     ImGui::SetNextWindowSizeConstraints(ImVec2(430.0f, 300.0f), ImVec2(1000.0f, 2000.0f));
-    ImGui::Begin("Boss Test Scene");
+    ImGui::Begin(battleScale_ ? "Test Battle Scene" : "Boss Test Scene");
+    if (battleScale_) {
+        ImGui::TextWrapped("Game-scale ship, Player and underwater stage. F1: switch Player / editor. F2: Game.");
+        ImGui::TextWrapped("Attack ranges use the existing BossAttacks.json editor. These preview attacks are not yet wired into GameScene's bullet/net attacks. No damage is applied to Player here.");
+        ImGui::Text("Mode: %s", battlePlayerControl_ ? "Player (F1 to edit)" : "Editor");
+    } else if (ImGui::Button("Open Test Battle Scene")) {
+        RequestChangeScene_("TestBattle");
+    }
 
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::SeparatorText("View Presets");
@@ -1908,13 +2022,16 @@ void BossTestScene::DrawImGui(GameApp& app) {
         ImGui::Text("Position: %.2f, %.2f, %.2f", position.x, position.y, position.z);
         ImGui::Text("Rotation: %.2f, %.2f, %.2f", rotation.x, rotation.y, rotation.z);
         ImGui::TextDisabled("W/S forward/back / A/D left/right / E up / Q down");
-        ImGui::TextDisabled("Mouse look is disabled in BossTestScene / F2: return to Game");
+        ImGui::TextDisabled(battleScale_
+            ? "F1: Player / editor (free camera) / F2: return to Game"
+            : "Mouse look is disabled in BossTestScene / F2: return to Game");
     }
 
     if (ImGui::CollapsingHeader("Boss", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::DragFloat3("Position##Boss", &bossPosition_.x, 0.1f);
         ImGui::DragFloat3("Rotation##Boss", &bossRotation_.x, 0.01f);
-        ImGui::DragFloat3("Scale##Boss", &bossScale_.x, 0.1f, 0.1f, 500.0f);
+        if (!battleScale_) ImGui::DragFloat3("Scale##Boss", &bossScale_.x, 0.1f, 0.1f, 500.0f);
+        else ImGui::Text("Game ship scale: %.1f", bossScale_.x);
         ImGui::DragFloat3("Visual Offset##Boss", &bossVisualOffset_.x, 0.1f);
     }
 
@@ -2201,8 +2318,12 @@ void BossTestScene::DrawImGui(GameApp& app) {
             ImGui::TreePop();
         }
         if (ImGui::TreeNodeEx("Ping Beam", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::DragFloat3("Test Player Position##PingBeam", &pingBeamTargetPosition_.x, 0.1f, -1000.0f, 1000.0f);
-            ImGui::TextDisabled("Green cube is the Player proxy passed into PingBeamAttack::Update.");
+            if (!battleScale_) {
+                ImGui::DragFloat3("Test Player Position##PingBeam", &pingBeamTargetPosition_.x, 0.1f, -1000.0f, 1000.0f);
+                ImGui::TextDisabled("Green cube is the Player proxy passed into PingBeamAttack::Update.");
+            } else {
+                ImGui::TextDisabled("Beam targets the actual Player. Use F1 to swim to a test position.");
+            }
             ImGui::DragFloat("Tracking Time##PingBeam", &pingBeamSettings_.trackingTime, 0.02f, 0.0f, 20.0f);
             ImGui::DragFloat("Tracking Rotation Speed##PingBeam", &pingBeamSettings_.trackingRotationSpeed, 0.05f, 0.0f, 50.0f);
             ImGui::SeparatorText("Per-sphere Orbit (sip local XZ plane)");
@@ -2236,7 +2357,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
         }
         if (ImGui::Button("Save Boss Attack Settings")) SaveMineSettings_();
         ImGui::SameLine();
-        if (ImGui::Button("Load Boss Attack Settings")) LoadMineSettings_();
+        if (ImGui::Button("Load Boss Attack Settings")) pendingLoadSettings_ = true;
         if (!mineSettingsStatus_.empty()) ImGui::TextDisabled("%s", mineSettingsStatus_.c_str());
         ImGui::Separator();
         ImGui::TextDisabled("Other attacks will be added here later.");

@@ -8,6 +8,7 @@
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
 #include "Object3d.h"
+#include "ModelManager.h"
 #include "Debris.h"
 #include "ParticleManager.h"
 #include "environment/UnderwaterEnvironment.h"
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <chrono>
 
 namespace {
     // 3Dワールド座標がカメラの画面内（視界内・描画範囲）に映っているか判定するヘルパー関数
@@ -46,6 +48,97 @@ namespace {
 
 GameScene::GameScene() = default;
 GameScene::~GameScene() = default;
+
+void GameScene::UpdateOcean_(GameApp& app, float dt) {
+    if (!player_) return;
+    oceanFlow_.Update(dt, player_->GetPosition());
+    if (!oceanFlow_.locked) return;
+    const float half = oceanFlow_.HalfSize();
+    const Vector3 center = oceanFlow_.center;
+    underwaterEnvironment_->SetArenaBounds(center, half);
+    for (size_t i = 0; i < arenaWalls_.size(); ++i) {
+        const bool alongX = i < 2;
+        const float side = (i % 2 == 0) ? -1.0f : 1.0f;
+        arenaWalls_[i]->SetTranslate({ center.x + (alongX ? 0.0f : side * half),
+            3.0f, center.z + (alongX ? side * half : 0.0f) });
+        arenaWalls_[i]->SetScale(alongX ? Vector3{ half, 25.0f, 0.15f }
+            : Vector3{ 0.15f, 25.0f, half });
+        arenaWalls_[i]->Update(dt);
+    }
+    if (oceanFlow_.BattleReady() && !bossShip_) {
+        bossShip_ = std::move(preparedBoss_);
+        if (!bossShip_) return;
+        bossShip_->SetBattleCenter(center);
+    }
+}
+
+void GameScene::PopulateOcean_(GameApp& /*app*/, int budget) {
+    if (!player_) return;
+    const Vector3 playerPosition = player_->GetPosition();
+    // Only recycle free creatures. Attached equipment and live projectiles keep
+    // their identity and lifetime; Player may still hold pointers to them.
+    debrisList_.erase(std::remove_if(debrisList_.begin(), debrisList_.end(),
+        [&](std::unique_ptr<Debris>& d) {
+            if (d->GetState() != DebrisState::Floating) return false;
+            const Vector3 p = d->GetPosition();
+            const float x = p.x - playerPosition.x, z = p.z - playerPosition.z;
+            bool recycle = false;
+            if (oceanFlow_.locked) {
+                const float half = oceanFlow_.HalfSize();
+                recycle = std::abs(p.x - oceanFlow_.center.x) > half ||
+                    std::abs(p.z - oceanFlow_.center.z) > half;
+            } else {
+                recycle = x * x + z * z > 150.0f * 150.0f;
+            }
+            if (recycle) spareDebris_.push_back(std::move(d));
+            return recycle;
+        }), debrisList_.end());
+    int freeCount = 0;
+    for (const auto& d : debrisList_) {
+        if (!d->IsDead() && d->GetState() == DebrisState::Floating) ++freeCount;
+    }
+    auto randomUnit = [] { return static_cast<float>(std::rand()) / RAND_MAX; };
+    const int needed = std::min(budget, std::max(0, 100 - freeCount));
+    for (int i = 0; i < needed; ++i) {
+        if (spareDebris_.empty()) break;
+        Vector3 position;
+        bool found = false;
+        for (int attempt = 0; attempt < 16; ++attempt) {
+            if (oceanFlow_.locked) {
+                const float span = oceanFlow_.HalfSize() - 5.0f;
+                position = { oceanFlow_.center.x + (randomUnit() * 2.0f - 1.0f) * span,
+                    -12.0f + randomUnit() * 24.0f,
+                    oceanFlow_.center.z + (randomUnit() * 2.0f - 1.0f) * span };
+            } else {
+                const float angle = randomUnit() * 6.2831853f;
+                const float radius = std::sqrt(55.0f * 55.0f + randomUnit() * (100.0f * 100.0f - 55.0f * 55.0f));
+                position = { playerPosition.x + std::cos(angle) * radius,
+                    -12.0f + randomUnit() * 24.0f, playerPosition.z + std::sin(angle) * radius };
+            }
+            position = underwaterEnvironment_->FindOpenWaterPosition(position);
+            const Vector3 delta = position - playerPosition;
+            if (delta.x * delta.x + delta.z * delta.z < 55.0f * 55.0f || position.y > 14.0f) continue;
+            if (IsBossInScreen(position, camera_.get())) continue;
+            if (oceanFlow_.locked && (std::abs(position.x - oceanFlow_.center.x) > oceanFlow_.HalfSize() - 3.0f ||
+                std::abs(position.z - oceanFlow_.center.z) > oceanFlow_.HalfSize() - 3.0f)) continue;
+            found = true;
+            break;
+        }
+        if (!found) continue;
+        // Mostly marine life; keep a small amount of mechanical equipment.
+        const DebrisType type = (std::rand() % 10 == 0)
+            ? static_cast<DebrisType>(1 + std::rand() % 2)
+            : (std::rand() % 15 == 0 ? DebrisType::Uni : static_cast<DebrisType>(3 + std::rand() % 14));
+        auto selected = std::find_if(spareDebris_.begin(), spareDebris_.end(),
+            [type](const auto& d) { return d->GetType() == type; });
+        if (selected == spareDebris_.end()) selected = spareDebris_.end() - 1;
+        auto debris = std::move(*selected);
+        *selected = std::move(spareDebris_.back());
+        spareDebris_.pop_back();
+        debris->Respawn(position);
+        debrisList_.push_back(std::move(debris));
+    }
+}
 
 void GameScene::OnEnter(GameApp& app) {
     // 乱数の初期化
@@ -110,6 +203,17 @@ void GameScene::OnEnter(GameApp& app) {
 
     // 漂う海洋生物・装備の初期スポーン
     debrisList_.clear();
+    // Create GPU-backed instances once, before gameplay starts. No new models
+    // or instance buffers are allocated by the population refill path.
+    constexpr int kPreparedCreatures = 136;
+    debrisList_.reserve(kPreparedCreatures + 9);
+    spareDebris_.clear();
+    spareDebris_.reserve(kPreparedCreatures + 9);
+    for (int i = 0; i < kPreparedCreatures; ++i) {
+        auto debris = std::make_unique<Debris>();
+        debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), static_cast<DebrisType>(i % 17), {});
+        spareDebris_.push_back(std::move(debris));
+    }
 
     // プレイヤーのすぐ周辺にアビリティ確認用の海洋生物を確定スポーン
     const std::pair<DebrisType, Vector3> initialSpawns[] = {
@@ -130,46 +234,63 @@ void GameScene::OnEnter(GameApp& app) {
         debrisList_.push_back(std::move(debris));
     }
 
-    // ランダムに16個の各種海洋生物をマップ全体に配置
-    const int totalTypes = 17; // 全17種類
-    for (int i = 0; i < 16; ++i) {
-        float x = (static_cast<float>(std::rand()) / RAND_MAX * 140.0f) - 70.0f;
-        float y = (static_cast<float>(std::rand()) / RAND_MAX * 40.0f) - 20.0f;
-        float z = (static_cast<float>(std::rand()) / RAND_MAX * 140.0f) - 70.0f;
-
-        if (x * x + z * z < 36.0f) {
-            z += 12.0f;
-        }
-
-        DebrisType type = static_cast<DebrisType>(std::rand() % totalTypes);
-        auto debris = std::make_unique<Debris>();
-        debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), type, { x, y, z });
-        debrisList_.push_back(std::move(debris));
+    oceanFlow_ = {};
+    populationTimer_ = 0.0f;
+    bossShip_.reset();
+    preparedBoss_ = std::make_unique<Enemy>();
+    preparedBoss_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
+    PopulateOcean_(app, 24);
+    ModelManager::GetInstance()->LoadModel("cube/cube.obj");
+    arenaWalls_.clear();
+    for (int i = 0; i < 4; ++i) {
+        auto wall = std::make_unique<Object3d>();
+        wall->Initialize(app.ObjCom(), app.Dx());
+        wall->SetCamera(camera_.get());
+        wall->SetModel("cube/cube.obj");
+        wall->SetEnableLighting(0);
+        wall->SetMaterialColor({ 0.05f, 0.75f, 1.0f, 0.18f });
+        arenaWalls_.push_back(std::move(wall));
     }
-
-    // ボス船の生成・初期化
-    bossShip_ = std::make_unique<Enemy>();
-    bossShip_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
 }
-
 void GameScene::OnExit(GameApp& /*app*/) {
+    auto checkpoint = std::chrono::steady_clock::now();
+    auto report = [&](const char* stage) {
+        const auto now = std::chrono::steady_clock::now();
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - checkpoint).count();
+        const std::string message = std::string("[SceneExit] ") + stage + ": " + std::to_string(ms) + " ms\n";
+        OutputDebugStringA(message.c_str());
+        checkpoint = now;
+    };
+    preparedBoss_.reset();
+    report("Prepared boss");
+    spareDebris_.clear();
+    report("Spare creatures");
+    arenaWalls_.clear();
     bossHpBarFillSprite_.reset();
     bossHpBarCatchupSprite_.reset();
     bossHpBarBgSprite_.reset();
     bossHpBarFrameSprite_.reset();
     hpBarFillSprite_.reset();
     hpBarBgSprite_.reset();
+    report("Walls and UI");
     debrisList_.clear();
+    report("Active creatures");
     enemies_.clear();
     bossShip_.reset();
     player_.reset();
+    report("Boss and player equipment");
     if (underwaterEnvironment_) underwaterEnvironment_->Shutdown();
     underwaterEnvironment_.reset();
+    report("Underwater environment");
     debugCamera_.reset();
     camera_.reset();
 }
 
 void GameScene::Update(GameApp& app, float dt) {
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F5)) {
+        RequestChangeScene_("TestBattle");
+        return;
+    }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F3)) {
         RequestChangeScene_("Ship");
         return;
@@ -208,6 +329,7 @@ void GameScene::Update(GameApp& app, float dt) {
     }
     stepOneFrame_ = false;
 
+    UpdateOcean_(app, dt);
     if (player_ && app.GetInput() && !debugCameraEnabled_) {
         player_->Update(dt, *app.GetInput(), debrisList_);
         // プレイヤーと漂うゴミとの衝突判定
@@ -257,12 +379,22 @@ void GameScene::Update(GameApp& app, float dt) {
     // 消滅フラグが立ったゴミをリストから削除
     debrisList_.erase(
         std::remove_if(debrisList_.begin(), debrisList_.end(),
-            [](const std::unique_ptr<Debris>& d) { return d->IsDead(); }),
+            [this](std::unique_ptr<Debris>& d) {
+                if (!d->IsDead()) return false;
+                spareDebris_.push_back(std::move(d));
+                return true;
+            }),
         debrisList_.end()
     );
 
     for (const auto& enemy : enemies_) {
         enemy->Update(dt);
+    }
+
+    populationTimer_ += dt;
+    if (populationTimer_ >= 0.125f) {
+        populationTimer_ = 0.0f;
+        PopulateOcean_(app, 1);
     }
 
     // カメラの追従処理 (尾びれ中心の極座標TPS追従: 視点回転を行っても常に尾びれが画面中心になり見切れない)
@@ -436,10 +568,14 @@ void GameScene::Draw(GameApp& app) {
 
     // 漂うゴミの描画
     for (auto& debris : debrisList_) {
-        debris->Draw();
+        if (debris->GetState() != DebrisState::Attached) debris->Draw();
     }
 
     for (const auto& enemy : enemies_) enemy->Draw();
+
+    if (oceanFlow_.locked) {
+        for (const auto& wall : arenaWalls_) wall->Draw();
+    }
 
     if (underwaterEnvironment_) {
         underwaterEnvironment_->DrawWaterDepth();
@@ -457,15 +593,35 @@ void GameScene::DrawOverlay2D(GameApp&) {
     if (hpBarFillSprite_) hpBarFillSprite_->Draw();
 
     // 2D UI スプライト ボスHPバーの描画（画面右上 ボスHPバー）
-    if (bossHpBarFrameSprite_) bossHpBarFrameSprite_->Draw();
-    if (bossHpBarBgSprite_) bossHpBarBgSprite_->Draw();
-    if (bossHpBarCatchupSprite_) bossHpBarCatchupSprite_->Draw();
-    if (bossHpBarFillSprite_) bossHpBarFillSprite_->Draw();
+    if (bossShip_) {
+        if (bossHpBarFrameSprite_) bossHpBarFrameSprite_->Draw();
+        if (bossHpBarBgSprite_) bossHpBarBgSprite_->Draw();
+        if (bossHpBarCatchupSprite_) bossHpBarCatchupSprite_->Draw();
+        if (bossHpBarFillSprite_) bossHpBarFillSprite_->Draw();
+    }
 }
 
 void GameScene::DrawImGui(GameApp& app) {
 #ifdef USE_IMGUI
+    ImGui::SetNextWindowPos(ImVec2(430.0f, 12.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.65f);
+    ImGui::Begin("Ocean Phase", nullptr, ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoSavedSettings);
+    if (!oceanFlow_.locked) {
+        ImGui::Text("EXPLORE - Arena in %.0f sec", std::ceil(OceanBattleFlow::kExploreSeconds - oceanFlow_.elapsed));
+    } else if (!oceanFlow_.BattleReady()) {
+        ImGui::Text("AREA CLOSING - Boss in %.0f sec", std::ceil(
+            OceanBattleFlow::kExploreSeconds + OceanBattleFlow::kShrinkSeconds - oceanFlow_.elapsed));
+    } else {
+        ImGui::TextUnformatted("BOSS BATTLE");
+    }
+    ImGui::End();
     ImGui::Begin("Game Debug Controls");
+    const float fps = ImGui::GetIO().Framerate;
+    ImGui::Text("Frame: %.1f ms / %.1f FPS", fps > 0.0f ? 1000.0f / fps : 0.0f, fps);
+    ImGui::Text("Creatures / equipment: %zu", debrisList_.size());
+    ImGui::Text("Prepared spare creatures: %zu", spareDebris_.size());
+    if (ImGui::Button("Test Battle Scene (F5)")) RequestChangeScene_("TestBattle");
     ImGui::TextUnformatted("F1: Debug Camera / F4: Pause");
     if (ImGui::Checkbox("Debug Camera", &debugCameraEnabled_)) {
         if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(debugCameraEnabled_);

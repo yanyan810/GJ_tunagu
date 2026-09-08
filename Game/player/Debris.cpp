@@ -1,4 +1,4 @@
-#include "Debris.h"
+﻿#include "Debris.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
@@ -21,7 +21,23 @@ namespace {
 Debris::Debris() = default;
 Debris::~Debris() = default;
 
+void Debris::Respawn(const Vector3& position) {
+    pos_ = position;
+    state_ = DebrisState::Floating;
+    isDead_ = false;
+    velocity_ = {};
+    rot_ = {};
+    localOffset_ = {};
+    localRot_ = {};
+    targetPos_ = {};
+    hasTarget_ = false;
+    throwTimer_ = 0.0f;
+    floatTimer_ = 0.0f;
+    visualDirty_ = true;
+}
+
 void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam, DebrisType type, const Vector3& pos) {
+    camera_ = cam;
     type_ = type;
     pos_ = pos;
     state_ = DebrisState::Floating;
@@ -45,7 +61,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Teapot:
         name_ = "ドラム缶";
-        modelPath = "teapot.obj";
+        modelPath = "drumCan.obj";
         weight_ = 3.5f;
         thrust_ = 0.0f;
         atk_ = 10.0f;
@@ -54,7 +70,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         break;
     case DebrisType::Screw:
         name_ = "スクリュー";
-        modelPath = "ring.obj";
+        modelPath = "Screw.obj";
         weight_ = 0.4f;
         thrust_ = 12.0f;          // 推進力
         scale_ = { 1.8f, 1.8f, 1.8f };
@@ -204,6 +220,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
             const Vector3 extent = bounds.max - bounds.min;
             const float authoredSize = std::max({ extent.x, extent.y, extent.z, 0.001f });
             const float desiredSize = 2.0f * std::max({ scale_.x, scale_.y, scale_.z });
+            visualRadius_ = desiredSize * 1.75f;
             const float uniformScale = desiredSize / authoredSize;
             scale_ = { uniformScale, uniformScale, uniformScale };
             modelCenter_ = (bounds.min + bounds.max) * 0.5f;
@@ -243,8 +260,12 @@ void Debris::UpdateFloating(float dt) {
     rot_.y += 0.4f * dt;
     if (!marineModel_) rot_.x += 0.2f * dt;
 
-    ApplyModelTransform_(rot_);
-    model_->Update(dt);
+    visualDirty_ = true;
+    if (IsVisualVisible_()) {
+        ApplyModelTransform_(rot_);
+        model_->Update(dt);
+        visualDirty_ = false;
+    }
 }
 
 void Debris::UpdateAttached(
@@ -323,8 +344,34 @@ void Debris::Attach(const Vector3& localOffset, const Vector3& localRot) {
     localRot_ = localRot;
 }
 
+bool Debris::IsVisualVisible_() const {
+    // Gameplay remains active outside the view. Only free-creature graphics
+    // are culled; attached equipment and projectiles are always rendered.
+    if (state_ != DebrisState::Floating || !camera_) return true;
+    const auto& m = camera_->GetViewProjectionMatrix();
+    auto outside = [&](int axis, float sign) {
+        const float a = m.m[0][3] + sign * m.m[0][axis];
+        const float b = m.m[1][3] + sign * m.m[1][axis];
+        const float c = m.m[2][3] + sign * m.m[2][axis];
+        const float d = m.m[3][3] + sign * m.m[3][axis];
+        return a * pos_.x + b * pos_.y + c * pos_.z + d <
+            -visualRadius_ * std::sqrt(a * a + b * b + c * c);
+    };
+    // Conservative sphere test with generous bounds for animated fins.
+    return !outside(0, 1.0f) && !outside(0, -1.0f) &&
+        !outside(1, 1.0f) && !outside(1, -1.0f) && !outside(2, -1.0f);
+}
+
 void Debris::Draw() {
+    if (!IsVisualVisible_()) return;
     if (model_) {
+        // The camera can move after Update. Refresh a newly visible instance
+        // before drawing so it never reappears with an old transform.
+        if (visualDirty_ && state_ == DebrisState::Floating) {
+            ApplyModelTransform_(rot_);
+            model_->Update(0.0f);
+            visualDirty_ = false;
+        }
         model_->Draw();
     }
 }

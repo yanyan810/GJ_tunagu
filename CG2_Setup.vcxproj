@@ -618,6 +618,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\scene\Main\GameScene.h" />
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h" />
     <ClInclude Include="Game\scene\Test\BossTestScene.h" />
+    <ClInclude Include="Game\scene\Test\TestBattleScene.h" />
+    <ClInclude Include="Game\scene\Main\OceanBattleFlow.h" />
     <ClInclude Include="Game\boss\PingBeamAttack.h" />
     <ClInclude Include="Game\boss\PingBeamEffects.h" />
     <ClInclude Include="Game\boss\BossBulletAttack.h" />

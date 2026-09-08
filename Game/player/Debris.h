@@ -46,6 +46,7 @@ public:
     ~Debris();
 
     void Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam, DebrisType type, const Vector3& pos);
+    void Respawn(const Vector3& position);
     void Update(float dt);
     void UpdateFloating(float dt);
     void UpdateThrown(float dt);
@@ -110,6 +111,10 @@ private:
     Vector3 modelCenter_{};
     Vector3 modelRotation_{};
     bool marineModel_ = false;
+    Camera* camera_ = nullptr;
+    float visualRadius_ = 8.0f;
+    bool visualDirty_ = false;
+    bool IsVisualVisible_() const;
     DebrisType type_;
     DebrisState state_ = DebrisState::Floating;
 
