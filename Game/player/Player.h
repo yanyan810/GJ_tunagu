@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <memory>
 #include <vector>
 #include <string>
@@ -20,6 +20,7 @@ public:
     void Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam);
     void Update(float dt, const Input& input, std::vector<std::unique_ptr<Debris>>& debrisList);
     void Draw();
+    void SetDeathSpotlight(const Vector3& position, const Vector3& direction, float intensity);
     void DrawImGui();
     using MotionResolver = std::function<Vector3(const Vector3&, const Vector3&)>;
     void SetMotionResolver(MotionResolver resolver) { motionResolver_ = std::move(resolver); }

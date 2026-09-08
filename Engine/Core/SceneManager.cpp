@@ -93,7 +93,8 @@ void SceneManager::Draw2D(GameApp& app) {
 
 void SceneManager::DrawOverlay2D(GameApp& app) {
     if (loading_) {
-        loadingScreen_->Draw();
+        if (currentName_ == "GameOver") loadingScreen_->DrawBlack();
+        else loadingScreen_->Draw();
         loadingDrawn_ = true;
         completionDrawn_ = loadingTask_.Done();
         return;

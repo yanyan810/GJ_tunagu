@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "IScene.h"
 #include "Sprite.h"
 #include "OceanBattleFlow.h"
@@ -30,6 +30,13 @@ public:
     void DrawImGui(GameApp& app) override;
 
 private:
+    enum class DeathPhase { None, CameraMove, Hold, Fade, Black };
+    DeathPhase deathPhase_ = DeathPhase::None;
+    float deathTime_ = 0, deathAlpha_ = 0, deathAngle_ = 0, deathRadius_ = 0;
+    Vector3 deathTarget_{}, deathStart_{}, deathRotation_{};
+    std::unique_ptr<Sprite> deathFade_;
+    void BeginDeath_(GameApp& app);
+    void UpdateDeath_(GameApp& app, float dt);
     bool IsBossEntrance_() const { return oceanFlow_.locked && !oceanFlow_.BattleReady(); }
     void UpdateBossEntrance_(GameApp& app, float dt);
     std::unique_ptr<Object3d> entranceSun_;
