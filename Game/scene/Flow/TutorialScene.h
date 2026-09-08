@@ -34,6 +34,8 @@ public:
 
 private:
     void SpawnDebrisNearPlayer_(GameApp& app, int count);
+    void DrawGuideArrow_();
+    std::array<std::unique_ptr<Sprite>, 6> guideArrowSprites_;
 
     EnemyHpBars enemyHpBars_;
 

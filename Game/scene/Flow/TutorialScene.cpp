@@ -53,6 +53,12 @@ void TutorialScene::OnEnter(GameApp& app) {
     }
 
     // 音声ハンドルの読み込み
+    for (auto& sprite : guideArrowSprites_) {
+        sprite = std::make_unique<Sprite>();
+        sprite->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
+        sprite->SetAnchorPoint({0.5f, 0.5f});
+    }
+
     if (app.Audio()) {
         throwSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/水面に石投げ2.mp3", false);
         punchSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/小パンチ.mp3", false);
@@ -101,6 +107,7 @@ void TutorialScene::OnExit(GameApp& app) {
     }
     debrisList_.clear();
     enemyHpBars_.Clear();
+    for (auto& sprite : guideArrowSprites_) sprite.reset();
     dummyEnemy_.reset();
     player_.reset();
     underwaterEnvironment_.reset();
@@ -320,6 +327,7 @@ void TutorialScene::Draw(GameApp& /*app*/) {
 }
 
 void TutorialScene::DrawOverlay2D(GameApp& app) {
+    DrawGuideArrow_();
     enemyHpBars_.Begin();
     if (camera_) {
 
@@ -354,6 +362,77 @@ void TutorialScene::DrawOverlay2D(GameApp& app) {
         telopSprites_[index]->SetScale({ 900.0f / texW, 150.0f / texH, 1.0f });
         telopSprites_[index]->Update(viewMat, projMat);
         telopSprites_[index]->Draw();
+    }
+}
+
+void TutorialScene::DrawGuideArrow_() {
+    if (!camera_ || !player_ || !guideArrowSprites_[0]) return;
+    Vector3 target{};
+    if (step_ == Step::PickUp) {
+        const Debris* nearest = nullptr;
+        float bestDistance = 0.0f;
+        const auto& p = player_->GetPosition();
+        for (const auto& debris : debrisList_) {
+            if (!debris || debris->GetState() != DebrisState::Floating || !debris->IsCatchable()) continue;
+            const auto& d = debris->GetPosition();
+            const float distance = (d.x-p.x)*(d.x-p.x) + (d.y-p.y)*(d.y-p.y) + (d.z-p.z)*(d.z-p.z);
+            if (!nearest || distance < bestDistance) {
+                nearest = debris.get();
+                bestDistance = distance;
+            }
+        }
+        if (!nearest) return;
+        target = nearest->GetHeadPosition();
+    } else if (step_ == Step::Throw || step_ == Step::HitEnemy) {
+        if (!dummyEnemy_ || dummyEnemy_->IsDead()) return;
+        target = dummyEnemy_->GetPosition();
+        target.y += 8.0f;
+    } else {
+        return;
+    }
+
+    const auto& vp = camera_->GetViewProjectionMatrix();
+    const float x = target.x*vp.m[0][0] + target.y*vp.m[1][0] + target.z*vp.m[2][0] + vp.m[3][0];
+    const float y = target.x*vp.m[0][1] + target.y*vp.m[1][1] + target.z*vp.m[2][1] + vp.m[3][1];
+    const float w = target.x*vp.m[0][3] + target.y*vp.m[1][3] + target.z*vp.m[2][3] + vp.m[3][3];
+    const float divisor = (std::max)(std::abs(w), 0.001f);
+    float sx = x / divisor * 640.0f;
+    float sy = -y / divisor * 360.0f;
+    Vector2 tip{};
+    float angle = 1.570796327f;
+    // Keep the arrow clear of the bottom tutorial instructions.
+    if (w > 0.001f && std::abs(sx) < 560.0f && sy > -240.0f && sy < 130.0f) {
+        tip = {640.0f + sx, 360.0f + sy - 18.0f - 5.0f * std::sin(totalTime_ * 4.0f)};
+    } else {
+        // A target directly behind the camera still needs a turn direction.
+        if (std::abs(sx) + std::abs(sy) < 0.01f) sx = 1.0f;
+        const float limitY = sy < 0 ? 290.0f : 140.0f;
+        const float factor = (std::max)(std::abs(sx) / 580.0f, std::abs(sy) / limitY);
+        tip = {640.0f + sx / factor, 360.0f + sy / factor};
+        angle = std::atan2(sy, sx);
+    }
+    const Vector2 direction{std::cos(angle), std::sin(angle)};
+    const Vector2 side{-direction.y, direction.x};
+    const Vector2 start{tip.x - direction.x * 38, tip.y - direction.y * 38};
+    const Vector2 left{tip.x - direction.x * 17 + side.x * 14, tip.y - direction.y * 17 + side.y * 14};
+    const Vector2 right{tip.x - direction.x * 17 - side.x * 14, tip.y - direction.y * 17 - side.y * 14};
+    const Vector2 ends[] = {start, left, right};
+    const auto& meta = TextureManager::GetInstance()->GetMetaData("noise0.png");
+    const float tw = (std::max)(1.0f, static_cast<float>(meta.width));
+    const float th = (std::max)(1.0f, static_cast<float>(meta.height));
+    const auto view = Matrix4x4::MakeIdentity4x4();
+    const auto proj = Matrix4x4::MakeOrthographicMatrix(0, 0, 1280, 720, 0, 1);
+    for (int layer = 0; layer < 2; ++layer) {
+        for (int i = 0; i < 3; ++i) {
+            auto& sprite = guideArrowSprites_[layer * 3 + i];
+            const float dx = tip.x - ends[i].x, dy = tip.y - ends[i].y;
+            sprite->SetPosition({(tip.x + ends[i].x) * 0.5f, (tip.y + ends[i].y) * 0.5f});
+            sprite->SetScale({(std::sqrt(dx*dx + dy*dy) + (layer == 0 ? 4.0f : 0.0f)) / tw, (layer == 0 ? 11.0f : 6.0f) / th, 1});
+            sprite->SetRotation({0, 0, std::atan2(dy, dx)});
+            sprite->SetColor(layer == 0 ? Vector4{0.04f, 0.08f, 0.12f, 1} : Vector4{1, 0.85f, 0.15f, 1});
+            sprite->Update(view, proj);
+            sprite->Draw();
+        }
     }
 }
 
