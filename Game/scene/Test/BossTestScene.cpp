@@ -10,6 +10,7 @@
 #include "ModelManager.h"
 #include "boss/PingBeamEffects.h"
 #include "boss/MineEffects.h"
+#include "boss/ScrewEffects.h"
 #include "RenderManager.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -209,6 +210,8 @@ void BossTestScene::OnEnter(GameApp& app) {
     pingBeamEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
     mineEffects_ = std::make_unique<MineEffects>();
     mineEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
+    screwEffects_ = std::make_unique<ScrewEffects>();
+    screwEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
     screwAnimation_.Initialize(*boss_);
     pingBeamTestPlayer_ = CreateObject(app, camera_.get(), "cube/cube.obj",
         pingBeamTargetPosition_, {}, { 1.0f, 1.0f, 1.0f });
@@ -345,6 +348,7 @@ void BossTestScene::OnEnter(GameApp& app) {
 }
 
 void BossTestScene::OnExit(GameApp& app) {
+    screwEffects_.reset();
     mineEffects_.reset();
     pingBeamEffects_.reset();
     if (app.GetInput()) {
@@ -642,12 +646,14 @@ void BossTestScene::ResetAnchor_() {
 }
 
 void BossTestScene::TriggerScrew_() {
+    if (screwEffects_) screwEffects_->Reset();
     screwGatheredMines_.clear();
     for (auto& target : screwTestTargets_) target->gathered = false;
     screwAttack_.Trigger(bossPosition_, bossRotation_, screwSettings_);
 }
 
 void BossTestScene::ResetScrew_() {
+    if (screwEffects_) screwEffects_->Reset();
     screwAttack_.Reset();
     screwGatheredMines_.clear();
     screwReleasedMines_.clear();
@@ -740,6 +746,8 @@ void BossTestScene::ReleaseScrewTargets_(bool gatheredOnly) {
         target->gathered = false;
         target->released = true;
     }
+    // Reuse the actual release origin, including the independent Release Only test.
+    if (screwEffects_) screwEffects_->OnRelease(gatherPoint, screwSettings_);
     screwGatheredMines_.clear();
 }
 
@@ -762,6 +770,7 @@ void BossTestScene::UpdateScrewTestTargets_(float dt) {
 
 void BossTestScene::UpdateScrew_(float dt) {
     screwAttack_.Update(dt);
+    if (screwEffects_) screwEffects_->Update(dt, screwAttack_);
 
     if (screwAttack_.IsGathering()) {
         for (auto& mine : mines_) {
@@ -1811,6 +1820,16 @@ void BossTestScene::Update(GameApp& app, float dt) {
 
 void BossTestScene::Draw(GameApp& app) {
     if (floor_) floor_->Draw();
+    if (screwEffects_ && screwEffects_->IsEnabled() && screwEffects_->IsSoloPreview()) {
+        if (boss_) boss_->Draw();
+        for (const auto& mine : mines_) {
+            if (!mineEffects_ || !mineEffects_->ReplacesMine(*mine)) mine->Draw();
+        }
+        for (const auto& target : screwTestTargets_) if (target->object) target->object->Draw();
+        if (mineEffects_) mineEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+        screwEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+        return;
+    }
     if (mineEffects_ && mineEffects_->IsEnabled() && mineEffects_->IsSoloPreview()) {
         if (boss_) boss_->Draw();
         for (const auto& mine : mines_) {
@@ -1878,6 +1897,7 @@ void BossTestScene::Draw(GameApp& app) {
         for (const auto& marker : pingBeamUnitPositionDebug_) if (marker) marker->Draw();
     }
     if (mineEffects_) mineEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+    if (screwEffects_) screwEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
     if (pingBeamEffects_) pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 }
 
@@ -2178,6 +2198,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
             if (ImGui::Button("Reset Screw")) pendingResetScrew_ = true;
             ImGui::SameLine();
             if (ImGui::Button("Trigger Release Only")) pendingReleaseOnly_ = true;
+            if (screwEffects_) screwEffects_->DrawImGui();
             ImGui::SeparatorText("Suction / Release Test Targets");
             if (ImGui::Button("Add Release Dummy")) pendingAddScrewTargetType_ = 0;
             ImGui::SameLine();
