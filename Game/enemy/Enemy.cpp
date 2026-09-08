@@ -43,6 +43,7 @@ void Enemy::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* cam
     // first (dark) material color is multiplied into every ship material.
     shipModel_->SetMaterialColor({ 1.0f, 1.0f, 1.0f, 1.0f });
     shipModel_->SetEnableLighting(0);
+    shipModel_->SetEnableOutline(false);
     // The Blender ship faced opposite the gameplay forward direction.
     rot_.y = -1.5707963f;
 
@@ -127,7 +128,6 @@ void Enemy::Update(float dt, const Vector3& playerPos) {
         shipModel_->SetEnableLighting(shipLightingEnabled_ ? 1 : 0);
         if (!managedCombat_) screwAnimation_.Update(*shipModel_, dt, false,
             movement.x * movement.x + movement.z * movement.z > 0.000001f);
-        readability_.Apply(*shipModel_, camera_, damageFlashTimer_ > 0.0f);
         shipModel_->Update(dt);
     }
 
@@ -280,7 +280,6 @@ void Enemy::DrawImGui() {
         ImGui::Checkbox("Enable Movement", &movementEnabled_);
         ImGui::Checkbox("Enable Attacks", &attacksEnabled_);
         ImGui::Checkbox("Ship Lighting", &shipLightingEnabled_);
-        readability_.DrawImGui();
         ImGui::DragFloat3("Boss Position", &pos_.x, 0.1f);
         ImGui::DragFloat3("Boss Scale", &scale_.x, 0.05f, 0.05f, 20.0f);
         ImGui::DragFloat3("Visual Offset", &visualOffset_.x, 0.1f);

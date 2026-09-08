@@ -11,6 +11,9 @@ struct PingBeamRailSettings {
 };
 
 struct PingBeamAttackSettings {
+    // Main-game option: telegraph/lock/fire each shot separately. Existing
+    // authored previews keep the original three-recordings-first sequence.
+    bool sequentialShots = false;
     float trackingTime = 1.0f;
     float trackingRotationSpeed = 3.0f;
     float pingFlashTime = 0.15f;

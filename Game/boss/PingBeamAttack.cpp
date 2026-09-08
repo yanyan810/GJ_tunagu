@@ -67,12 +67,12 @@ void PingBeamAttack::Update(float dt, const Vector3& targetPosition, const Vecto
             pingFlashTimers_[pingCount_] = std::max(0.0f, settings_.pingFlashTime);
             railHoldTimer_ = std::max(0.0f, settings_.pingFlashTime);
             ++pingCount_;
-            EnterState_(pingCount_ < kPingCount ? State::Tracking : State::Charge);
+            EnterState_(!settings_.sequentialShots && pingCount_ < kPingCount ? State::Tracking : State::Charge);
         }
         break;
     case State::Charge:
         if (stateTime_ >= std::max(0.0f, settings_.chargeTime)) {
-            beamIndex_ = 0;
+            beamIndex_ = settings_.sequentialShots ? pingCount_ - 1 : 0;
             EnterState_(State::Beam);
         }
         break;
@@ -88,8 +88,8 @@ void PingBeamAttack::Update(float dt, const Vector3& targetPosition, const Vecto
         break;
     case State::BeamInterval:
         if (stateTime_ >= std::max(0.0f, settings_.beamInterval)) {
-            ++beamIndex_;
-            EnterState_(State::Beam);
+            if (settings_.sequentialShots) EnterState_(State::Tracking);
+            else { ++beamIndex_; EnterState_(State::Beam); }
         }
         break;
     default: break;
