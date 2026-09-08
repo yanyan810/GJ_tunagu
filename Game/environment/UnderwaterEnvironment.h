@@ -39,6 +39,12 @@ public:
     const ReefCollisionWorld* GetBeamCollisionWorld();
     void Update(float dt);
     void DrawBackground();
+    void SetBackgroundColors(const Vector4& surface, const Vector4& horizon, const Vector4& lower) {
+        backgroundSurfaceColor_ = surface;
+        backgroundHorizonColor_ = horizon;
+        backgroundLowerColor_ = lower;
+        ApplyBackgroundSettings_();
+    }
     void Draw();
     void DrawWaterDepth();
     void DrawWaterSurface();

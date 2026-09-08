@@ -3,7 +3,7 @@
 #include <cstdint>
 
 
-#ifdef USE_IMGUI
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
 
 #include <imgui.h>
 #include <backends/imgui_impl_win32.h>

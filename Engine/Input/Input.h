@@ -40,6 +40,8 @@ public:
 
     void UpdateMouseDelta();
     POINT GetMouseDelta() const { return mouseDelta_; }
+    // Position in the 1280x720 UI canvas; false outside the active game window.
+    bool GetMenuMousePosition(POINT& position) const;
     int GetMouseDeltaX() const { return mouseDelta_.x; }
     int GetMouseDeltaY() const { return mouseDelta_.y; }
     void SetCameraControlEnabled(bool enabled);

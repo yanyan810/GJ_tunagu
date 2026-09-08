@@ -65,6 +65,18 @@ void Input::Initialize  (WinApp* winApp) {
     SetCameraControlEnabled(true);
 }
 
+bool Input::GetMenuMousePosition(POINT& position) const {
+    if (!winApp_) return false;
+    const HWND hwnd = winApp_->GetHwnd();
+    RECT client{};
+    if (GetForegroundWindow() != hwnd || !GetClientRect(hwnd, &client) ||
+        client.right <= 0 || client.bottom <= 0 || !GetCursorPos(&position) ||
+        !ScreenToClient(hwnd, &position) || !PtInRect(&client, position)) return false;
+    position.x = MulDiv(position.x, 1280, client.right);
+    position.y = MulDiv(position.y, 720, client.bottom);
+    return true;
+}
+
 void Input::UpdateMouseDelta() {
     POINT currentMousePos;
     GetCursorPos(&currentMousePos);

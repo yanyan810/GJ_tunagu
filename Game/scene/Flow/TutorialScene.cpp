@@ -19,6 +19,7 @@ TutorialScene::TutorialScene() = default;
 TutorialScene::~TutorialScene() = default;
 
 void TutorialScene::OnEnter(GameApp& app) {
+    if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(true);
     // カメラの初期化（本編 GameScene と完全に同じ設定）
     camera_ = std::make_unique<Camera>();
     camera_->SetTranslate({ 0.0f, 4.0f, -12.0f });

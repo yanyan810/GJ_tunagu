@@ -40,6 +40,7 @@ void TitleScene::OnEnter(GameApp& app) {
 }
 
 SceneLoadTask TitleScene::Load(GameApp& app) {
+    if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(false);
     co_yield 0.0f;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
@@ -158,13 +159,16 @@ void TitleScene::Update(GameApp& app, float dt) {
 
     // シーン遷移入力判定 (SPACE / ENTER / マウスクリック)
     if (app.GetInput()) {
+        if (app.GetInput()->IsCameraControlEnabled()) app.GetInput()->SetCameraControlEnabled(false);
+        POINT mouse{};
+        const bool click = app.GetInput()->IsMouseLeftTrigger() && app.GetInput()->GetMenuMousePosition(mouse);
         if (app.GetInput()->IsKeyTrigger(DIK_SPACE) ||
             app.GetInput()->IsKeyTrigger(DIK_RETURN) ||
-            app.GetInput()->IsMouseLeftTrigger()) {
+            click) {
             if (app.Audio() && divingSeHandle_ != 0) {
                 app.Audio()->Play(divingSeHandle_, 1.0f);
             }
-            app.Scenes().Change(app, "Tutorial");
+            app.Scenes().Change(app, "StageSelect");
             return;
         }
     }
