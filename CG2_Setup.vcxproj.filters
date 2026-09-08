@@ -731,6 +731,27 @@
     <ClCompile Include="Game\boss\MineEffects.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
+    <ClCompile Include="Game\boss\MineBombGeometry.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\MineBloom.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClInclude Include="Game\boss\MineBombGeometry.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\MineBloom.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <FxCompile Include="resources\shaders\MineBomb.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\MineBloom.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\MineBloom.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
     <ClInclude Include="Game\boss\MineEffects.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>

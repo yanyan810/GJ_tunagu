@@ -1,6 +1,6 @@
 #include "MineEffects.hlsli"
 
-// These are immutable copies taken before drawing any Mine VFX primitives.
+// Immutable copies taken after the opaque Bombs and before transparent VFX.
 // Sampling the active scene render target or its bound depth surface is invalid.
 Texture2D<float4> gSceneColor : register(t0);
 Texture2D<float> gSceneDepth : register(t1);
@@ -71,6 +71,7 @@ bool CameraInsideShell()
     float3 local = float3(dot(delta, gAxisXPhase.xyz) / max(dot(gAxisXPhase.xyz, gAxisXPhase.xyz), 0.000001f),
         dot(delta, gAxisYIntensity.xyz) / max(dot(gAxisYIntensity.xyz, gAxisYIntensity.xyz), 0.000001f),
         dot(delta, gAxisZProgress.xyz) / max(dot(gAxisZProgress.xyz, gAxisZProgress.xyz), 0.000001f));
+    local.xz -= gSlosh.xz * local.y;
     local /= GelStretch();
     float distance = length(local);
     float3 unused;
@@ -96,7 +97,12 @@ float SoftboxHighlight(float3 reflected)
     return box * split * 0.72f + accent * 0.48f;
 }
 
-float4 main(MineVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARGET0
+MinePixelOutput EmittedLight(float4 color)
+{
+    return MineOutput(color, color.rgb);
+}
+
+MinePixelOutput main(MineVertexOutput input, bool frontFace : SV_IsFrontFace)
 {
     int kind = (int)(gCenterKind.w + 0.5f);
     float2 screenUV = input.position.xy / max(gViewportStyle.xy, 1.0f.xx);
@@ -116,7 +122,7 @@ float4 main(MineVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARGET
         if (kind == 3)
         {
             float halo = exp(-radius * radius * 5.0f) * (1.0f - smoothstep(0.65f, 1.0f, radius));
-            return float4(tint * halo * emission * opacity * soft * 0.46f, 0.0f);
+            return EmittedLight(float4(tint * halo * emission * opacity * soft * 0.46f, 0.0f));
         }
         if (kind == 1)
         {
@@ -126,7 +132,7 @@ float4 main(MineVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARGET
             float rim = exp(-pow((radius - 0.63f) / 0.08f, 2.0f));
             float3 coreTint = lerp(tint, float3(1.0f, 0.87f, 0.48f), center * 0.60f);
             float alpha = sphere * opacity * soft * 0.42f;
-            return float4(coreTint * (sphere * 0.6f + center * 1.7f + rim * 0.4f) * emission * opacity * soft, alpha);
+            return EmittedLight(float4(coreTint * (sphere * 0.6f + center * 1.7f + rim * 0.4f) * emission * opacity * soft, alpha));
         }
         if (kind == 2)
         {
@@ -139,14 +145,14 @@ float4 main(MineVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARGET
             float inner = RingMask(radius, 0.69f, 0.007f) * 0.17f;
             float glow = exp(-pow((radius - 0.83f) / 0.055f, 2.0f)) * 0.24f * remaining;
             float mask = track + arc + inner;
-            return float4(tint * (mask + glow) * emission * opacity * soft * 1.9f,
-                saturate(mask * 0.35f) * opacity * soft);
+            return EmittedLight(float4(tint * (mask + glow) * emission * opacity * soft * 1.9f,
+                saturate(mask * 0.35f) * opacity * soft));
         }
         // Equatorial pressure ring: antialiased thin line with a colored skirt.
         float ring = RingMask(radius, 0.97f, 0.012f);
         float skirt = exp(-pow((radius - 0.95f) / 0.055f, 2.0f)) * 0.17f;
-        return float4(tint * (ring + skirt) * emission * opacity * soft * 1.5f,
-            ring * opacity * soft * 0.22f);
+        return EmittedLight(float4(tint * (ring + skirt) * emission * opacity * soft * 1.5f,
+            ring * opacity * soft * 0.22f));
     }
 
     // Render only the entry surface from outside, or the exit from inside.
@@ -166,20 +172,24 @@ float4 main(MineVertexOutput input, bool frontFace : SV_IsFrontFace) : SV_TARGET
     {
         float alpha = (0.014f + rim * 0.17f) * opacity * soft;
         float3 light = tint * (rim * 1.35f + 0.004f) * emission * opacity * soft;
-        return float4(scene * alpha + light, alpha);
+        return MineOutput(float4(scene * alpha + light, alpha), light);
     }
     float bubble = kind == 4 ? 1.0f : 0.0f;
-    float thickness = facing * lerp(1.65f, 0.32f, bubble);
-    float3 absorption = (1.0f - saturate(tint)) * thickness * 0.45f;
+    float thickness = facing * lerp(2.1f, 0.32f, bubble);
+    float3 absorption = (1.0f - saturate(tint)) * thickness * 0.65f;
     float3 transmission = scene * exp(-absorption);
     float3 reflected = reflect(-view, normal);
     float highlight = SoftboxHighlight(reflected);
     float pearl = 0.5f + 0.5f * sin(dot(normal, float3(2.4f, 3.2f, 1.7f)) + gAxisXPhase.w * 0.11f);
     float3 edgeTint = lerp(tint, float3(0.53f, 0.64f, 1.0f), pearl * (1.0f - gDeformation.z) * 0.20f);
-    float alpha = lerp(0.46f + rim * 0.26f, 0.065f + rim * 0.25f, bubble) * opacity * soft;
-    float3 shellLight = edgeTint * rim * lerp(0.70f, 0.58f, bubble);
-    shellLight += float3(0.78f, 0.95f, 1.0f) * highlight * lerp(1.30f, 0.85f, bubble);
+    float alpha = lerp(0.78f + rim * 0.12f, 0.065f + rim * 0.25f, bubble) * opacity * soft;
+    // Filled, colored gel: internal light grows with optical thickness.
+    // A subdued rim avoids reading as an empty soap bubble. The same light
+    // feeds the dedicated bloom mask, so it diffuses beyond the silhouette.
+    float bodyScatter = (1.0f - exp(-thickness * 1.35f)) * (1.0f - bubble);
+    float3 shellLight = edgeTint * (rim * lerp(0.22f, 0.58f, bubble) + bodyScatter * 0.17f);
+    shellLight += float3(0.90f, 1.0f, 0.91f) * highlight * lerp(0.95f, 0.85f, bubble);
     shellLight *= emission * opacity * soft;
-    return float4(transmission * alpha + shellLight, alpha);
+    return MineOutput(float4(transmission * alpha + shellLight, alpha), shellLight);
 }
 

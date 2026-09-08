@@ -245,6 +245,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\PingBeamAttack.cpp" />
     <ClCompile Include="Game\boss\PingBeamEffects.cpp" />
     <ClCompile Include="Game\boss\MineEffects.cpp" />
+    <ClCompile Include="Game\boss\MineBombGeometry.cpp" />
+    <ClCompile Include="Game\boss\MineBloom.cpp" />
     <ClCompile Include="Game\scene\Test\ShipScene.cpp" />
     <ClCompile Include="Game\scene\Flow\GameClearScene.cpp" />
     <ClCompile Include="Game\scene\Flow\GameOverScene.cpp" />
@@ -514,6 +516,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <FxCompile Include="resources\shaders\MineEffects.PS.hlsl">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="resources\shaders\MineBomb.PS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\MineBloom.VS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\MineBloom.PS.hlsl">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="resources\shaders\PingBeamEffects.PS.hlsl">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
@@ -628,6 +639,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\boss\PingBeamAttack.h" />
     <ClInclude Include="Game\boss\PingBeamEffects.h" />
     <ClInclude Include="Game\boss\MineEffects.h" />
+    <ClInclude Include="Game\boss\MineBombGeometry.h" />
+    <ClInclude Include="Game\boss\MineBloom.h" />
     <ClInclude Include="Game\boss\BossBulletAttack.h" />
     <ClInclude Include="Game\boss\BossNetAttack.h" />
     <ClInclude Include="Game\scene\Test\ShipScene.h" />
