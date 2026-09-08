@@ -3,6 +3,7 @@
 #include "GameApp.h"
 #include <cassert>
 #include "LoadingScreen.h"
+#include "BubbleTransition.h"
 
 SceneManager::SceneManager() = default;
 SceneManager::~SceneManager() = default;
@@ -19,9 +20,20 @@ void SceneManager::Shutdown(GameApp& app) {
     retiredScenes_.clear();
     currentName_.clear();
     loadingScreen_.reset();
+    bubbles_.reset();
+    bubbleDestination_.clear();
 }
 
 void SceneManager::Change(GameApp& app, const std::string& name) {
+    if (!bubbleDestination_.empty() && !completingBubble_) return;
+    const bool useBubbles = (currentName_ == "Title" && name == "StageSelect") ||
+        (currentName_ == "StageSelect" && (name == "Tutorial" || name == "Game")) ||
+        (currentName_ == "Tutorial" && name == "Game");
+    if (useBubbles && !completingBubble_) {
+        if (!bubbles_) { bubbles_ = std::make_unique<BubbleTransition>(); bubbles_->Initialize(app); }
+        bubbleDestination_ = name; bubbleTime_ = 0; bubbleCovered_ = false;
+        return;
+    }
     auto it = factories_.find(name);
     assert(it != factories_.end());
 
@@ -49,6 +61,17 @@ void SceneManager::Change(GameApp& app, const std::string& name) {
 
 void SceneManager::Update(GameApp& app, float dt) {
     if (!current_) return;
+    if (!bubbleDestination_.empty()) {
+        bubbleTime_ += std::max(0.0f,dt);
+        if (bubbleCovered_) {
+            const std::string destination = bubbleDestination_;
+            completingBubble_ = true;
+            Change(app,destination);
+            completingBubble_ = false;
+            bubbleDestination_.clear();
+        }
+        return;
+    }
 
     if (loading_) {
         if (completionDrawn_) {
@@ -101,6 +124,10 @@ void SceneManager::DrawOverlay2D(GameApp& app) {
     }
     if (!current_) return;
     current_->DrawOverlay2D(app);
+    if (!bubbleDestination_.empty()) {
+        bubbles_->Draw(bubbleTime_);
+        bubbleCovered_ = bubbleTime_ >= BubbleTransition::Duration;
+    }
 }
 
 void SceneManager::Draw(GameApp& app) {

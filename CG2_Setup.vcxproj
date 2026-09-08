@@ -668,6 +668,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Effect\EffectManager.h" />
     <ClInclude Include="Engine\Core\ImGuiManagaer.h" />
     <ClInclude Include="Engine\Core\SceneManager.h" />
+    <ClInclude Include="Engine\Core\BubbleTransition.h" />
     <ClInclude Include="Engine\Level\LevelLoader.h" />
     <ClInclude Include="Engine\Core\GameApp.h" />
     <ClInclude Include="Engine\Core\FrameProfiler.h" />
