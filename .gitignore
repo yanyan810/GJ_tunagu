@@ -213,3 +213,8 @@ Engine/DebugAI/profiles/*/project_scan.json
 # Local ocean research and implementation notes
 /docs/Ocean*.md
 /local-ocean-docs/
+
+# Runtime boss tuning: keep the shared JSON, ignore local recovery files.
+/resources/Data/BossBattleTuning.json.bak
+/resources/Data/BossBattleTuning.json.tmp.*
+/resources/Data/BossBattleTuning.json.bak.tmp.*

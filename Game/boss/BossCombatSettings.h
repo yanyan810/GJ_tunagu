@@ -9,7 +9,18 @@
 
 // Reads team-authored attack settings. Battle-host pacing/adaptation remains
 // local, and loading this object never creates or rewrites shared JSON files.
+struct BossBattleOptions {
+    float beamHitRadiusScale=.65f, beamLeadScale=.45f, beamMaxLeadDistance=10.0f;
+    float mineAimLeadTime=.6f, mineTravelTime=1.7f, mineTriggerRadius=4.0f;
+    float anchorRadiusBias=2.0f;
+    int screwPayloadCount=4;
+    float screwPayloadDelay=.9f, screwPayloadSpawnRadius=8.0f;
+    bool waveAtTargetDepth=true;
+    float waveHalfHeight=1.5f;
+};
+
 struct BossCombatSettings {
+    BossBattleOptions battle{};
     MineMotionSettings mine{};
     int mineCount=8;
     float mineLifetime=9.0f,mineFuse=0.85f,mineInterval=0.16f;

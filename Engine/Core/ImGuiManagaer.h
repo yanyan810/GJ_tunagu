@@ -3,13 +3,10 @@
 #include <cstdint>
 
 
-#if defined(USE_IMGUI) || defined(USE_GAME_UI)
-
 #include <imgui.h>
 #include <backends/imgui_impl_win32.h>
 #include <backends/imgui_impl_dx12.h>
 
-#endif // USE_IMGUI
 
 
 class WinApp;
@@ -21,6 +18,8 @@ public:
     void Initialize(WinApp* winApp, DirectXCommon* dxCommon, SrvManager* srvManager);
     void SetSceneTexture(uint32_t srvIndex);
     void SetPreviewTexture(uint32_t srvIndex);
+    // Release owns only a light overlay; development keeps its existing editor.
+    void SetInputEnabled(bool enabled);
     void Begin();
     void End(ID3D12GraphicsCommandList* cmd);
     void Shutdown();
@@ -37,6 +36,10 @@ private:
     SrvManager* srvManager_ = nullptr;
 
     bool initialized_ = false;
+    bool inputEnabled_ = false;
+    bool ownsContext_ = false;
+    bool ownsPlatformBackend_ = false;
+    bool ownsRendererBackend_ = false;
     int selectedParticleItem_ = 0;
     uint32_t sceneSrvIndex_ = 0;
     uint32_t previewSrvIndex_ = 0;

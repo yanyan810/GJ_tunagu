@@ -1,5 +1,6 @@
 #include "BossCombatController.h"
 #include "BossCombatSettings.h"
+#include "BossBattleTuning.h"
 #include "BossCombatRig.h"
 #include "BossCombatCollision.h"
 #include "BossThreatHud.h"
@@ -42,9 +43,6 @@ Vector3 TransformPoint(const Vector3& v,const Matrix4x4& m) {
 }
 Vector3 Translation(const Matrix4x4& m) { return {m.m[3][0],m.m[3][1],m.m[3][2]}; }
 float SafeStep(float dt) { return std::isfinite(dt) ? std::clamp(dt,0.0f,0.25f) : 0; }
-Vector3 ForwardRotation(const Vector3& d) {
-    return {-std::atan2(d.y,std::hypot(d.x,d.z)),std::atan2(d.x,d.z),0};
-}
 float RockLaunchSpeed(float rise,const ShockwaveRockSettings& rock) {
     const float gravity=std::max(.01f,rock.gravity),drag=std::max(0.0f,rock.drag);
     const auto height=[&](float speed) {
@@ -63,8 +61,12 @@ float RockLaunchSpeed(float rise,const ShockwaveRockSettings& rock) {
 }
 
 struct BossCombatController::Impl {
-    struct MineMeta { float age=0; bool gathered=false, released=false; };
-    struct RockMeta { bool hit=false; };
+    struct MineMeta {
+        float age=0;
+        bool gathered=false, released=false;
+        float fuse=0.8f, triggerRadius=4, lifetime=9, chainFuse=0.35f, playerRadius=1.25f;
+    };
+    struct RockMeta { bool hit=false; float playerRadius=1.25f; };
     Object3d* ship=nullptr;
     DirectXCommon* dx=nullptr;
     Camera* camera=nullptr;
@@ -73,6 +75,7 @@ struct BossCombatController::Impl {
     PingBeamAttackSettings activePing;
     Vector3 pingTarget{},playerPosition{};
     uint64_t attackSerial=0;
+    uint64_t appliedRevision=0;
     bool presentationPlaying=false;
     BossCombatSettings settings;
     BossCombatRig rig;
@@ -105,6 +108,7 @@ struct BossCombatController::Impl {
     float groundY=-22;
     const ReefCollisionWorld* beamWorld=nullptr;
     bool initialized=false, enabled=false, frameEnabled=false, waveHit=false, playerGathered=false;
+    bool screwPayloadLaunched=false;
     std::array<bool,3> pingHits{};
 
     void StopTimelines();
@@ -124,7 +128,7 @@ struct BossCombatController::Impl {
 };
 
 BossCombatController::BossCombatController() : impl_(std::make_unique<Impl>()) {}
-BossCombatController::~BossCombatController()=default;
+BossCombatController::~BossCombatController() {BossBattleTuning::Get().Publish({},0);}
 
 void BossCombatController::Initialize(Object3dCommon* objects, DirectXCommon* dx, SrvManager* srv,
     Camera* camera, Object3d* ship) {
@@ -132,7 +136,8 @@ void BossCombatController::Initialize(Object3dCommon* objects, DirectXCommon* dx
     e.ship=ship;
     e.dx=dx;
     e.camera=camera;e.hud.Initialize(dx);e.warnings.reserve(80);
-    e.settings.Load();e.activePing=e.settings.ping;
+    const auto& tuning=BossBattleTuning::Get();
+    e.settings=tuning.Settings();e.appliedRevision=tuning.Revision();e.activePing=e.settings.ping;
     e.rig.Initialize(objects,dx,camera,ship);
     e.mineFx.Initialize(dx,srv,camera); e.pingFx.Initialize(dx,srv,camera);
     e.waveFx.Initialize(dx,srv,camera); e.anchorFx.Initialize(dx,srv,camera);
@@ -163,6 +168,7 @@ void BossCombatController::Impl::StopTimelines() {
     warnings.clear();hud.Reset();
     stats.attack=Attack::None;windup=attackTime=0;minesRemaining=0;
     playerGathered=waveHit=false;pingHits.fill(false);
+    screwPayloadLaunched=false;
     for(auto& [key,meta]:mineMeta) meta.gathered=false;
 }
 void BossCombatController::Reset(Player* player) {
@@ -178,6 +184,7 @@ void BossCombatController::Reset(Player* player) {
     e.stats={};e.requested=Attack::None;e.nextAttack=0;e.cooldown=1;
     e.time=0;e.enabled=e.frameEnabled=false;
     e.presentationPlaying=false;
+    BossBattleTuning::Get().Publish(GetStats(),e.appliedRevision);
 }
 void BossCombatController::BeginPlayerFrame(float dt, Player& player, bool enabled) {
     auto& e=*impl_;
@@ -193,6 +200,10 @@ bool BossCombatController::Impl::Hit(Player& player,float damage,float slow) {
 }
 
 void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
+    // A new attack freezes one validated revision. Existing mines/rocks keep
+    // their launch-time damage and proximity/fuse metadata across later edits.
+    const auto& tuning=BossBattleTuning::Get();
+    settings=tuning.Settings();appliedRevision=tuning.Revision();
     stats.attack=attack;attackTime=0;windup=0;lockedTarget=target;
     ++attackSerial;
     ++stats.launches[static_cast<size_t>(attack)];
@@ -204,13 +215,12 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
     case Attack::PingBeam:
         activePing=settings.ping;
         activePing.sequentialShots=true;
-        activePing.trackingTime=.65f;activePing.chargeTime=.75f;
         pingHits.fill(false);pingFx.Begin(activePing);ping.Trigger(activePing);
         pingTarget=target;
         break;
     case Attack::Shockwave: {
         waveHit=false;rockOrdinal=0;windup=settings.windup;
-        waveCenter={target.x,groundY+0.08f,target.z};
+        waveCenter={target.x,settings.battle.waveAtTargetDepth?target.y:groundY+0.08f,target.z};
         activeWave=settings.wave;
         // The authored test used a flat local field. In the ocean the rocks
         // start at the seabed and must rise far enough to threaten this depth.
@@ -224,7 +234,7 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
         activeAnchor=settings.anchor;
         const Vector3 center{shipPosition.x,std::clamp(target.y,groundY+3.0f,12.0f),shipPosition.z};
         const float distance=std::hypot(target.x-center.x,target.z-center.z);
-        activeAnchor.radius=std::clamp(std::max(settings.anchor.radius,distance),5.0f,85.0f);
+        activeAnchor.radius=std::clamp(std::max(settings.anchor.radius,distance+settings.battle.anchorRadiusBias),5.0f,85.0f);
         // Chain starts under the actual ship, while the orbit is at the depth
         // recorded when telegraphing. Diving/swimming out remains an escape.
         activeAnchor.spawnLocalPosition=shipPosition+Vector3{0,-3,0}-center;
@@ -243,9 +253,9 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
         activeScrew.gatherPointLocalOffset=gatherLocal;
         activeScrew.innerRangeOffset=activeScrew.middleRangeOffset=activeScrew.outerRangeOffset=gatherLocal;
         screw.Trigger(shipPosition,ship->GetRotate(),activeScrew);screwFx.Reset();screwFx.Update(0,screw);
-        // A small fresh mine group gives this attack movable payload as well
-        // as the player. It uses the same bounded pool and explosion rules.
-        for(int i=0;i<4;++i) {mineOrdinal=i;LaunchMine(gather,true);}
+        // Payloads enter visibly from the ship after the preview; never create
+        // an armed object directly next to the player on the starting frame.
+        screwPayloadLaunched=false;
         break;
     }
     default:break;
@@ -255,19 +265,22 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
 void BossCombatController::Impl::LaunchMine(const Vector3& target,bool nearTarget) {
     if(minePool.empty()) return;
     const float angle=static_cast<float>(mineOrdinal)*2.39996323f;
-    const float radius=nearTarget?4.0f:4.0f+static_cast<float>(mineOrdinal%3)*1.7f;
+    const float radius=nearTarget?settings.battle.screwPayloadSpawnRadius:4.0f+static_cast<float>(mineOrdinal%3)*1.7f;
     const Vector3 goal=target+Vector3{std::cos(angle)*radius,(mineOrdinal%3-1)*1.1f,std::sin(angle)*radius};
-    Vector3 source=ship->GetTranslate()+Vector3{0,-5,0};
-    if(nearTarget) source=goal+Vector3{0,1,0};
+    const Vector3 source=ship->GetTranslate()+Vector3{0,-5,0};
     // Compensate the mine's water drag so launches reach deep/far targets
     // before their fuse lifetime, instead of stopping short of the warning.
     const float distance=Length(goal-source),drag=std::max(0.0f,settings.mine.drag);
-    const float travel=drag>0.001f?(1.0f-std::exp(-drag*2.5f))/drag:2.5f;
-    const float speed=nearTarget?2.5f:std::clamp(distance/std::max(.01f,travel),30.0f,250.0f);
+    const float travelTime=std::max(.05f,settings.battle.mineTravelTime);
+    const float travel=drag>0.001f?(1.0f-std::exp(-drag*travelTime))/drag:travelTime;
+    const float speed=std::clamp(distance/std::max(.01f,travel),1.0f,250.0f);
     const Vector3 velocity=Unit(goal-source)*speed;
     auto mine=std::move(minePool.back());minePool.pop_back();
     mine->Relaunch({source,goal,velocity},settings.mine);
-    mineMeta[mine.get()]={};mines.push_back(std::move(mine));
+    auto& meta=mineMeta[mine.get()];meta={};
+    meta.fuse=settings.mineFuse;meta.triggerRadius=settings.battle.mineTriggerRadius;
+    meta.lifetime=settings.mineLifetime;meta.chainFuse=settings.mineChainFuse;meta.playerRadius=settings.playerRadius;
+    mines.push_back(std::move(mine));
 }
 void BossCombatController::Impl::SpawnWaveRocks() {
     for(const auto& spawn:wave.ConsumeRockSpawns()) {
@@ -286,7 +299,7 @@ void BossCombatController::Impl::SpawnWaveRocks() {
             scaled.outwardDirection={};motion.horizontalPower=0;
         }
         auto rock=std::move(rockPool.back());rockPool.pop_back();
-        rock->Relaunch(scaled,motion,random);rockMeta[rock.get()]={};
+        rock->Relaunch(scaled,motion,random);rockMeta[rock.get()]={false,settings.playerRadius};
         rocks.push_back(std::move(rock));waveFx.OnRockSpawn(scaled);++stats.rockSpawns;
     }
 }
@@ -309,9 +322,9 @@ void BossCombatController::Impl::UpdateMines(float dt,Player& player,const Vecto
         mine->Update(dt);
         if(mine->GetState()==Mine::State::Exploded) continue;
         const Vector3 now=mine->GetPosition();
-        const bool close=Collision::SegmentSphere(from-old,to-now,{},settings.playerRadius+1.5f);
-        if(close||meta.age>=settings.mineLifetime||(meta.released&&now.y<=groundY+1)) {
-            mine->TriggerExplosion(settings.mineFuse);
+        const bool close=Collision::SegmentSphere(from-old,to-now,{},meta.playerRadius+meta.triggerRadius);
+        if(close||meta.age>=meta.lifetime||(meta.released&&now.y<=groundY+1)) {
+            mine->TriggerExplosion(meta.fuse);
         }
     }
     mineFx.Update(dt,mines);
@@ -332,13 +345,13 @@ void BossCombatController::Impl::ProcessExplosions(Player& player,const Vector3&
             MineExplosionEvent event;
             if(!mine->ConsumeExplosionEvent(event)) continue;
             consumed=true;++stats.explosions;mineFx.OnExplosion(event);
-            if(Collision::SegmentSphere(from,to,event.position,event.radius+settings.playerRadius)) {
+            if(Collision::SegmentSphere(from,to,event.position,event.radius+mineMeta[mine.get()].playerRadius)) {
                 if(Hit(player,event.damage,event.moveSpeedDamage)) interaction.AddImpulse(Unit(to-event.position)*7);
             }
             for(auto& other:mines) {
                 if(other.get()==mine.get()) continue;
                 if(Collision::DistanceSquared(other->GetPosition(),event.position)<=event.radius*event.radius)
-                    other->TriggerExplosion(settings.mineChainFuse);
+                    other->TriggerExplosion(mineMeta[other.get()].chainFuse);
             }
         }
         if(!consumed) break;
@@ -350,7 +363,7 @@ void BossCombatController::Impl::UpdateRocks(float dt,Player& player,const Vecto
         const auto old=rock->GetPosition();rock->Update(dt);
         auto& meta=rockMeta[rock.get()];const auto size=rock->GetHalfSize();
         const float radius=std::max({size.x,size.y,size.z});
-        if(wasAlive&&!meta.hit&&Collision::SegmentSphere(from-old,to-rock->GetPosition(),{},radius+settings.playerRadius)) {
+        if(wasAlive&&!meta.hit&&Collision::SegmentSphere(from-old,to-rock->GetPosition(),{},radius+meta.playerRadius)) {
             if(Hit(player,rock->GetDamage(),rock->GetMoveSpeedDamage())) {
                 meta.hit=true;interaction.AddImpulse(Unit(rock->GetVelocity())*4);
             }
@@ -370,8 +383,9 @@ void BossCombatController::Impl::ResolveAttacks(float dt,Player& player,const Ve
             for(const auto& origin:rig.GetMuzzlePositions()) {
                 const auto path=PingBeamPath::Trace(origin,ping.GetPingPosition(index),groundY,beamWorld);
                 if(!path.valid) continue;
-                const auto box=Matrix4x4::MakeAffineMatrix({1,1,1},ForwardRotation(path.direction),(origin+path.end)*0.5f);
-                if(Collision::SegmentBox(from,to,box,{settings.ping.beamWidth*.5f,settings.ping.beamHeight*.5f,path.length*.5f},settings.playerRadius)) {
+                const float radialScale=settings.battle.beamHitRadiusScale;
+                if(Collision::SegmentBeam(from,to,origin,path.end,activePing.beamWidth*.5f*radialScale,
+                    activePing.beamHeight*.5f*radialScale,settings.playerRadius)) {
                     if(Hit(player,ping.GetDamage(),ping.GetMoveSpeedDamage())) pingHits[index]=true;
                     break;
                 }
@@ -395,7 +409,7 @@ void BossCombatController::Impl::ResolveAttacks(float dt,Player& player,const Ve
         const float after=std::hypot((to.x-center.x)/settings.waveScale.x,(to.z-center.z)/settings.waveScale.z)-wave.GetRadius();
         const float pad=settings.playerRadius/std::min(settings.waveScale.x,settings.waveScale.z)+.4f;
         const bool crosses=std::min(before,after)<=pad&&std::max(before,after)>=-pad;
-        if(crosses&&std::abs(to.y-center.y)<=settings.playerRadius+.7f) {
+        if(crosses&&std::abs(to.y-center.y)<=settings.playerRadius+settings.battle.waveHalfHeight) {
             waveHit=Hit(player,settings.waveDamage,settings.wave.rock.moveSpeedDamage);
             if(waveHit) interaction.AddImpulse(Unit(Vector3{to.x-center.x,2,to.z-center.z})*7);
         }
@@ -436,14 +450,21 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
         cooldown=std::max(0.0f,cooldown-dt);
         if(cooldown<=0) {
             const std::array<Attack,5> cycle{Attack::Mine,Attack::PingBeam,Attack::Shockwave,Attack::Anchor,Attack::Screw};
-            Start(cycle[nextAttack++%cycle.size()],to);
+            const int repeat=BossBattleTuning::Get().RepeatAttack();
+            Start(repeat>=0&&repeat<5?static_cast<Attack>(repeat):cycle[nextAttack++%cycle.size()],to);
         }
     }
     attackTime+=dt;
+    if(stats.attack==Attack::Mine&&minesRemaining>0) {
+        lockedTarget=BossAttackGuidance::Predict(to,interaction.GetMeasuredVelocity(),
+            settings.battle.mineAimLeadTime,arenaCenter,120,groundY);
+    }
     if(windup>0) {
         windup=std::max(0.0f,windup-dt);
         if(windup==0&&stats.attack==Attack::Shockwave) {
-            wave.Trigger(waveCenter,waveCenter.y,activeWave,random);
+            // The pressure ring can travel through the player's water layer;
+            // erupted rocks remain anchored to the seabed regardless of it.
+            wave.Trigger(waveCenter,groundY+0.08f,activeWave,random);
             waveFx.OnTrigger(wave,activeWave,waveCenter.y,settings.waveScale);
         }
     }
@@ -451,6 +472,13 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
         mineLaunchClock-=dt;
         if(mineLaunchClock<=0) {
             LaunchMine(lockedTarget);++mineOrdinal;--minesRemaining;mineLaunchClock=settings.mineInterval;
+        }
+    }
+    if(stats.attack==Attack::Screw&&!screwPayloadLaunched&&screw.IsRunning()&&
+        attackTime>=std::max(activeScrew.previewTime,settings.battle.screwPayloadDelay)) {
+        screwPayloadLaunched=true;
+        for(int i=0;i<settings.battle.screwPayloadCount;++i) {
+            mineOrdinal=i;LaunchMine(screw.GetGatherPoint(),true);
         }
     }
     const bool anchorWasActive=anchor.IsDamageActive();
@@ -469,7 +497,10 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
     if(ping.IsTracking()) {
         const float untilLock=std::max(0.0f,activePing.trackingTime-ping.GetStateTime()-dt);
         pingTarget=BossAttackGuidance::Predict(to,interaction.GetMeasuredVelocity(),
-            untilLock+activePing.chargeTime,arenaCenter,120,groundY);
+            (untilLock+activePing.chargeTime)*settings.battle.beamLeadScale,arenaCenter,120,groundY);
+        const Vector3 lead=pingTarget-to;
+        const float distance=Length(lead),maximum=settings.battle.beamMaxLeadDistance;
+        if(distance>maximum&&distance>0.0001f) pingTarget=to+lead*(maximum/distance);
     } else if(ping.IsRunning()&&ping.GetPingCount()>0) {
         pingTarget=ping.GetPingPosition(ping.GetPingCount()-1);
     }
@@ -491,14 +522,25 @@ void BossCombatController::Update(float dt,Player& player,const Vector3& arenaCe
     const ReefCollisionWorld* beamWorld) {
     auto cpu = FrameProfiler::Get().ScopeCpu("Boss combat update");
     auto& e=*impl_;
-    if(!e.initialized) return;
+    auto& tuning=BossBattleTuning::Get();
+    const auto publish=[&] {tuning.Publish(GetStats(),e.appliedRevision);};
+    if(!e.initialized) {publish();return;}
     enabled=enabled&&e.frameEnabled&&!player.IsDead();
-    if(!enabled) {if(e.enabled) Reset(&player);return;}
+    if(!enabled) {if(e.enabled) Reset(&player);publish();return;}
+    const int request=tuning.ConsumeAttackRequest();
+    if(request>=0&&request<5) e.requested=static_cast<Attack>(request);
+    if(e.requested!=Attack::None) {
+        // A debug request is an isolated trial: clear earlier payloads and
+        // their external motion before measuring the selected attack.
+        const auto selected=e.requested;
+        Reset(&player);
+        e.requested=selected;e.frameEnabled=e.presentationPlaying=true;
+    }
     e.enabled=true;e.arenaCenter=arenaCenter;
     e.groundY=std::isfinite(groundY)?std::clamp(groundY,-200.0f,10.0f):-22.0f;
     e.beamWorld=beamWorld;
     const float step=SafeStep(dt);
-    if(step<=0||!Collision::Finite(player.GetPosition())||!Collision::Finite(e.ship->GetTranslate())) return;
+    if(step<=0||!Collision::Finite(player.GetPosition())||!Collision::Finite(e.ship->GetTranslate())) {publish();return;}
     // Small simulation slices keep fast anchors/rocks and short beams from
     // tunnelling through the player's swept position after a frame hitch.
     const int count=std::max(1,static_cast<int>(std::ceil(step*120.0f)));
@@ -508,6 +550,7 @@ void BossCombatController::Update(float dt,Player& player,const Vector3& arenaCe
     }
     e.interaction.CommitMovement(player);
     e.playerPosition=end;e.BuildWarnings();
+    publish();
 }
 
 void BossCombatController::Impl::BuildWarnings() {
@@ -547,7 +590,7 @@ void BossCombatController::Impl::BuildWarnings() {
         const auto& mine=*mines[i];
         if(mine.GetState()==Mine::State::Exploded) continue;
         const bool fuse=mine.GetState()==Mine::State::Triggered;
-        const float reach=mine.GetExplosionRadius()+settings.playerRadius+8;
+        const float reach=mine.GetExplosionRadius()+mineMeta[mines[i].get()].playerRadius+8;
         if(Collision::DistanceSquared(playerPosition,mine.GetPosition())>reach*reach) continue;
         // A floating mine has no impact countdown until its real fuse starts.
         warnings.push_back({id+16+i,Kind::Mine,fuse?Phase::Locked:Phase::Active,mine.GetPosition(),mine.GetPosition(),

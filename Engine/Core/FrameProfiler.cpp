@@ -210,12 +210,14 @@ void FrameProfiler::CycleMode() {
 void FrameProfiler::InitializeUi([[maybe_unused]] HWND window, DirectXCommon* dx, SrvManager* srv) {
     if (uiReady_ || !dx || !srv) return;
     srv_ = srv;
+    // GameApp owns the shared editor / lightweight Release overlay context.
+    // Borrow it without changing input, fonts or frame boundaries.
+    if (ImGui::GetCurrentContext()) { uiReady_ = true; return; }
 #ifdef USE_IMGUI
-    // Development already owns the context. Do not change its docking or layout.
-    uiReady_ = ImGui::GetCurrentContext() != nullptr;
+    uiReady_ = false;
 #else
-    // Release has no editor UI. This context renders only a passive F8 overlay.
-    if (ImGui::GetCurrentContext()) return;
+    // Standalone callers can still use the passive F8-only fallback.
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ownsUi_ = true;

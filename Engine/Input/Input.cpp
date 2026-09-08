@@ -66,7 +66,7 @@ void Input::Initialize  (WinApp* winApp) {
 }
 
 bool Input::GetMenuMousePosition(POINT& position) const {
-    if (!winApp_) return false;
+    if (gameInputBlocked_ || !winApp_) return false;
     const HWND hwnd = winApp_->GetHwnd();
     RECT client{};
     if (GetForegroundWindow() != hwnd || !GetClientRect(hwnd, &client) ||
@@ -78,11 +78,13 @@ bool Input::GetMenuMousePosition(POINT& position) const {
 }
 
 void Input::UpdateMouseDelta() {
+    if (gameInputBlocked_) { mouseDelta_ = { 0, 0 }; return; }
     POINT currentMousePos;
     GetCursorPos(&currentMousePos);
     HWND hwnd = winApp_ ? winApp_->GetHwnd() : GetActiveWindow();
     ScreenToClient(hwnd, &currentMousePos);
 
+    const bool resetDelta = firstMouseUpdate_;
     if (firstMouseUpdate_) {
         // 初回は差分をゼロにしておく
         mouseDelta_ = { 0, 0 };
@@ -108,8 +110,10 @@ void Input::UpdateMouseDelta() {
         ScreenToClient(hwnd, &currentMousePos);
 
         // 差分計算
-        mouseDelta_.x = currentMousePos.x - center.x;
-        mouseDelta_.y = currentMousePos.y - center.y;
+        // Opening/closing a panel changes cursor mode. Its first recenter must
+        // not turn the camera by the distance from the UI cursor to the center.
+        mouseDelta_.x = resetDelta ? 0 : currentMousePos.x - center.x;
+        mouseDelta_.y = resetDelta ? 0 : currentMousePos.y - center.y;
 
         // マウスを中央に戻す
         ClientToScreen(hwnd, &center);
@@ -141,22 +145,75 @@ void Input::Update() {
         memset(keys_, 0, sizeof(keys_));
     }
 
+    // Keep physical state for the panel shortcut. Controls held when the panel
+    // closed remain suppressed until released, including mouse click/trigger.
+    for (size_t i = 0; i < sizeof(keys_); ++i) {
+        if ((keys_[i] & 0x80) == 0 && suppressedKeys_[i]) {
+            suppressedKeys_[i] = 0;
+            prevKeys_[i] = 0; // Releasing a captured key is not a gameplay action.
+        }
+    }
+    const WORD releasedSuppressedButtons = static_cast<WORD>(
+        suppressedGamepadButtons_ & ~gamepadState_.Gamepad.wButtons);
+    prevGamepadState_.Gamepad.wButtons &= static_cast<WORD>(~releasedSuppressedButtons);
+    suppressedGamepadButtons_ &= gamepadState_.Gamepad.wButtons;
+    if (NormalizeThumbAxis(gamepadState_.Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) == 0.0f)
+        suppressedStickX_ = false;
+    if (NormalizeThumbAxis(gamepadState_.Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) == 0.0f)
+        suppressedStickY_ = false;
     UpdateMouseDelta();
 
     // マウス左右クリック状態の更新
     mouseLeft_ = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
     mouseRight_ = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+    if (!mouseLeft_ && suppressedMouseLeft_) {
+        suppressedMouseLeft_ = false;
+        prevMouseLeft_ = false;
+    }
+    if (!mouseRight_ && suppressedMouseRight_) {
+        suppressedMouseRight_ = false;
+        prevMouseRight_ = false;
+    }
 
     // === Tabキー / F1キーでカーソル隠し＆ロックモードとカーソル自由移動モードをトグル切り替え ===
     bool toggleKey = keys_[DIK_TAB] || keys_[DIK_F1];
-    if (toggleKey && !prevToggleKeyState_) {
+    const bool canToggle = !gameInputBlocked_ &&
+        ((keys_[DIK_TAB] && !suppressedKeys_[DIK_TAB]) ||
+         (keys_[DIK_F1] && !suppressedKeys_[DIK_F1]));
+    if (canToggle && toggleKey && !prevToggleKeyState_) {
         SetCameraControlEnabled(!cameraControlEnabled_);
         justEnteredCameraMode_ = cameraControlEnabled_;
     }
     prevToggleKeyState_ = toggleKey;
 }
 
+void Input::SetGameInputBlocked(bool blocked) {
+    if (gameInputBlocked_ == blocked) return;
+    if (blocked) {
+        cameraControlBeforeBlock_ = cameraControlEnabled_;
+        SetCameraControlEnabled(false);
+        gameInputBlocked_ = true;
+    } else {
+        gameInputBlocked_ = false;
+        memcpy(suppressedKeys_, keys_, sizeof(keys_));
+        suppressedMouseLeft_ = mouseLeft_;
+        suppressedMouseRight_ = mouseRight_;
+        suppressedGamepadButtons_ = gamepadState_.Gamepad.wButtons;
+        suppressedStickX_ = NormalizeThumbAxis(gamepadState_.Gamepad.sThumbLX,
+            XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) != 0.0f;
+        suppressedStickY_ = NormalizeThumbAxis(gamepadState_.Gamepad.sThumbLY,
+            XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) != 0.0f;
+        SetCameraControlEnabled(cameraControlBeforeBlock_);
+    }
+}
+
 void Input::SetCameraControlEnabled(bool enabled) {
+    if (gameInputBlocked_) {
+        // Scene switches can update the mode to restore, but the panel keeps
+        // the actual cursor free until it closes.
+        cameraControlBeforeBlock_ = enabled;
+        enabled = false;
+    }
     cameraControlEnabled_ = enabled;
     justEnteredCameraMode_ = enabled;
     firstMouseUpdate_ = true;
@@ -169,52 +226,57 @@ void Input::SetCameraControlEnabled(bool enabled) {
     }
 }
 
-bool Input::IsKeyTrigger(BYTE keyCode) const {
-    // DirectInput は 0x80 が押下
+bool Input::IsRawKeyTrigger(BYTE keyCode) const {
     return (keys_[keyCode] & 0x80) && !(prevKeys_[keyCode] & 0x80);
 }
 
+bool Input::IsKeyTrigger(BYTE keyCode) const {
+    return !gameInputBlocked_ && !suppressedKeys_[keyCode] && IsRawKeyTrigger(keyCode);
+}
+
 bool Input::IsKeyPressed(BYTE keyCode) const {
-    return (keys_[keyCode] & 0x80) != 0;
+    return !gameInputBlocked_ && !suppressedKeys_[keyCode] && (keys_[keyCode] & 0x80) != 0;
 }
 
 bool Input::IsKeyReleased(BYTE keyCode) const {
-    return !(keys_[keyCode] & 0x80) && (prevKeys_[keyCode] & 0x80);
+    return !gameInputBlocked_ && !suppressedKeys_[keyCode] &&
+        !(keys_[keyCode] & 0x80) && (prevKeys_[keyCode] & 0x80);
 }
 
 bool Input::IsGamepadButtonPressed(GamepadButton button) const {
     const WORD mask = ToXInputButton(button);
-    return gamepadConnected_ && (gamepadState_.Gamepad.wButtons & mask) != 0;
+    return !gameInputBlocked_ && !(suppressedGamepadButtons_ & mask) &&
+        gamepadConnected_ && (gamepadState_.Gamepad.wButtons & mask) != 0;
 }
 
 bool Input::IsGamepadButtonTrigger(GamepadButton button) const {
     const WORD mask = ToXInputButton(button);
-    return gamepadConnected_ &&
+    return !gameInputBlocked_ && !(suppressedGamepadButtons_ & mask) && gamepadConnected_ &&
         (gamepadState_.Gamepad.wButtons & mask) != 0 &&
         (prevGamepadState_.Gamepad.wButtons & mask) == 0;
 }
 
 bool Input::IsGamepadButtonReleased(GamepadButton button) const {
     const WORD mask = ToXInputButton(button);
-    return gamepadConnected_ &&
+    return !gameInputBlocked_ && !(suppressedGamepadButtons_ & mask) && gamepadConnected_ &&
         (gamepadState_.Gamepad.wButtons & mask) == 0 &&
         (prevGamepadState_.Gamepad.wButtons & mask) != 0;
 }
 
 float Input::GetLeftStickX() const {
-    return gamepadConnected_
+    return !gameInputBlocked_ && !suppressedStickX_ && gamepadConnected_
         ? NormalizeThumbAxis(gamepadState_.Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
         : 0.0f;
 }
 
 float Input::GetLeftStickY() const {
-    return gamepadConnected_
+    return !gameInputBlocked_ && !suppressedStickY_ && gamepadConnected_
         ? NormalizeThumbAxis(gamepadState_.Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
         : 0.0f;
 }
 
 bool Input::IsLeftStickUpTrigger(float threshold) const {
-    if (!gamepadConnected_) {
+    if (gameInputBlocked_ || suppressedStickY_ || !gamepadConnected_) {
         return false;
     }
 

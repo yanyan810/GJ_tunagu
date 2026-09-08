@@ -256,6 +256,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\boss\BossCombatController.cpp" />
     <ClCompile Include="Game\boss\BossCombatRig.cpp" />
     <ClCompile Include="Game\boss\BossCombatSettings.cpp" />
+    <ClCompile Include="Game\boss\BossBattleTuning.cpp" />
+    <ClCompile Include="Game\boss\BossTuningFields.cpp" />
+    <ClCompile Include="Game\boss\BossTuningStore.cpp" />
     <ClCompile Include="Game\boss\BossPlayerInteraction.cpp" />
     <ClCompile Include="Game\boss\BossCombatCollision.cpp" />
     <ClCompile Include="Game\boss\MineBombGeometry.cpp" />
@@ -693,6 +696,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\boss\BossCombatController.h" />
     <ClInclude Include="Game\boss\BossCombatRig.h" />
     <ClInclude Include="Game\boss\BossCombatSettings.h" />
+    <ClInclude Include="Game\boss\BossBattleTuning.h" />
+    <ClInclude Include="Game\boss\BossTuningFields.h" />
+    <ClInclude Include="Game\boss\BossTuningStore.h" />
     <ClInclude Include="Game\boss\BossPlayerInteraction.h" />
     <ClInclude Include="Game\boss\BossCombatCollision.h" />
     <ClInclude Include="Game\boss\MineBombGeometry.h" />
