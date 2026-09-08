@@ -254,6 +254,14 @@ void GameScene::OnEnter(GameApp& app) {
     bossHpBarFillSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
     bossHpBarFillSprite_->SetColor({ 0.95f, 0.15f, 0.15f, 1.0f }); // ボスメインゲージ (深赤)
 
+    // 画面中央上 タイマー用数字(4桁)・コロンスプライトの初期化 (resources/number/)
+    for (int i = 0; i < 4; ++i) {
+        timerDigitSprites_[i] = std::make_unique<Sprite>();
+        timerDigitSprites_[i]->Initialize(app.SpriteCom(), app.Dx(), "number/0.png");
+    }
+    timerColonSprite_ = std::make_unique<Sprite>();
+    timerColonSprite_->Initialize(app.SpriteCom(), app.Dx(), "number/colon.png");
+
     bossHpCatchupRatio_ = 1.0f;
     bossHpShakeTimer_ = 0.0f;
     clearTransitionTimer_ = 0.0f;
@@ -376,6 +384,10 @@ void GameScene::OnExit(GameApp& app) {
     creatureHpBarBgSprite_.reset();
     hpBarFillSprite_.reset();
     hpBarBgSprite_.reset();
+    for (auto& sprite : timerDigitSprites_) {
+        sprite.reset();
+    }
+    timerColonSprite_.reset();
     report("Walls and UI");
     debrisList_.clear();
     report("Active creatures");
@@ -849,7 +861,101 @@ void GameScene::DrawOverlay2D(GameApp&) {
                 }
             }
         }
+
+    // ----------------------------------------------------
+    // resources/number/ の数字画像を用いたボス出現カウントダウンタイマー描画
+    // ----------------------------------------------------
+    if (!isBossSpawned_) {
+        int secondsLeft = static_cast<int>(std::ceil((std::max)(0.0f, bossSpawnTimer_)));
+        int minutes = secondsLeft / 60;
+        int seconds = secondsLeft % 60;
+
+        int digits[4] = {
+            minutes / 10,
+            minutes % 10,
+            seconds / 10,
+            seconds % 10
+        };
+
+        Matrix4x4 viewMat = Matrix4x4::MakeIdentity4x4();
+        Matrix4x4 projMat = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
+
+        // カラー (通常時: 明るいシアン, 残り10秒以下: 赤色点滅)
+        Vector4 color = { 0.3f, 0.95f, 1.0f, 1.0f };
+        if (secondsLeft <= 10) {
+            float blink = (std::sin(bossSpawnTimer_ * 12.0f) + 1.0f) * 0.5f;
+            color = { 1.0f, 0.2f * blink, 0.2f * blink, 1.0f };
+        }
+
+        float targetHeight = 48.0f; // 数字・コロン共通の高さ
+        float posY = 30.0f;
+
+        // 4桁それぞれ独立したスプライトへ現在の数字のテクスチャをセット
+        for (int i = 0; i < 4; ++i) {
+            int num = std::clamp(digits[i], 0, 9);
+            std::string texPath = "number/" + std::to_string(num) + ".png";
+            if (timerDigitSprites_[i]) {
+                timerDigitSprites_[i]->SetTextureFilePath(texPath);
+            }
+        }
+
+        // テクスチャのアスペクト比を維持した描画幅の取得
+        auto getDrawWidth = [&](const std::string& path) -> float {
+            const auto& meta = TextureManager::GetInstance()->GetMetaData(path);
+            float texW = (std::max)(1.0f, static_cast<float>(meta.width));
+            float texH = (std::max)(1.0f, static_cast<float>(meta.height));
+            return (targetHeight / texH) * texW;
+        };
+
+        auto drawSpriteWithScale = [&](Sprite* sprite, float posX, float drawW) {
+            if (!sprite) return;
+            const auto& meta = TextureManager::GetInstance()->GetMetaData(sprite->GetTextureFilePath());
+            float texW = (std::max)(1.0f, static_cast<float>(meta.width));
+            float texH = (std::max)(1.0f, static_cast<float>(meta.height));
+            sprite->SetPosition({ posX, posY });
+            sprite->SetScale({ drawW / texW, targetHeight / texH, 1.0f });
+            sprite->SetColor(color);
+            sprite->Update(viewMat, projMat);
+            sprite->Draw();
+        };
+
+        // 各エレメントのアスペクト比維持描画幅算出
+        float colonWidth = timerColonSprite_ ? getDrawWidth(timerColonSprite_->GetTextureFilePath()) : 20.0f;
+        colonWidth = (std::max)(16.0f, colonWidth);
+
+        float digitWidths[4] = {};
+        for (int i = 0; i < 4; ++i) {
+            if (timerDigitSprites_[i]) {
+                digitWidths[i] = getDrawWidth(timerDigitSprites_[i]->GetTextureFilePath());
+                digitWidths[i] = (std::max)(24.0f, digitWidths[i]);
+            }
+        }
+
+        // 画面中央センタリング
+        float gap = 4.0f;
+        float totalWidth = digitWidths[0] + digitWidths[1] + digitWidths[2] + digitWidths[3] + colonWidth + (gap * 4.0f);
+        float currentX = 640.0f - (totalWidth * 0.5f);
+
+        // 分 10の位
+        drawSpriteWithScale(timerDigitSprites_[0].get(), currentX, digitWidths[0]);
+        currentX += digitWidths[0] + gap;
+
+        // 分 1の位
+        drawSpriteWithScale(timerDigitSprites_[1].get(), currentX, digitWidths[1]);
+        currentX += digitWidths[1] + gap;
+
+        // コロン :
+        drawSpriteWithScale(timerColonSprite_.get(), currentX, colonWidth);
+        currentX += colonWidth + gap;
+
+        // 秒 10の位
+        drawSpriteWithScale(timerDigitSprites_[2].get(), currentX, digitWidths[2]);
+        currentX += digitWidths[2] + gap;
+
+        // 秒 1の位
+        drawSpriteWithScale(timerDigitSprites_[3].get(), currentX, digitWidths[3]);
     }
+}
 
 
 void GameScene::DrawImGui(GameApp& app) {

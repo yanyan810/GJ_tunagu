@@ -162,26 +162,17 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
     // 移動性能の計算 (スピードバフ: サヨリ/イルカ/シャチ等)
     float baseForwardLimit = 15.0f;
     float baseBackwardLimit = -6.0f;
-    float weightFactor = 1.0f + totalWeight * 0.10f + static_cast<float>(attachedDebris_.size()) * 0.08f;
     
+    // 物を持つことによる速度低下ペナルティを削除
     float speedMultiplier = 1.0f + speedBuff_;
-    float calculatedSpeed = ((baseForwardLimit + totalThrust) * speedMultiplier) / weightFactor;
-    maxForwardSpeed_ = (std::max)(3.0f, calculatedSpeed);
-    maxBackwardSpeed_ = (baseBackwardLimit * speedMultiplier) / weightFactor;
+    maxForwardSpeed_ = (baseForwardLimit + totalThrust) * speedMultiplier;
+    maxBackwardSpeed_ = baseBackwardLimit * speedMultiplier;
 
-    // ゴミが100個以上アタッチされているか、または速度が6.0m/s以下に落ちたら過重状態（HP減少）
-    const float kOverweightSpeedThreshold = 6.0f;
-    const size_t kOverweightCountThreshold = 100;
-    const float kOverweightDamagePerSec = 8.0f;
-
-    isOverweight_ = (attachedDebris_.size() >= kOverweightCountThreshold || maxForwardSpeed_ <= kOverweightSpeedThreshold);
-    if (isOverweight_) {
-        TakeDamage(kOverweightDamagePerSec * dt);
-    }
+    // 重量超過判定を解除
+    isOverweight_ = false;
 
     // 2. キーボード & マウスによるプレイヤー・モデル視点回転操作
     float rotateSpeedYaw = 1.8f;   // 旋回速度 (rad/s)
-    rotateSpeedYaw = (std::max)(0.4f, rotateSpeedYaw / (1.0f + totalWeight * 0.10f));
 
     float prevYaw = yaw_;
 
@@ -350,19 +341,6 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
                     float dirY = -std::sin(pitch_);
                     float dirZ = std::cos(yaw_) * std::cos(pitch_);
                     Vector3 forward = { dirX, dirY, dirZ };
-
-                    // エイムアシスト: ターゲット（ボス）が存在する場合、ボス方向へ投射ベクトルを強力補正
-                    if (hasTarget_) {
-                        Vector3 toTarget = { targetPos_.x - pos_.x, targetPos_.y - pos_.y, targetPos_.z - pos_.z };
-                        float len = std::sqrt(toTarget.x * toTarget.x + toTarget.y * toTarget.y + toTarget.z * toTarget.z);
-                        if (len > 0.001f) {
-                            toTarget.x /= len; toTarget.y /= len; toTarget.z /= len;
-                            // ボス方向へ75%強力エイム補正
-                            forward.x = forward.x * 0.25f + toTarget.x * 0.75f;
-                            forward.y = forward.y * 0.25f + toTarget.y * 0.75f;
-                            forward.z = forward.z * 0.25f + toTarget.z * 0.75f;
-                        }
-                    }
 
                     // 複数投げる時は少し散らす（スプレッド）
                     float spread = 0.12f;

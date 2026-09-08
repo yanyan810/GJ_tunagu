@@ -2,10 +2,11 @@
 #include "IScene.h"
 #include "Sprite.h"
 #include "OceanBattleFlow.h"
+#include "Player.h"
 #include <memory>
 #include <vector>
+#include <array>
 
-class Player;
 class Enemy;
 class Camera;
 class Debris;
@@ -70,4 +71,8 @@ private:
     int throwSeHandle_ = 0;
     int punchSeHandle_ = 0;
     int explosionSeHandle_ = 0;
+
+    // number ディレクトリのアセットによるタイマー用2Dスプライト (全4桁 + コロン)
+    std::array<std::unique_ptr<Sprite>, 4> timerDigitSprites_;
+    std::unique_ptr<Sprite> timerColonSprite_;
 };

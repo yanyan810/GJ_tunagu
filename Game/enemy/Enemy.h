@@ -5,12 +5,12 @@
 #include "MathStruct.h"
 #include "boss/ShipScrewAnimation.h"
 #include "boss/BossReadability.h"
+#include "Player.h"
 
 class Object3d;
 class Object3dCommon;
 class DirectXCommon;
 class Camera;
-class Player;
 class Debris;
 class BossBulletAttack;
 class BossNetAttack;
