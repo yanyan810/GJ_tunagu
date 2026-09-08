@@ -70,7 +70,6 @@ void TutorialScene::OnEnter(GameApp& app) {
     dummyEnemy_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
     dummyEnemy_->SetManagedCombat(true);
     dummyEnemy_->SetCombatMovementLocked(true);
-    dummyEnemy_->SetReadabilityEnabled(false);
     dummyEnemy_->SetBattleCenter({ 0.0f, 15.0f, 40.0f });
 
     // ステート初期化
