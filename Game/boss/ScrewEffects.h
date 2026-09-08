@@ -16,6 +16,15 @@ struct ID3D12Resource;
 // It does not choose targets, apply forces, or consume gameplay random numbers.
 class ScrewEffects final {
 public:
+    struct Readability {
+        float glow = 1.6f;
+        float flowSpeed = 1.15f;
+        float bandWidth = 1.0f;
+        float dangerMix = 0.85f;
+    };
+    // Visual controls only; they never alter suction forces or hit ranges.
+    void SetReadability(const Readability& settings);
+    Readability GetReadability() const;
     struct Stats {
         size_t ribbonCount = 0, particleCount = 0, drawCount = 0;
         uint64_t releaseCount = 0;

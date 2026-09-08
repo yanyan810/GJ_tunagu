@@ -45,9 +45,12 @@ struct FrameConstants {
     Matrix4x4 viewProjection;
     Vector4 cameraPositionTime,cameraRightRefraction,cameraUpEmission,viewportStyle;
     WorldEffectsFog::Parameters worldEffectsFog;
+    Vector4 flowReadability; // flow clock, danger mix, band width, active pressure
 };
 struct PrimitiveConstants { Vector4 colorOpacity,style; };
-static_assert(sizeof(ScrewVertex)==32 && sizeof(FrameConstants)==240 && sizeof(PrimitiveConstants)==32);
+static_assert(sizeof(ScrewVertex)==32 && sizeof(FrameConstants)==256 && sizeof(PrimitiveConstants)==32);
+static_assert(offsetof(FrameConstants, worldEffectsFog)==128 &&
+    offsetof(FrameConstants, flowReadability)==240 && sizeof(FrameConstants)<=kConstantStride);
 struct DrawItem { PrimitiveConstants constants; UINT first=0,count=0; float distance=0; };
 struct Release { Vector3 center; float age=0,power=35,spread=4,phase=0; };
 struct PathPoint { Vector3 center; float width=0.1f; };
@@ -58,7 +61,8 @@ struct ScrewEffects::Impl {
     SrvManager* srv=nullptr;
     Camera* camera=nullptr;
     bool enabled=true,soloPreview=false,validSnapshot=false;
-    float time=0,flowClock=0,emission=1.0f,opacity=1.0f,bloomStrength=0.95f;
+    float time=0,flowClock=0,opacity=1.0f,bloomStrength=0.95f;
+    ScrewEffects::Readability readability{};
     ScrewAttack::State state=ScrewAttack::State::Inactive;
     float stateTime=0,previewDuration=0.8f,holdDuration=0.4f,gatherRadius=3;
     Vector3 screw{},gather{},boxCenter{},halfSize{},forward{0,0,1};
@@ -94,6 +98,15 @@ struct ScrewEffects::Impl {
 ScrewEffects::ScrewEffects() : impl_(std::make_unique<Impl>()) {}
 ScrewEffects::~ScrewEffects()=default;
 
+void ScrewEffects::SetReadability(const Readability& settings) {
+    const Readability defaults{};
+    impl_->readability={Safe(settings.glow,defaults.glow,0.25f,2.5f),
+        Safe(settings.flowSpeed,defaults.flowSpeed,0.25f,2.5f),
+        Safe(settings.bandWidth,defaults.bandWidth,0.5f,2.0f),
+        Safe(settings.dangerMix,defaults.dangerMix,0.0f,1.0f)};
+}
+ScrewEffects::Readability ScrewEffects::GetReadability() const { return impl_->readability; }
+
 void ScrewEffects::Initialize(DirectXCommon* dx, SrvManager* srv, Camera* camera) {
     if(!dx||!srv||!camera) throw std::invalid_argument("ScrewEffects needs device, heap and camera");
     auto& e=*impl_; e.dx=dx; e.srv=srv; e.camera=camera;
@@ -126,7 +139,7 @@ void ScrewEffects::Update(float dt, const ScrewAttack& attack) {
         (e.state==ScrewAttack::State::Suction?0.39f:(e.state==ScrewAttack::State::Preview?0.16f:0.0f));
     // Accumulate displacement instead of multiplying total time by state speed:
     // changing phase accelerates motes without teleporting them along the path.
-    e.flowClock=Fract(e.flowClock+std::min(dt,3600.0f)*flowSpeed);
+    e.flowClock=Fract(e.flowClock+std::min(dt,3600.0f)*flowSpeed*e.readability.flowSpeed);
     e.screw=attack.GetScrewPosition(); e.gather=attack.GetGatherPoint();
     e.boxCenter=attack.GetOuterRangeCenter(); e.forward=Unit(attack.GetForward(),{0,0,1});
     const auto& settings=attack.GetSettings();
@@ -219,7 +232,11 @@ void ScrewEffects::Impl::Ribbon(const std::vector<PathPoint>& path, const Vector
             geometry.push_back(left[i]);geometry.push_back(right[i]);geometry.push_back(left[i+1]);
             geometry.push_back(left[i+1]);geometry.push_back(right[i]);geometry.push_back(right[i+1]);
         }
-        if(!AddDraw(first,count,path[(start+end)/2].center,tint,0,intensity,phase)) geometry.resize(first);
+        if(AddDraw(first,count,path[(start+end)/2].center,tint,0,intensity,phase)) {
+            // Only the outer-to-center paths have increasing UV toward the
+            // outside. Center arcs and outward release jets keep their style.
+            draws.back().constants.style.z=confineToBox?1.0f:0.0f;
+        } else geometry.resize(first);
     }
     if(draws.size()>before) ++ribbonCount;
 }
@@ -254,6 +271,10 @@ void ScrewEffects::Impl::BuildDraws() {
         const float holdProgress=holdDuration>0.00001f?Saturate(stateTime/holdDuration):1;
         const float strength=preview?0.06f+0.30f*previewProgress:(hold?1.12f+holdProgress*0.28f:0.88f);
         const float contraction=hold?1.0f-0.61f*holdProgress:1.0f;
+        // Warm accents distinguish the threat from the surrounding cyan sea.
+        // Transparent water remains cool; the moving heads carry the warning.
+        const Vector3 danger=preview?Vector3{1.0f,0.58f,0.09f}:Vector3{1.0f,0.20f,0.045f};
+        const float warmMix=readability.dangerMix*(preview?0.65f:1.0f);
         // Keep phase continuous when Hold starts; only its angular speed grows.
         const float rotation=time*1.25f+(hold?stateTime*1.45f:0.0f);
         std::vector<PathPoint> path;path.reserve(41);
@@ -264,11 +285,11 @@ void ScrewEffects::Impl::BuildDraws() {
                 Vector3 point=FlowPoint(strand,t,rotation,contraction);
                 if(hold) point=InBox(point+Vector3{std::sin(time*31+strand),std::cos(time*27+strand),0}*
                     (0.035f*(1-t)));
-                const float width=(0.06f+0.31f*std::sin(t*3.14159265359f))*(preview?0.65f:1.0f);
+                const float width=(0.06f+0.31f*std::sin(t*3.14159265359f))*(preview?0.65f:1.0f)*readability.bandWidth;
                 path.push_back({point,width});
             }
             const Vector4 tint=strand%3==0?Vector4{0.48f,0.36f,1.0f,0.66f}:Vector4{0.12f,0.88f,1.0f,0.76f};
-            Ribbon(path,tint,strength,time*9.0f+strand*1.7f,true);
+            Ribbon(path,tint,strength,strand*0.173f,true);
         }
         const int count=preview?32:80;
         for(int i=0;i<count;++i) {
@@ -276,8 +297,12 @@ void ScrewEffects::Impl::BuildDraws() {
             const Vector3 point=FlowPoint(i,travel,rotation,contraction);
             const auto next=FlowPoint(i,std::max(0.0f,travel-0.015f),rotation,contraction);
             const float fade=Saturate(travel*12)*Saturate((1-travel)*8);
-            Billboard(point,0.035f+(i%4)*0.012f,{0.36f,0.90f,1.0f,fade},i%6==0?3.0f:1.0f,
-                strength*(i%6==0?0.65f:1.4f),next-point);
+            const bool bubble=i%6==0;
+            const Vector3 tint=Mix({0.36f,0.90f,1.0f},danger,bubble?warmMix*0.2f:warmMix);
+            const float radius=(bubble?0.035f+(i%4)*0.012f:0.055f+(i%4)*0.017f)*
+                (bubble?1.0f:std::sqrt(readability.bandWidth));
+            Billboard(point,radius,Pack(tint,fade),bubble?3.0f:1.0f,
+                strength*(bubble?0.65f:1.4f),next-point);
         }
         // The center remains open; narrow water arcs and soft light reveal the
         // existing gathered Bomb models instead of replacing them with a ball.
@@ -292,7 +317,8 @@ void ScrewEffects::Impl::BuildDraws() {
                 path.push_back({gather+(x*std::cos(angle)+y*std::sin(angle))*radius,
                     (0.05f+0.07f*std::sin(t*3.14159265359f))*(hold?1.3f:1.0f)});
             }
-            Ribbon(path,{0.26f,0.95f,1.0f,0.8f},strength*1.5f,time*12);
+            Ribbon(path,Pack(Mix({0.26f,0.95f,1.0f},danger,warmMix*0.65f),0.8f),
+                strength*1.5f,time*12);
         }
         Billboard(gather,hold?2.4f:1.65f,{0.16f,0.64f,1.0f,hold?0.37f:0.18f},2,strength);
         Billboard(screw,0.90f,{0.32f,0.90f,1.0f,0.40f},2,strength);
@@ -349,7 +375,10 @@ void ScrewEffects::DrawImGui() {
         if(ImGui::Checkbox("Enable Screw VFX",&e.enabled)) Reset();
         ImGui::Checkbox("Solo Screw Preview",&e.soloPreview);
         ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x*0.52f);
-        ImGui::SliderFloat("Glow##ScrewVFX",&e.emission,0.0f,2.5f);
+        ImGui::SliderFloat("Glow##ScrewVFX",&e.readability.glow,0.25f,2.5f);
+        ImGui::SliderFloat("Inward Flow Speed##ScrewVFX",&e.readability.flowSpeed,0.25f,2.5f);
+        ImGui::SliderFloat("Flow Width##ScrewVFX",&e.readability.bandWidth,0.5f,2.0f);
+        ImGui::SliderFloat("Danger Color##ScrewVFX",&e.readability.dangerMix,0.0f,1.0f);
         ImGui::SliderFloat("Light Spread##ScrewVFX",&e.bloomStrength,0.0f,3.0f);
         ImGui::SliderFloat("Water Opacity##ScrewVFX",&e.opacity,0.0f,1.5f);
         ImGui::PopItemWidth();
@@ -369,8 +398,10 @@ void ScrewEffects::Draw(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth) 
     const auto& world=e.camera->GetWorldMatrix();
     *e.frame={e.camera->GetViewProjectionMatrix(),Pack(e.camera->GetTranslate(),e.time),
         {world.m[0][0],world.m[0][1],world.m[0][2],5.0f},
-        {world.m[1][0],world.m[1][1],world.m[1][2],Safe(e.emission,1,0,2.5f)},
-        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),Safe(e.opacity,1,0,1.5f),0},WorldEffectsFog::GetParameters()};
+        {world.m[1][0],world.m[1][1],world.m[1][2],e.readability.glow},
+        {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),Safe(e.opacity,1,0,1.5f),0},WorldEffectsFog::GetParameters(),
+        {e.flowClock,e.readability.dangerMix,e.readability.bandWidth,
+            e.state==ScrewAttack::State::Preview?0.0f:(e.state==ScrewAttack::State::Hold?1.0f:0.8f)}};
     std::memcpy(e.vertexData,e.geometry.data(),e.geometry.size()*sizeof(ScrewVertex));
     auto* command=e.dx->GetCommandList();
     command->SetGraphicsRootSignature(e.root.Get());

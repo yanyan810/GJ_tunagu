@@ -5,6 +5,7 @@
 #include "Shockwave.h"
 #include "AnchorAttack.h"
 #include "ScrewAttack.h"
+#include "BossWaveVolley.h"
 #include <string>
 
 // Reads team-authored attack settings. Battle-host pacing/adaptation remains
@@ -12,11 +13,17 @@
 struct BossBattleOptions {
     float beamHitRadiusScale=.65f, beamLeadScale=.45f, beamMaxLeadDistance=10.0f;
     float mineAimLeadTime=.6f, mineTravelTime=1.7f, mineTriggerRadius=4.0f;
+    bool mineLinkShell=true;
+    float mineBlastRatio=.85f;
     float anchorRadiusBias=2.0f;
+    AnchorRetargetSettings anchorRetarget{true,2.0f,1.0f,1.0f};
     int screwPayloadCount=4;
     float screwPayloadDelay=.9f, screwPayloadSpawnRadius=8.0f;
+    float screwGlow=1.6f, screwFlowSpeed=1.15f, screwBandWidth=1.0f, screwDangerMix=.85f;
     bool waveAtTargetDepth=true;
     float waveHalfHeight=1.5f;
+    BossWaveVolleySettings waveVolley{};
+    float waveThickness=.7f, waveIntensity=1.7f, waveDangerMix=.72f;
 };
 
 struct BossCombatSettings {

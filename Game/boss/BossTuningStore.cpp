@@ -110,6 +110,17 @@ bool Parse(const DiskFile& file, Json& document, BossCombatSettings& values,
                 }
                 field.write(values, number);
             }
+            // Older saved presets had independent mine visuals and one
+            // player-origin wave. Do not silently turn those custom files
+            // into a linked mine or three-shot volley merely by updating code.
+            if(settings->contains("mine.triggerRadius")&&!settings->contains("mine.linkShell"))
+                values.battle.mineLinkShell=false;
+            if(settings->contains("wave.speed")&&!settings->contains("wave.count")) {
+                values.battle.waveVolley.count=1;
+                if(!settings->contains("wave.originAtBoss")) values.battle.waveVolley.originAtBoss=false;
+            }
+            if(!settings->contains("wave.interval"))
+                values.battle.waveVolley.interval=std::max(values.battle.waveVolley.interval,values.windup);
         }
         return ValidateBossTuningSettings(values, error);
     } catch (const std::exception& exception) {

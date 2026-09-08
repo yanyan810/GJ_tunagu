@@ -698,6 +698,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\boss\BossCombatSettings.h" />
     <ClInclude Include="Game\boss\BossBattleTuning.h" />
     <ClInclude Include="Game\boss\BossTuningFields.h" />
+    <ClInclude Include="Game\boss\BossWaveVolley.h" />
     <ClInclude Include="Game\boss\BossTuningStore.h" />
     <ClInclude Include="Game\boss\BossPlayerInteraction.h" />
     <ClInclude Include="Game\boss\BossCombatCollision.h" />

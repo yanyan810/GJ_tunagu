@@ -65,6 +65,7 @@ struct BossCombatController::Impl {
         float age=0;
         bool gathered=false, released=false;
         float fuse=0.8f, triggerRadius=4, lifetime=9, chainFuse=0.35f, playerRadius=1.25f;
+        bool linkShell=false;
     };
     struct RockMeta { bool hit=false; float playerRadius=1.25f; };
     Object3d* ship=nullptr;
@@ -87,7 +88,7 @@ struct BossCombatController::Impl {
     ScrewEffects screwFx;
     BossWaterEffectRenderer telegraph;
     PingBeamAttack ping;
-    Shockwave wave;
+    BossWaveVolley volley;
     AnchorAttack anchor;
     ScrewAttack screw;
     AnchorAttackSettings activeAnchor;
@@ -104,10 +105,11 @@ struct BossCombatController::Impl {
     size_t nextAttack=0;
     float cooldown=1, time=0, attackTime=0, windup=0, mineLaunchClock=0;
     int minesRemaining=0, mineOrdinal=0, rockOrdinal=0;
-    Vector3 lockedTarget{}, waveCenter{}, arenaCenter{};
+    Vector3 lockedTarget{}, arenaCenter{};
     float groundY=-22;
     const ReefCollisionWorld* beamWorld=nullptr;
-    bool initialized=false, enabled=false, frameEnabled=false, waveHit=false, playerGathered=false;
+    bool initialized=false, enabled=false, frameEnabled=false, playerGathered=false;
+    std::array<bool,BossWaveVolley::kCapacity> waveHits{};
     bool screwPayloadLaunched=false;
     std::array<bool,3> pingHits{};
 
@@ -119,7 +121,7 @@ struct BossCombatController::Impl {
     void UpdateRocks(float dt, Player& player, const Vector3& from, const Vector3& to);
     void ProcessExplosions(Player& player, const Vector3& from, const Vector3& to);
     void ResolveAttacks(float dt, Player& player, const Vector3& from, const Vector3& to,
-        bool anchorWasActive, bool waveWasActive, int previousBeamIndex);
+        bool anchorWasActive, int previousBeamIndex);
     void Step(float dt, Player& player, const Vector3& from, const Vector3& to);
     bool Hit(Player& player,float damage,float slow);
     float ReleaseMultiplier(const Vector3& position) const;
@@ -162,12 +164,12 @@ void BossCombatController::Initialize(Object3dCommon* objects, DirectXCommon* dx
 }
 
 void BossCombatController::Impl::StopTimelines() {
-    ping.Reset();wave.Reset();anchor.Reset();screw.Reset();
+    ping.Reset();volley.Reset();anchor.Reset();screw.Reset();
     pingFx.Reset();waveFx.Reset();anchorFx.Reset();screwFx.Reset();telegraph.Clear();
     rig.Reset();previousAnchorBoxes.clear();
     warnings.clear();hud.Reset();
     stats.attack=Attack::None;windup=attackTime=0;minesRemaining=0;
-    playerGathered=waveHit=false;pingHits.fill(false);
+    playerGathered=false;waveHits.fill(false);pingHits.fill(false);
     screwPayloadLaunched=false;
     for(auto& [key,meta]:mineMeta) meta.gathered=false;
 }
@@ -219,8 +221,7 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
         pingTarget=target;
         break;
     case Attack::Shockwave: {
-        waveHit=false;rockOrdinal=0;windup=settings.windup;
-        waveCenter={target.x,settings.battle.waveAtTargetDepth?target.y:groundY+0.08f,target.z};
+        waveHits.fill(false);rockOrdinal=0;
         activeWave=settings.wave;
         // The authored test used a flat local field. In the ocean the rocks
         // start at the seabed and must rise far enough to threaten this depth.
@@ -228,6 +229,10 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
         const float launch=RockLaunchSpeed(rise,activeWave.rock);
         activeWave.rock.launchPowerMin=std::max(activeWave.rock.launchPowerMin,launch);
         activeWave.rock.launchPowerMax=std::max(activeWave.rock.launchPowerMax,activeWave.rock.launchPowerMin+3);
+        volley.Start(activeWave,settings.battle.waveVolley,settings.windup,settings.battle.waveAtTargetDepth,
+            shipPosition,target,groundY);
+        waveFx.Reset();
+        waveFx.SetAppearance({settings.battle.waveThickness,settings.battle.waveIntensity,settings.battle.waveDangerMix});
         break;
     }
     case Attack::Anchor: {
@@ -239,6 +244,7 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
         // recorded when telegraphing. Diving/swimming out remains an escape.
         activeAnchor.spawnLocalPosition=shipPosition+Vector3{0,-3,0}-center;
         anchor.Trigger(center,activeAnchor);anchorFx.OnTrigger(anchor,activeAnchor);
+        anchor.ConfigureRetarget(settings.battle.anchorRetarget);
         break;
     }
     case Attack::Screw: {
@@ -253,6 +259,8 @@ void BossCombatController::Impl::Start(Attack attack,const Vector3& target) {
         activeScrew.gatherPointLocalOffset=gatherLocal;
         activeScrew.innerRangeOffset=activeScrew.middleRangeOffset=activeScrew.outerRangeOffset=gatherLocal;
         screw.Trigger(shipPosition,ship->GetRotate(),activeScrew);screwFx.Reset();screwFx.Update(0,screw);
+        screwFx.SetReadability({settings.battle.screwGlow,settings.battle.screwFlowSpeed,
+            settings.battle.screwBandWidth,settings.battle.screwDangerMix});
         // Payloads enter visibly from the ship after the preview; never create
         // an armed object directly next to the player on the starting frame.
         screwPayloadLaunched=false;
@@ -276,31 +284,46 @@ void BossCombatController::Impl::LaunchMine(const Vector3& target,bool nearTarge
     const float speed=std::clamp(distance/std::max(.01f,travel),1.0f,250.0f);
     const Vector3 velocity=Unit(goal-source)*speed;
     auto mine=std::move(minePool.back());minePool.pop_back();
-    mine->Relaunch({source,goal,velocity},settings.mine);
+    auto motion=settings.mine;
+    if(settings.battle.mineLinkShell) motion.explosionRadius=settings.battle.mineTriggerRadius*settings.battle.mineBlastRatio;
+    mine->Relaunch({source,goal,velocity},motion);
     auto& meta=mineMeta[mine.get()];meta={};
     meta.fuse=settings.mineFuse;meta.triggerRadius=settings.battle.mineTriggerRadius;
     meta.lifetime=settings.mineLifetime;meta.chainFuse=settings.mineChainFuse;meta.playerRadius=settings.playerRadius;
+    meta.linkShell=settings.battle.mineLinkShell;
     mines.push_back(std::move(mine));
 }
 void BossCombatController::Impl::SpawnWaveRocks() {
+    for(size_t pulse=0;pulse<static_cast<size_t>(volley.Count());++pulse) {
+    auto& wave=volley.Wave(pulse);
     for(const auto& spawn:wave.ConsumeRockSpawns()) {
         if(rockPool.empty()) break;
         auto scaled=spawn;
         const auto offset=spawn.position-wave.GetCenter();
-        scaled.position=wave.GetCenter()+Vector3{offset.x*settings.waveScale.x,offset.y,offset.z*settings.waveScale.z};
+        // Preserve the targeted seabed eruption when the water pulse now
+        // originates at the ship. Only the final pulse contains any rocks.
+        const auto rockCenter=volley.GetPulse(pulse).target;
+        scaled.position={rockCenter.x+offset.x*settings.waveScale.x,spawn.position.y,
+            rockCenter.z+offset.z*settings.waveScale.z};
         scaled.outwardDirection=Unit({spawn.outwardDirection.x*settings.waveScale.x,0,spawn.outwardDirection.z*settings.waveScale.z});
-        auto motion=activeWave.rock;
+        // The final pulse may have locked a different swimming depth. Use
+        // that same target for the seabed launch, not the first pulse's depth.
+        auto motion=settings.wave.rock;
+        const float launch=RockLaunchSpeed(std::max(0.0f,rockCenter.y-groundY+3.0f),motion);
+        motion.launchPowerMin=std::max(motion.launchPowerMin,launch);
+        motion.launchPowerMax=std::max(motion.launchPowerMax,motion.launchPowerMin+3);
         if(rockOrdinal++%5==0) {
             // Central columns make the warned location dangerous at swimming
             // depth too; the other rocks keep the authored outward eruption.
             const float angle=static_cast<float>(rockOrdinal)*2.39996323f;
-            scaled.position.x=wave.GetCenter().x+std::cos(angle)*.65f;
-            scaled.position.z=wave.GetCenter().z+std::sin(angle)*.65f;
+            scaled.position.x=rockCenter.x+std::cos(angle)*.65f;
+            scaled.position.z=rockCenter.z+std::sin(angle)*.65f;
             scaled.outwardDirection={};motion.horizontalPower=0;
         }
         auto rock=std::move(rockPool.back());rockPool.pop_back();
         rock->Relaunch(scaled,motion,random);rockMeta[rock.get()]={false,settings.playerRadius};
         rocks.push_back(std::move(rock));waveFx.OnRockSpawn(scaled);++stats.rockSpawns;
+    }
     }
 }
 float BossCombatController::Impl::ReleaseMultiplier(const Vector3& position) const {
@@ -331,6 +354,10 @@ void BossCombatController::Impl::UpdateMines(float dt,Player& player,const Vecto
     ProcessExplosions(player,from,to);
     // Explosion events and zero-delay chains may change state after snapshot.
     mineFx.Update(0,mines);
+    for(const auto& mine:mines) {
+        const auto& meta=mineMeta[mine.get()];
+        mineFx.SetTriggerRadius(*mine,meta.linkShell?meta.triggerRadius:0.0f);
+    }
     for(auto it=mines.begin();it!=mines.end();) {
         if((*it)->GetState()!=Mine::State::Exploded) {++it;continue;}
         minePool.push_back(std::move(*it));it=mines.erase(it);
@@ -376,7 +403,7 @@ void BossCombatController::Impl::UpdateRocks(float dt,Player& player,const Vecto
 }
 
 void BossCombatController::Impl::ResolveAttacks(float dt,Player& player,const Vector3& from,const Vector3& to,
-    bool anchorWasActive,bool waveWasActive,int previousBeamIndex) {
+    bool anchorWasActive,int previousBeamIndex) {
     if(ping.IsBeamVisible()||previousBeamIndex>=0) {
         const int index=ping.IsBeamVisible()?ping.GetCurrentBeamIndex():previousBeamIndex;
         if(index>=0&&index<3&&!pingHits[index]) {
@@ -403,15 +430,18 @@ void BossCombatController::Impl::ResolveAttacks(float dt,Player& player,const Ve
             }
         }
     }
-    if((wave.IsActive()||waveWasActive)&&!waveHit) {
+    for(size_t pulse=0;pulse<static_cast<size_t>(volley.Count());++pulse) {
+        const auto& wave=volley.Wave(pulse);
+        if(!volley.GetPulse(pulse).expandedThisStep||waveHits[pulse]) continue;
+        // At maximum radius the water rim fades while rocks are emitted;
+        // its stationary, disappearing tail must not remain a damage wall.
+        if(wave.GetRadius()<=wave.GetPreviousRadius()&&!volley.GetPulse(pulse).launchedThisStep) continue;
         const auto center=wave.GetCenter();
-        const float before=std::hypot((from.x-center.x)/settings.waveScale.x,(from.z-center.z)/settings.waveScale.z)-wave.GetPreviousRadius();
-        const float after=std::hypot((to.x-center.x)/settings.waveScale.x,(to.z-center.z)/settings.waveScale.z)-wave.GetRadius();
         const float pad=settings.playerRadius/std::min(settings.waveScale.x,settings.waveScale.z)+.4f;
-        const bool crosses=std::min(before,after)<=pad&&std::max(before,after)>=-pad;
-        if(crosses&&std::abs(to.y-center.y)<=settings.playerRadius+settings.battle.waveHalfHeight) {
-            waveHit=Hit(player,settings.waveDamage,settings.wave.rock.moveSpeedDamage);
-            if(waveHit) interaction.AddImpulse(Unit(Vector3{to.x-center.x,2,to.z-center.z})*7);
+        if(Collision::SegmentWave(from,to,center,settings.waveScale,wave.GetPreviousRadius(),wave.GetRadius(),
+            pad,settings.playerRadius+settings.battle.waveHalfHeight)) {
+            waveHits[pulse]=Hit(player,settings.waveDamage,settings.wave.rock.moveSpeedDamage);
+            if(waveHits[pulse]) interaction.AddImpulse(Unit(Vector3{to.x-center.x,2,to.z-center.z})*7);
         }
     }
     if(screw.IsGathering()&&screw.IsWithinSuctionRange(to)) {
@@ -461,12 +491,6 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
     }
     if(windup>0) {
         windup=std::max(0.0f,windup-dt);
-        if(windup==0&&stats.attack==Attack::Shockwave) {
-            // The pressure ring can travel through the player's water layer;
-            // erupted rocks remain anchored to the seabed regardless of it.
-            wave.Trigger(waveCenter,groundY+0.08f,activeWave,random);
-            waveFx.OnTrigger(wave,activeWave,waveCenter.y,settings.waveScale);
-        }
     }
     if(stats.attack==Attack::Mine&&windup<=0&&minesRemaining>0) {
         mineLaunchClock-=dt;
@@ -484,15 +508,22 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
     const bool anchorWasActive=anchor.IsDamageActive();
     const int previousBeamIndex=ping.IsBeamVisible()?ping.GetCurrentBeamIndex():-1;
     previousAnchorBoxes.assign(rig.GetAnchorBoxes().begin(),rig.GetAnchorBoxes().end());
-    const bool waveWasActive=wave.IsActive();
-    anchor.Update(dt);screw.Update(dt);wave.Update(dt);
+    const auto shipPosition=ship->GetTranslate();
+    anchor.SetRetargetTarget({to.x,std::clamp(to.y,groundY+3.0f,12.0f),to.z});
+    anchor.Update(dt);screw.Update(dt);
+    volley.Update(dt,shipPosition,to,groundY,random);
+    for(size_t pulse=0;pulse<static_cast<size_t>(volley.Count());++pulse) {
+    const auto& wave=volley.Wave(pulse);
+    const auto& meta=volley.GetPulse(pulse);
+    if(meta.launchedThisStep) waveFx.OnTrigger(pulse,wave,meta.settings,meta.center.y,settings.waveScale);
     // Read the complete range expansion even on its final active step.
-    if(waveWasActive&&wave.GetRadius()>=activeWave.radiusMax&&wave.GetRadius()>0) {
+    if(meta.expandedThisStep&&wave.GetRadius()>=activeWave.radiusMax&&wave.GetRadius()>0) {
         for(auto& mine:mines) {
             const auto d=mine->GetPosition()-wave.GetCenter();
             const float r=std::hypot(d.x/settings.waveScale.x,d.z/settings.waveScale.z);
             if(r<=wave.GetRadius()) mine->TriggerExplosion(settings.wave.mineTrigger.delayMin);
         }
+    }
     }
     if(ping.IsTracking()) {
         const float untilLock=std::max(0.0f,activePing.trackingTime-ping.GetStateTime()-dt);
@@ -505,15 +536,15 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
         pingTarget=ping.GetPingPosition(ping.GetPingCount()-1);
     }
     rig.Update(dt,ping,activePing,ping.IsRunning()?pingTarget:to,anchor,activeAnchor,screw);
-    anchorFx.Update(dt,anchor);screwFx.Update(dt,screw);waveFx.Update(dt,wave,settings.waveScale);
+    anchorFx.Update(dt,anchor);screwFx.Update(dt,screw);waveFx.Update(dt,volley.Waves(),settings.waveScale);
     SpawnWaveRocks();
     UpdateMines(dt,player,from,to);UpdateRocks(dt,player,from,to);
-    ResolveAttacks(dt,player,from,to,anchorWasActive,waveWasActive,previousBeamIndex);
+    ResolveAttacks(dt,player,from,to,anchorWasActive,previousBeamIndex);
     pingFx.Update(dt,ping,rig.GetMuzzlePositions(),pingTarget,groundY,beamWorld);
     const bool completed=(stats.attack==Attack::Mine&&minesRemaining==0&&attackTime>settings.windup+settings.mineCount*settings.mineInterval+.5f)
         ||(stats.attack==Attack::PingBeam&&!ping.IsRunning())
         ||(stats.attack==Attack::Anchor&&!anchor.IsRunning())
-        ||(stats.attack==Attack::Shockwave&&windup<=0&&!wave.IsActive())
+        ||(stats.attack==Attack::Shockwave&&!volley.IsRunning())
         ||(stats.attack==Attack::Screw&&!screw.IsRunning());
     if(completed) {stats.attack=Attack::None;cooldown=settings.cooldown;}
 }
@@ -567,8 +598,24 @@ void BossCombatController::Impl::BuildWarnings() {
             (rig.GetMuzzlePositions()[0]+rig.GetMuzzlePositions()[1])*.5f,pingTarget,remaining,total,shot});
     } else if(stats.attack==Attack::Mine&&windup>0) {
         warnings.push_back({id,Kind::Mine,Phase::Locked,ship->GetTranslate(),lockedTarget,windup,settings.windup});
-    } else if(stats.attack==Attack::Shockwave&&(windup>0||wave.IsActive())) {
-        warnings.push_back({id,Kind::Wave,windup>0?Phase::Locked:Phase::Active,waveCenter,lockedTarget,windup,settings.windup});
+    } else if(stats.attack==Attack::Shockwave) {
+        // Keep the next warning first, then incoming active rims. Each source
+        // points to the nearest real rim rather than to the player's center.
+        for(int pass=0;pass<2;++pass) for(size_t i=0;i<static_cast<size_t>(volley.Count());++i) {
+            const auto& pulse=volley.GetPulse(i);const auto& wave=volley.Wave(i);
+            const bool preview=pulse.warned&&!pulse.launched;
+            if((pass==0&&!preview)||(pass==1&&(!pulse.launched||!wave.IsActive()))) continue;
+            Vector3 source=pulse.center;
+            if(!preview) {
+                const Vector3 local{(playerPosition.x-source.x)/settings.waveScale.x,0,
+                    (playerPosition.z-source.z)/settings.waveScale.z};
+                auto direction=Unit(local);if(Length(direction)<.001f) direction={1,0,0};
+                source+=Vector3{direction.x*wave.GetRadius()*settings.waveScale.x,0,
+                    direction.z*wave.GetRadius()*settings.waveScale.z};
+            }
+            warnings.push_back({id+i,Kind::Wave,preview?Phase::Locked:Phase::Active,
+                source,pulse.target,pulse.warningRemaining,settings.windup,static_cast<int>(i)});
+        }
     } else if(anchor.IsRunning()&&anchor.GetState()!=AnchorAttack::State::PullingUp) {
         float remaining=0;
         switch(anchor.GetState()) {
@@ -621,15 +668,42 @@ void BossCombatController::Impl::BuildTelegraph() {
             telegraph.Ribbon(path,color,.55f,time);
         }
     }
-    if(windup<=0||(stats.attack!=Attack::Mine&&stats.attack!=Attack::Shockwave)) return;
+    if(stats.attack==Attack::Shockwave) {
+        for(size_t pulse=0;pulse<static_cast<size_t>(volley.Count());++pulse) {
+            const auto& meta=volley.GetPulse(pulse);
+            if(!meta.warned||meta.launched) continue;
+            const float charge=1-std::clamp(meta.warningRemaining/settings.windup,0.0f,1.0f);
+            std::array<BossWaterEffectRenderer::Point,97> ring{};
+            for(size_t i=0;i<ring.size();++i) {
+                const float a=kTau*static_cast<float>(i)/(ring.size()-1);
+                ring[i]={meta.center+Vector3{std::cos(a)*(4-2*charge),0,std::sin(a)*(4-2*charge)},.16f};
+            }
+            telegraph.Ribbon(ring,{1,.42f,.12f,.9f},1.3f+charge*.4f,time);
+            telegraph.Billboard(meta.center,1.4f,{1,.58f,.20f,.75f},BossWaterEffectRenderer::Particle::Halo,1.4f);
+            // The pressure plane and its travel direction are shown before
+            // damage begins. The source stays locked even if the ship moves.
+            std::array<BossWaterEffectRenderer::Point,2> height{{
+                {meta.center,.06f},{{meta.center.x,ship->GetTranslate().y-2,meta.center.z},.06f}}};
+            telegraph.Ribbon(height,{1,.55f,.15f,.55f},.8f,time);
+            const Vector3 toward=Unit({meta.target.x-meta.center.x,0,meta.target.z-meta.center.z});
+            const Vector3 tangent{-toward.z,0,toward.x};
+            for(int mark=0;mark<4;++mark) {
+                const float distance=5+mark*3.0f+charge*1.5f;
+                const auto point=meta.center+toward*distance;
+                const std::array<BossWaterEffectRenderer::Point,3> arrow{{
+                    {point-toward*.7f+tangent*.8f,.10f},{point,.10f},{point-toward*.7f-tangent*.8f,.10f}}};
+                telegraph.Ribbon(arrow,{1,.55f,.18f,.75f},1,time);
+            }
+        }
+        return;
+    }
+    if(windup<=0||stats.attack!=Attack::Mine) return;
     std::array<BossWaterEffectRenderer::Point,97> points{};
-    const bool pressure=stats.attack==Attack::Shockwave;
-    const Vector3 center=pressure?waveCenter:lockedTarget;
-    const float radius=pressure?settings.wave.radiusMax:7.0f;
+    const Vector3 center=lockedTarget;
+    const float radius=7.0f;
     for(size_t i=0;i<points.size();++i) {
         const float angle=kTau*static_cast<float>(i)/(points.size()-1);
-        points[i]={center+Vector3{std::cos(angle)*radius*(pressure?settings.waveScale.x:1),.2f,
-            std::sin(angle)*radius*(pressure?settings.waveScale.z:1)},.06f};
+        points[i]={center+Vector3{std::cos(angle)*radius,.2f,std::sin(angle)*radius},.06f};
     }
     telegraph.Ribbon(points,{1,.49f,.08f,.48f},.45f+.25f*std::sin(time*8),time*3);
 }
