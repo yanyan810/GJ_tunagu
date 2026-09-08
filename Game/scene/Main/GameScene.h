@@ -55,4 +55,5 @@ private:
     bool debugCameraEnabled_ = false;
     bool simulationPaused_ = false;
     bool stepOneFrame_ = false;
+    int bgmHandle_ = 0;
 };

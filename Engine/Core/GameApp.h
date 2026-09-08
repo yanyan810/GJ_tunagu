@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <memory>
 #include "SceneManager.h"
 #include "Input.h"
@@ -19,6 +19,7 @@ class SkinningCommon;
 class DebugAIManager;
 class OpenAIDebugActionProvider;
 class RandomDebugBot;
+class AudioSystem;
 #include "RenderManager.h"
 
 class SceneManager;
@@ -41,6 +42,7 @@ public:
     ImGuiManagaer* ImGui() const { return imgui_.get(); }
     SkyboxCommon* SkyboxCom() const { return skyboxCommon_.get(); }
     SkinningCommon* SkinCom() { return skinCom_.get(); }
+    AudioSystem* Audio() const { return audio_.get(); }
 
     SceneManager& Scenes() { return *sceneMgr_; }
 
@@ -82,5 +84,6 @@ private:
     std::unique_ptr<BasicCombatDebugBot> debugAIBasicCombatFallback_;
 
     std::unique_ptr<RenderManager> render_;
+    std::unique_ptr<AudioSystem> audio_;
 
 };

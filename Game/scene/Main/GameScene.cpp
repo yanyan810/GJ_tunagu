@@ -1,6 +1,7 @@
 #include "GameScene.h"
 #include "GameApp.h"
 #include "Input.h"
+#include "AudioSystem.h"
 #include "Player.h"
 #include "Enemy.h"
 #include "Camera.h"
@@ -205,9 +206,21 @@ void GameScene::OnEnter(GameApp& app) {
 
     // 開始時はボス船を出現させない
     bossShip_.reset();
+
+    // GameScene.mp3 BGM の再生開始
+    if (app.Audio()) {
+        app.Audio()->StopAll();
+        bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/GameScene.mp3", true);
+        app.Audio()->Play(bgmHandle_, 0.5f);
+    }
 }
 
-void GameScene::OnExit(GameApp& /*app*/) {
+void GameScene::OnExit(GameApp& app) {
+    if (app.Audio() && bgmHandle_ != 0) {
+        app.Audio()->Stop(bgmHandle_);
+        app.Audio()->Unload(bgmHandle_);
+        bgmHandle_ = 0;
+    }
     bossHpBarFillSprite_.reset();
     bossHpBarCatchupSprite_.reset();
     bossHpBarBgSprite_.reset();
@@ -279,13 +292,16 @@ void GameScene::Update(GameApp& app, float dt) {
 
     // 1分間 (60秒) の海洋生物収集タイムとボス出現タイマー
     if (!isBossSpawned_) {
+        // B キー（DIK_B）を押すと即座にボスを出現（テスト・ショートカット用）
+        bool forceSpawn = (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_B));
         bossSpawnTimer_ -= dt;
-        if (bossSpawnTimer_ <= 0.0f) {
+
+        if (bossSpawnTimer_ <= 0.0f || forceSpawn) {
             bossSpawnTimer_ = 0.0f;
             isBossSpawned_ = true;
             warningTimer_ = 3.5f; // WARNING 警告演出 3.5秒
 
-            // 1分経過後にボスの船を生成・初期化
+            // 1分経過（またはBキー入力）後にボスの船を生成・初期化
             bossShip_ = std::make_unique<Enemy>();
             bossShip_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
         }
@@ -302,10 +318,22 @@ void GameScene::Update(GameApp& app, float dt) {
         bool isBossVisibleInScreen = IsBossInScreen(bossShip_->GetPosition(), camera_.get());
         player_->SetTargetPos(bossShip_->GetPosition(), (!bossShip_->IsDead() && isBossVisibleInScreen));
 
-        // ボス撃破時のクリア画面自動遷移タイマー処理
+        // ボス撃破時の爆散演出＆クリア画面自動遷移タイマー処理
         if (bossShip_->IsDead()) {
+            if (clearTransitionTimer_ == 0.0f) {
+                bossShip_->TriggerExplosion(); // 初回フレームで爆散シーケンス開始！
+            }
             clearTransitionTimer_ += dt;
-            if (clearTransitionTimer_ >= 1.5f) {
+            bossShip_->UpdateExplosion(dt); // 毎フレーム爆散物理シミュレーションを更新
+
+            // カメラの臨場感ある微振動（爆発シェイク）
+            if (camera_ && clearTransitionTimer_ < 2.2f) {
+                float shake = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * 0.8f;
+                Vector3 currentCamPos = camera_->GetTranslate();
+                camera_->SetTranslate({ currentCamPos.x + shake, currentCamPos.y + shake * 0.5f, currentCamPos.z + shake });
+            }
+
+            if (clearTransitionTimer_ >= 2.8f) {
                 app.Scenes().Change(app, "GameClear");
                 return;
             }
@@ -686,7 +714,7 @@ void GameScene::DrawImGui(GameApp& app) {
         ImGui::TextColored(ImVec4(0.3f, 0.95f, 1.0f, 1.0f), " COLLECT CREATURES & ENHANCE YOUR FISH! ");
         ImGui::SetWindowFontScale(1.1f);
         int secondsLeft = static_cast<int>(std::ceil(bossSpawnTimer_));
-        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "     Boss Arrival in: %02d:%02d     ", secondsLeft / 60, secondsLeft % 60);
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "  Boss Arrival: %02d:%02d  [ Press 'B' to Spawn Now ]  ", secondsLeft / 60, secondsLeft % 60);
         ImGui::End();
     } else if (warningTimer_ > 0.0f) {
         ImGui::SetNextWindowPos(ImVec2(360.0f, 140.0f), ImGuiCond_Always);

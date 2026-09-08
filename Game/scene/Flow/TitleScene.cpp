@@ -1,6 +1,7 @@
 #include "TitleScene.h"
 #include "GameApp.h"
 #include "Input.h"
+#include "AudioSystem.h"
 #include "Player.h"
 #include "Camera.h"
 #include "Debris.h"
@@ -73,9 +74,21 @@ void TitleScene::OnEnter(GameApp& app) {
     }
 
     timer_ = 0.0f;
+
+    // Title.mp3 の BGM 再生開始
+    if (app.Audio()) {
+        app.Audio()->StopAll();
+        bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/Title.mp3", true);
+        app.Audio()->Play(bgmHandle_, 0.6f);
+    }
 }
 
-void TitleScene::OnExit(GameApp& /*app*/) {
+void TitleScene::OnExit(GameApp& app) {
+    if (app.Audio() && bgmHandle_ != 0) {
+        app.Audio()->Stop(bgmHandle_);
+        app.Audio()->Unload(bgmHandle_);
+        bgmHandle_ = 0;
+    }
     debrisList_.clear();
     player_.reset();
     underwaterEnvironment_.reset();

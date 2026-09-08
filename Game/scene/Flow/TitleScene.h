@@ -28,4 +28,5 @@ private:
 
     float cameraAngle_ = 0.0f;
     float timer_ = 0.0f;
+    int bgmHandle_ = 0;
 };

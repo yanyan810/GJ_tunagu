@@ -39,6 +39,9 @@ public:
     void SetReadabilityEnabled(bool enabled) { readability_.SetEnabled(enabled); }
 
     void TakeDamage(float damage);
+    void TriggerExplosion();
+    void UpdateExplosion(float dt);
+    Object3d* GetShipModel() const { return shipModel_.get(); }
 
 private:
     std::unique_ptr<Object3d> shipModel_;
@@ -57,6 +60,15 @@ private:
     Vector3 rot_ = { 0.0f, 0.0f, 0.0f };
     Vector3 scale_ = { 6.0f, 6.0f, 6.0f }; // 大型のボス船サイズ
     Vector3 visualOffset_ = { 0.0f, 0.0f, 0.0f };
+
+    struct ExplosionFragment {
+        Vector3 position{};
+        Vector3 velocity{};
+        Vector3 rotation{};
+        Vector3 angularVelocity{};
+    };
+    std::vector<ExplosionFragment> explosionFragments_;
+    bool explosionActive_ = false;
     Vector3 lastTargetPosition_{};
     float radius_ = 12.0f;
 
