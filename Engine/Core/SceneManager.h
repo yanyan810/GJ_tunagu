@@ -14,6 +14,7 @@ public:
 
     void Register(const std::string& name, Factory factory);
     void Change(GameApp& app, const std::string& name);
+    void Shutdown(GameApp& app);
 
     void Update(GameApp& app, float dt);
 

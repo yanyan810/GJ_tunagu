@@ -28,7 +28,12 @@ public:
     void Shutdown();
     void SetPlayerSnapshot(const Vector3& position, float yaw, float pitch);
     void BindPlayer(Player& player);
+    void SetArenaBounds(const Vector3& center, float halfSize) {
+        arenaCenter_ = center;
+        arenaHalfSize_ = halfSize;
+    }
     Vector3 ConstrainCamera(const Vector3& target, const Vector3& desired);
+    Vector3 FindOpenWaterPosition(const Vector3& desired);
     void Update(float dt);
     void DrawBackground();
     void Draw();
@@ -40,6 +45,8 @@ public:
     void SetSceneWaterOpticsEnabled(bool enabled) { sceneWaterOpticsEnabled_ = enabled; }
 
 private:
+    Vector3 arenaCenter_{};
+    float arenaHalfSize_ = 0.0f; // zero: unrestricted horizontal exploration
     enum class CausticsPreset {
         ShallowFine,
         DeepBroad,

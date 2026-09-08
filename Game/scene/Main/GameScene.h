@@ -1,6 +1,7 @@
 #pragma once
 #include "IScene.h"
 #include "Sprite.h"
+#include "OceanBattleFlow.h"
 #include <memory>
 #include <vector>
 
@@ -10,6 +11,7 @@ class Camera;
 class Debris;
 class UnderwaterEnvironment;
 class DebugCamera;
+class Object3d;
 
 // 新しいゲームの実装を始めるための最小シーンです。
 class GameScene final : public IScene {
@@ -24,11 +26,18 @@ public:
     void DrawImGui(GameApp& app) override;
 
 private:
+    void UpdateOcean_(GameApp& app, float dt);
+    void PopulateOcean_(GameApp& app, int budget);
+    OceanBattleFlow oceanFlow_;
+    float populationTimer_ = 0.0f;
+    std::vector<std::unique_ptr<Object3d>> arenaWalls_;
     std::unique_ptr<Camera> camera_;
     std::unique_ptr<DebugCamera> debugCamera_;
     std::unique_ptr<UnderwaterEnvironment> underwaterEnvironment_;
     std::unique_ptr<Player> player_;
     std::unique_ptr<Enemy> bossShip_;
+    std::unique_ptr<Enemy> preparedBoss_;
+    std::vector<std::unique_ptr<Debris>> spareDebris_;
     std::vector<std::unique_ptr<Enemy>> enemies_;
     std::vector<std::unique_ptr<Debris>> debrisList_;
 
