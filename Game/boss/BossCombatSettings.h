@@ -6,12 +6,14 @@
 #include "AnchorAttack.h"
 #include "ScrewAttack.h"
 #include "BossWaveVolley.h"
+#include "../environment/SwimFeedbackSettings.h"
 #include <string>
 
 // Reads team-authored attack settings. Battle-host pacing/adaptation remains
 // local, and loading this object never creates or rewrites shared JSON files.
 struct BossBattleOptions {
     float beamHitRadiusScale=.65f, beamLeadScale=.45f, beamMaxLeadDistance=10.0f;
+    float beamReturnDuration=.55f;
     float mineAimLeadTime=.6f, mineTravelTime=1.7f, mineTriggerRadius=4.0f;
     bool mineLinkShell=true;
     float mineBlastRatio=.85f;
@@ -27,6 +29,7 @@ struct BossBattleOptions {
 };
 
 struct BossCombatSettings {
+    SwimFeedbackSettings swim{};
     BossBattleOptions battle{};
     MineMotionSettings mine{};
     int mineCount=8;

@@ -1,9 +1,6 @@
 #include "ShockwaveRock.h"
 
-#include "Camera.h"
-#include "DirectXCommon.h"
-#include "Object3d.h"
-#include "Object3dCommon.h"
+#include "ShockwaveRockVisual.h"
 #include <algorithm>
 #include <cmath>
 
@@ -13,12 +10,8 @@ ShockwaveRock::~ShockwaveRock() = default;
 void ShockwaveRock::Initialize(
     Object3dCommon* objectCommon, DirectXCommon* dx, Camera* camera,
     const ShockwaveRockSpawn& spawn, const ShockwaveRockSettings& settings, std::mt19937& random) {
-    object_ = std::make_unique<Object3d>();
-    object_->Initialize(objectCommon, dx);
-    object_->SetCamera(camera);
-    object_->SetModel("cube/cube.obj");
-    object_->SetEnableLighting(0);
-    object_->SetMaterialColor({ 0.38f, 0.28f, 0.18f, 1.0f });
+    visual_ = std::make_unique<ShockwaveRockVisual>();
+    visual_->Initialize(objectCommon, dx, camera);
     Relaunch(spawn, settings, random);
 }
 
@@ -49,26 +42,21 @@ void ShockwaveRock::Relaunch(const ShockwaveRockSpawn& spawn,
     moveSpeedDamage_ = std::max(0.0f, settings.moveSpeedDamage);
     alive_ = lifetime_ > 0.0f;
 
-    if (!object_) return;
-    object_->SetTranslate(position_);
-    object_->SetRotate(rotation_);
-    object_->SetScale(scale_);
-    object_->Update(0.0f);
+    if (!visual_) return;
+    visual_->Update(position_, rotation_, scale_, 0.0f);
 }
 
 void ShockwaveRock::Update(float dt) {
-    if (!alive_ || !object_ || dt <= 0.0f) return;
+    if (!alive_ || !visual_ || dt <= 0.0f) return;
     lifetime_ -= dt;
     velocity_.y -= gravity_ * dt;
     velocity_ *= std::exp(-drag_ * dt);
     position_ += velocity_ * dt;
     rotation_ += rotationSpeed_ * dt;
-    object_->SetTranslate(position_);
-    object_->SetRotate(rotation_);
-    object_->Update(dt);
+    visual_->Update(position_, rotation_, scale_, dt);
     if (lifetime_ <= 0.0f) alive_ = false;
 }
 
 void ShockwaveRock::Draw() {
-    if (alive_ && object_) object_->Draw();
+    if (alive_ && visual_) visual_->Draw();
 }

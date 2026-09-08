@@ -21,6 +21,7 @@ const BossTuningField fields[]{
     F("ビーム","beam.charge","照準固定から発射まで",ping.chargeTime,.2f,5,.05f,"固定された照準から逃げる猶予。長いほど回避しやすくなります。","秒"),
     F("ビーム","beam.duration","発射の持続時間",ping.beamDuration,.05f,2,.01f,"1発が残り、当たり判定を持つ時間。","秒"),
     F("ビーム","beam.interval","次の照準までの休み",ping.beamInterval,.05f,3,.05f,"3連射の各発の後、次の追尾へ入るまでの間隔。","秒"),
+    F("ビーム","beam.returnTime","砲台が船へ戻る時間",battle.beamReturnDuration,0,2,.05f,"3連射を終えた砲台を船の取り付け位置へ滑らかに収納します。0で即時収納。攻撃判定の時間は変えません。","秒"),
     F("ビーム","beam.leadScale","移動先の先読み倍率",battle.beamLeadScale,0,1,.05f,"0で現在位置、1で従来と同じ先読み。急な方向転換で避ける余地を調整します。","倍"),
     F("ビーム","beam.maxLead","先読み距離の上限",battle.beamMaxLeadDistance,0,45,.5f,"高速移動時でも照準がこの距離以上先へ飛ばないようにします。","m"),
     F("ビーム","beam.damage","ダメージ",ping.damage,0,200,1,"ビーム命中時のHPダメージ。","HP"),
@@ -94,13 +95,22 @@ const BossTuningField fields[]{
     F("地面の岩","rock.interval","岩が出る間隔",wave.rock.spawnInterval,.05f,.5f,.01f,"岩を順番に出す間隔。","秒"),
     F("地面の岩","rock.radiusMin","出現距離の最小値",wave.rock.spawnRadiusMin,0,30,.5f,"予告中心からの水平距離。中央を狙う岩は例外として近くに出ます。","m"),
     F("地面の岩","rock.radiusMax","出現距離の最大値",wave.rock.spawnRadiusMax,1,60,.5f,"最小値以上に設定します。現在は予告時の位置が中心で、発射後の追尾はありません。","m"),
-    F("地面の岩","rock.scaleMin","岩の大きさ・最小",wave.rock.scaleMin,.1f,4,.05f,"実モデルと球近似の当たり判定に使う大きさ。モデルの交換は別作業です。","倍"),
+    F("地面の岩","rock.scaleMin","岩の大きさ・最小",wave.rock.scaleMin,.1f,4,.05f,"不規則な石と鉱脈の見た目、および従来の球近似の当たり判定に使う大きさ。","倍"),
     F("地面の岩","rock.scaleMax","岩の大きさ・最大",wave.rock.scaleMax,.1f,4,.05f,"最小値以上に設定します。","倍"),
     F("地面の岩","rock.launchMin","上昇の初速・下限",wave.rock.launchPowerMin,0,80,1,"泳いでいる深さへ届くよう本編では必要な初速まで補正されます。これは下限です。","m/秒"),
     F("地面の岩","rock.launchMax","上昇の初速・上限",wave.rock.launchPowerMax,0,85,1,"本編での深さ補正でさらに大きくなる場合があります。下限以上に設定します。","m/秒"),
     F("地面の岩","rock.horizontal","横に飛ぶ速さ",wave.rock.horizontalPower,0,20,.5f,"中央の一部の岩を除き、外側へ広がる速度。","m/秒"),
     F("地面の岩","rock.lifetime","残る時間",wave.rock.lifetime,1,8,.25f,"出現後に消えるまで。長いと同時に残る岩が増えます。","秒"),
     F("地面の岩","rock.damage","岩のダメージ",wave.rock.damage,0,100,1,"岩1個が命中した際のダメージ。","HP"),
+    B("泳ぎ","presentation.swim.enabled","速度演出を使う",swim.enabled,"泳いだ実際の移動速度に応じた画面演出。OFFで完全に無効。カメラを回すだけでは発生しません。"),
+    B("泳ぎ","presentation.swim.blurEnabled","周辺のブラー",swim.blurEnabled,"画面の周辺だけに薄い放射状のブラーを加えます。中央と画面上のUIは鮮明に保ちます。"),
+    B("泳ぎ","presentation.swim.streaksEnabled","周辺の水の流れ",swim.streaksEnabled,"速度に応じて画面の端に細い流れを加えます。ブラーと別々に切り替えできます。"),
+    F("泳ぎ","presentation.swim.startSpeed","演出を始める速度",swim.startSpeed,0,40,.5f,"この速度以下では演出を出しません。実際の位置の変化から求めた速さです。","m/秒"),
+    F("泳ぎ","presentation.swim.fullSpeed","演出が最大になる速度",swim.fullSpeed,1,80,.5f,"開始速度より大きくしてください。この速度を超えても演出の強さは増えません。","m/秒"),
+    F("泳ぎ","presentation.swim.maxBlur","ブラーの最大幅",swim.maxBlur,0,.04f,.001f,"大きいほど周辺が流れます。初期値0.018。酔いやすい場合は小さくするかOFFにしてください。","UV"),
+    F("泳ぎ","presentation.swim.streakOpacity","流れの明るさ",swim.streakOpacity,0,.2f,.005f,"画面の端を流れる線の明るさ。敵の予告より目立たない程度がおすすめです。","強さ"),
+    F("泳ぎ","presentation.swim.clearRadius","中央を鮮明に保つ範囲",swim.clearRadius,.25f,.8f,.01f,"画面の縦半分を1とした中心からの半径。大きいほど照準や周囲の景色を読みやすくなります。","比率"),
+    F("泳ぎ","presentation.swim.response","演出がなじむ時間",swim.response,.05f,1,.05f,"加速・減速への追従を滑らかにします。大きいほどゆっくり変わります。","秒"),
 };
 #undef F
 #undef I
@@ -138,6 +148,7 @@ bool ValidateBossTuningSettings(const BossCombatSettings& s, std::string& error)
         }
     }
     const auto require=[&](bool ok,const char* message){if(!ok) error=message;return ok;};
+    if(!require(s.swim.fullSpeed>s.swim.startSpeed,"泳ぎ: 最大になる速度を、開始速度より大きくしてください。")) return false;
     if(!require(s.anchor.maxAngularSpeed>=s.anchor.startAngularSpeed,"アンカー: 最高速度を初速以上にしてください。")) return false;
     if(!require(!s.battle.mineLinkShell||s.battle.mineTriggerRadius>=.75f,"機雷: 泡との連動中は、中心モデルが収まるよう探知半径を0.75m以上にしてください。")) return false;
     if(!require(s.battle.waveVolley.count<=1||s.battle.waveVolley.interval>=s.windup,"波: 連射間隔を予告時間以上にして、各波の予告を順番に表示してください。")) return false;
