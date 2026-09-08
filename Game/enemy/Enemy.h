@@ -38,6 +38,10 @@ public:
     float GetHpRatio() const { return (maxHp_ > 0.0f) ? (hp_ / maxHp_) : 0.0f; }
     bool IsDead() const { return isDead_; }
     const Vector3& GetPosition() const { return pos_; }
+    Object3d* GetCombatModel() const { return shipModel_.get(); }
+    bool IsAttacksEnabled() const { return attacksEnabled_; }
+    void SetManagedCombat(bool managed);
+    void SetCombatMovementLocked(bool locked) { combatMovementLocked_ = locked; }
     void SetReadabilityEnabled(bool enabled) { readability_.SetEnabled(enabled); }
     void SetBattleCenter(const Vector3& center) {
         battleCenter_ = center;
@@ -83,6 +87,8 @@ private:
     float turnSpeed_ = 1.8f;
     bool movementEnabled_ = true;
     bool attacksEnabled_ = true;
+    bool managedCombat_ = false;
+    bool combatMovementLocked_ = false;
     bool shipLightingEnabled_ = false;
     bool showOrbitDebug_ = false;
     bool showCollisionDebug_ = false;

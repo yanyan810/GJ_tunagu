@@ -34,6 +34,7 @@ public:
     }
     Vector3 ConstrainCamera(const Vector3& target, const Vector3& desired);
     Vector3 FindOpenWaterPosition(const Vector3& desired);
+    float GetFloorHeight() const { return floorHeight_; }
     void Update(float dt);
     void DrawBackground();
     void Draw();
