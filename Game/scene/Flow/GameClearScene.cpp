@@ -1,4 +1,5 @@
 #include "GameClearScene.h"
+#include "Sprite.h"
 #include "GameApp.h"
 #include "Input.h"
 #include "AudioSystem.h"
@@ -99,6 +100,21 @@ void GameClearScene::OnEnter(GameApp& app) {
         debrisList_.push_back(std::move(debris));
     }
 
+    // スプライトの初期化（赤文字Clear＆Title共通PressSpace）
+    clearSprite_ = std::make_unique<Sprite>();
+    clearSprite_->Initialize(app.SpriteCom(), app.Dx(), "tex/clear/clear.png");
+    pressSpaceSprite_ = std::make_unique<Sprite>();
+    pressSpaceSprite_->Initialize(app.SpriteCom(), app.Dx(), "tex/title/pressSpace.png");
+    const auto view = Matrix4x4::MakeIdentity4x4();
+    const auto projection = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
+    for (Sprite* sprite : { clearSprite_.get(), pressSpaceSprite_.get() }) {
+        if (sprite) {
+            sprite->SetPosition({ 0.0f, 0.0f });
+            sprite->SetScale({ 1.0f, 1.0f, 1.0f });
+            sprite->Update(view, projection);
+        }
+    }
+
     timer_ = 0.0f;
 
     // Clear.mp3 BGM の再生開始
@@ -115,6 +131,8 @@ void GameClearScene::OnExit(GameApp& app) {
         app.Audio()->Unload(bgmHandle_);
         bgmHandle_ = 0;
     }
+    clearSprite_.reset();
+    pressSpaceSprite_.reset();
     debrisList_.clear();
     sunkenShipStern_.reset();
     sunkenShipBow_.reset();
@@ -170,12 +188,12 @@ void GameClearScene::Update(GameApp& app, float dt) {
         }
     }
 
-    // スペースキー・ENTERキー・マウスクリックでゲーム本編へ再挑戦
+    // スペースキー・ENTERキー・マウスクリックでTitle画面に戻る
     if (app.GetInput()) {
         if (app.GetInput()->IsKeyTrigger(DIK_SPACE) ||
             app.GetInput()->IsKeyTrigger(DIK_RETURN) ||
             app.GetInput()->IsMouseLeftTrigger()) {
-            app.Scenes().Change(app, "Game");
+            app.Scenes().Change(app, "Title");
             return;
         }
     }
@@ -209,41 +227,16 @@ void GameClearScene::Draw(GameApp& /*app*/) {
 }
 
 void GameClearScene::DrawOverlay2D(GameApp& /*app*/) {
+    if (clearSprite_) {
+        clearSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+        clearSprite_->Draw();
+    }
+    if (pressSpaceSprite_) {
+        const float alpha = 0.35f + 0.65f * (std::sin(timer_ * 4.0f) + 1.0f) * 0.5f;
+        pressSpaceSprite_->SetColor({ 1.0f, 1.0f, 1.0f, alpha });
+        pressSpaceSprite_->Draw();
+    }
 }
 
 void GameClearScene::DrawImGui(GameApp& /*app*/) {
-#ifdef USE_IMGUI
-    // クリアメインウィンドウ (STAGE CLEAR!)
-    ImGui::SetNextWindowPos(ImVec2(340.0f, 130.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(600.0f, 130.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.65f);
-
-    ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoInputs |
-        ImGuiWindowFlags_NoSavedSettings;
-
-    ImGui::Begin("GameClearMainOverlay", nullptr, flags);
-    ImGui::SetWindowFontScale(2.4f);
-    ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.4f, 1.0f), "  STAGE CLEAR!  ");
-    ImGui::SetWindowFontScale(1.2f);
-    ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "  CONGRATULATIONS! ENEMY BATTLESHIP DESTROYED!  ");
-    ImGui::TextColored(ImVec4(0.4f, 0.9f, 1.0f, 0.9f), "     The peace of the ocean has been restored!     ");
-    ImGui::End();
-
-    // PRESS SPACE TO PLAY AGAIN (点滅表示)
-    float blink = (std::sin(timer_ * 4.0f) + 1.0f) * 0.5f;
-    if (blink > 0.15f) {
-        ImGui::SetNextWindowPos(ImVec2(390.0f, 550.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(500.0f, 55.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.70f);
-
-        ImGui::Begin("GameClearStartOverlay", nullptr, flags);
-        ImGui::SetWindowFontScale(1.4f);
-        ImGui::TextColored(ImVec4(1.0f, 0.95f, 0.3f, blink), " PRESS SPACE / ENTER TO PLAY AGAIN ");
-        ImGui::End();
-    }
-#endif
 }

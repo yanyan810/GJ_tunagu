@@ -1,4 +1,4 @@
-﻿#include "Debris.h"
+#include "Debris.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
@@ -53,11 +53,11 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "ウニ";
         modelPath = "sea_urchin/sea_urchin.gltf";
         weight_ = 1.2f;
-        maxHp_ = hp_ = 30.0f;     // 倒してから拾える (HP 30)
+        maxHp_ = hp_ = 20.0f;     // 倒してから拾える (HP 20)
         moveSpeed_ = 2.0f;
         hpBuff_ = 30.0f;          // HP +30
         throwAtkBuff_ = 0.5f;     // 投擲ダメージ +50%
-        atk_ = 50.0f;             // 高投擲ダメージ
+        atk_ = 50.0f;             // 高投擲ダメージ (刺突)
         scale_ = { 1.4f, 1.4f, 1.4f };
         color_ = { 0.55f, 0.15f, 0.75f, 1.0f }; // 紫 (ウニ)
         break;
@@ -66,7 +66,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         modelPath = "drumCan/drumCan.gltf";
         weight_ = 3.5f;
         thrust_ = 0.0f;
-        atk_ = 10.0f;
+        atk_ = 45.0f;             // 重厚打撃ダメージ
         scale_ = { 1.3f, 1.3f, 1.3f };
         color_ = { 0.40f, 0.40f, 0.45f, 1.0f }; // ダークグレー (ドラム缶)
         break;
@@ -75,6 +75,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         modelPath = "Screw.obj";
         weight_ = 0.4f;
         thrust_ = 12.0f;          // 推進力
+        atk_ = 40.0f;             // 回転切断ダメージ
         scale_ = { 1.8f, 1.8f, 1.8f };
         color_ = { 0.90f, 0.80f, 0.20f, 1.0f }; // ゴールド (スクリュー)
         break;
@@ -84,7 +85,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "テッポウウオ";
         modelPath = "Archerfish/Archerfish.gltf";
         weight_ = 0.6f;
-        atk_ = 15.0f;
+        atk_ = 25.0f;             // 水鉄砲投擲ダメージ
         scale_ = { 1.0f, 0.4f, 0.4f };
         color_ = { 1.00f, 0.90f, 0.10f, 1.0f }; // イエロー (テッポウウオ)
         break;
@@ -92,7 +93,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "ハリセンボン";
         modelPath = "pufferfish/pufferfish.gltf";
         weight_ = 1.0f;
-        atk_ = 50.0f;
+        atk_ = 55.0f;             // 高威力トゲ投擲ダメージ
         throwAtkBuff_ = 0.8f;
         scale_ = { 1.5f, 1.5f, 1.5f };
         color_ = { 1.00f, 0.55f, 0.10f, 1.0f }; // オレンジ (ハリセンボン)
@@ -101,6 +102,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "コバンザメ";
         modelPath = "suckfish/suckfish.gltf";
         weight_ = 0.5f;
+        atk_ = 20.0f;             // 吸着投擲ダメージ
         speedBuff_ = 0.10f;
         scale_ = { 1.1f, 0.3f, 0.35f };
         color_ = { 0.90f, 0.30f, 0.90f, 1.0f }; // マゼンタ/ピンク (コバンザメ)
@@ -109,6 +111,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "貝";
         modelPath = "shell/shell.gltf";
         weight_ = 1.5f;
+        atk_ = 30.0f;             // 殻ヒット投擲ダメージ
         hpBuff_ = 25.0f;
         defenseBuff_ = 0.25f;
         scale_ = { 1.1f, 1.1f, 1.1f };
@@ -118,6 +121,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "エビ";
         modelPath = "shrimp/shrimp_walk.gltf";
         weight_ = 0.4f;
+        atk_ = 22.0f;             // 投擲ダメージ
         atkBuff_ = 0.30f;
         scale_ = { 0.9f, 0.9f, 0.9f };
         color_ = { 1.00f, 0.20f, 0.20f, 1.0f }; // ブライトレッド (エビ)
@@ -126,6 +130,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "クラゲ";
         modelPath = "jellyfish/jellyfish.gltf";
         weight_ = 0.3f;
+        atk_ = 25.0f;             // 電撃投擲ダメージ
         chargeSpeedBuff_ = 0.50f;
         scale_ = { 1.0f, 1.0f, 1.0f };
         color_ = { 0.20f, 0.90f, 1.00f, 1.0f }; // シアン (クラゲ)
@@ -134,6 +139,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "サヨリ";
         modelPath = "Halfbeak/halfbeak.gltf";
         weight_ = 0.3f;
+        atk_ = 30.0f;             // 刺突投擲ダメージ
         speedBuff_ = 0.25f;
         scale_ = { 1.3f, 0.3f, 0.3f };
         color_ = { 0.10f, 1.00f, 0.60f, 1.0f }; // エメラルドグリーン (サヨリ)
@@ -142,6 +148,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "ヒトデ";
         modelPath = "Starfish/Starfish.gltf";
         weight_ = 0.5f;
+        atk_ = 25.0f;             // 手裏剣風投擲ダメージ
         throwAtkBuff_ = 0.40f;
         scale_ = { 1.1f, 1.1f, 1.1f };
         color_ = { 1.00f, 0.95f, 0.15f, 1.0f }; // イエロー (ヒトデ)
@@ -152,7 +159,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "カジキ";
         modelPath = "marlin/marlin.gltf";
         weight_ = 1.8f;
-        maxHp_ = hp_ = 60.0f;
+        maxHp_ = hp_ = 30.0f;     // 耐久力 30
         moveSpeed_ = 6.5f;
         throwSpeedBuff_ = 0.80f; // 投擲速度UP
         throwAtkBuff_ = 1.00f;   // 投擲ダメージUP
@@ -164,8 +171,9 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "イルカ";
         modelPath = "dolphin/dolphin.gltf";
         weight_ = 0.8f;
-        maxHp_ = hp_ = 40.0f;
+        maxHp_ = hp_ = 25.0f;     // 耐久力 25
         moveSpeed_ = 7.0f;
+        atk_ = 35.0f;
         speedBuff_ = 0.80f;      // 移動速度大幅UP (1能力特化)
         scale_ = { 1.9f, 1.9f, 1.9f };
         color_ = { 0.30f, 0.80f, 1.00f, 1.0f }; // スカイブルー (イルカ)
@@ -174,8 +182,9 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "シャチ";
         modelPath = "orca/orca.gltf";
         weight_ = 2.5f;
-        maxHp_ = hp_ = 100.0f;
+        maxHp_ = hp_ = 50.0f;     // 最高耐久力 50
         moveSpeed_ = 4.5f;
+        atk_ = 100.0f;
         atkBuff_ = 1.00f;        // 攻撃力大幅UP (+100%, 1能力特化)
         scale_ = { 2.2f, 2.2f, 2.2f };
         color_ = { 0.15f, 0.15f, 0.25f, 1.0f }; // ダークネイビー (シャチ)
@@ -184,8 +193,9 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "カニ";
         modelPath = "crab/crab.gltf";
         weight_ = 2.0f;
-        maxHp_ = hp_ = 80.0f;
+        maxHp_ = hp_ = 40.0f;     // 甲殻耐久力 40
         moveSpeed_ = 2.5f;
+        atk_ = 40.0f;
         hpBuff_ = 50.0f;         // HP増加
         defenseBuff_ = 0.35f;    // 近距離攻撃/ガード
         scale_ = { 1.7f, 1.7f, 1.7f };
@@ -195,7 +205,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "シャコ";
         modelPath = "mantis_shrimp/mantis_shrimp.gltf";
         weight_ = 1.2f;
-        maxHp_ = hp_ = 50.0f;
+        maxHp_ = hp_ = 30.0f;     // 耐久力 30
         moveSpeed_ = 3.5f;
         atk_ = 60.0f;            // 衝撃波攻撃
         atkBuff_ = 0.40f;        // 人工武器シナジー
@@ -206,7 +216,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "サメ";
         modelPath = "shark/shark.gltf";
         weight_ = 2.2f;
-        maxHp_ = hp_ = 90.0f;
+        maxHp_ = hp_ = 45.0f;     // 捕食者耐久力 45
         moveSpeed_ = 5.5f;
         atk_ = 50.0f;            // 自動追尾攻撃特化
         atkBuff_ = 0.50f;

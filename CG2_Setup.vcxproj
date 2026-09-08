@@ -59,18 +59,18 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)..\generated\outputs\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\&amp;(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\</IntDir>
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)imgui;$(SolutionDir)DirectXTex;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'">
     <OutDir>$(SolutionDir)..\generated\outputs\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\&amp;(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)imgui;$(SolutionDir)DirectXTex;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)..\generated\outputs\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\&amp;(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)imgui;$(SolutionDir)DirectXTex;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -83,7 +83,7 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)math\Vector3;$(ProjectDir)math\Matrix4x4;$(ProjectDir)Engine;$(ProjectDir)externals;$(ProjectDir)externals/imgui;$(ProjectDir)externals/DirectXTex/;$(ProjectDir)Engine/math;$(ProjectDir)Engine/2d;$(ProjectDir)Engine/3d;$(ProjectDir)Engine/Audio;$(SolutionDir)..\generated\obj\$(ProjectName)\&amp;(Configuration)\;%(AdditionalIncludeDirectories);$(ProjectDir)Game;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\2D;$(ProjectDir)Engine\Audio;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Render;$(ProjectDir)Engine\3D;$(ProjectDir)Game\player;$(ProjectDir)Game\enemy;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\Core;$(ProjectDir)Engine\Particle;$(ProjectDir)Engine\Level;$(ProjectDir)Engine\Utility</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)math\Vector3;$(ProjectDir)math\Matrix4x4;$(ProjectDir)Engine;$(ProjectDir)externals;$(ProjectDir)externals/imgui;$(ProjectDir)externals/DirectXTex/;$(ProjectDir)Engine/math;$(ProjectDir)Engine/2d;$(ProjectDir)Engine/3d;$(ProjectDir)Engine/Audio;$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\;%(AdditionalIncludeDirectories);$(ProjectDir)Game;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\2D;$(ProjectDir)Engine\Audio;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Render;$(ProjectDir)Engine\3D;$(ProjectDir)Game\player;$(ProjectDir)Game\enemy;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\Core;$(ProjectDir)Engine\Particle;$(ProjectDir)Engine\Level;$(ProjectDir)Engine\Utility</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -116,7 +116,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(ProjectDir)math\Vector3;$(ProjectDir)math\Matrix4x4;$(ProjectDir)Engine;$(ProjectDir)externals;$(ProjectDir)externals/imgui;$(ProjectDir)externals/DirectXTex/;$(ProjectDir)Engine/math;$(ProjectDir)Engine/2d;$(ProjectDir)Engine/3d;$(ProjectDir)Engine/Audio;$(SolutionDir)..\generated\obj\$(ProjectName)\&amp;(Configuration)\;%(AdditionalIncludeDirectories);$(ProjectDir)Game;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\2D;$(ProjectDir)Engine\Audio;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Render;$(ProjectDir)Engine\3D;$(ProjectDir)Game\enemy;$(ProjectDir)Game\player;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\Core;$(ProjectDir)Engine\Particle;$(ProjectDir)Engine\Level;$(ProjectDir)Engine\Utility</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)math\Vector3;$(ProjectDir)math\Matrix4x4;$(ProjectDir)Engine;$(ProjectDir)externals;$(ProjectDir)externals/imgui;$(ProjectDir)externals/DirectXTex/;$(ProjectDir)Engine/math;$(ProjectDir)Engine/2d;$(ProjectDir)Engine/3d;$(ProjectDir)Engine/Audio;$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\;%(AdditionalIncludeDirectories);$(ProjectDir)Game;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\2D;$(ProjectDir)Engine\Audio;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Render;$(ProjectDir)Engine\3D;$(ProjectDir)Game\enemy;$(ProjectDir)Game\player;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\Core;$(ProjectDir)Engine\Particle;$(ProjectDir)Engine\Level;$(ProjectDir)Engine\Utility</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -149,7 +149,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>Disabled</Optimization>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)math\Vector3;$(ProjectDir)math\Matrix4x4;$(ProjectDir)Engine;$(ProjectDir)externals;$(ProjectDir)externals/imgui;$(ProjectDir)externals/DirectXTex/;$(ProjectDir)Engine/math;$(ProjectDir)Engine/2d;$(ProjectDir)Engine/3d;$(ProjectDir)Engine/Audio;$(SolutionDir)..\generated\obj\$(ProjectName)\&amp;(Configuration)\;%(AdditionalIncludeDirectories);$(ProjectDir)Game;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\2D;$(ProjectDir)Engine\Audio;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Render;$(ProjectDir)Engine\3D;$(ProjectDir)Game\enemy;$(ProjectDir)Game\player;$(ProjectDir)externals\assimp;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Core;$(ProjectDir)Engine\Particle;$(ProjectDir)Engine\Level;$(ProjectDir)Engine\Utility</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)math\Vector3;$(ProjectDir)math\Matrix4x4;$(ProjectDir)Engine;$(ProjectDir)externals;$(ProjectDir)externals/imgui;$(ProjectDir)externals/DirectXTex/;$(ProjectDir)Engine/math;$(ProjectDir)Engine/2d;$(ProjectDir)Engine/3d;$(ProjectDir)Engine/Audio;$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\;%(AdditionalIncludeDirectories);$(ProjectDir)Game;$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\2D;$(ProjectDir)Engine\Audio;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Render;$(ProjectDir)Engine\3D;$(ProjectDir)Game\enemy;$(ProjectDir)Game\player;$(ProjectDir)externals\assimp;$(ProjectDir)Engine\Camera;$(ProjectDir)Engine\Input;$(ProjectDir)Engine\Core;$(ProjectDir)Engine\Particle;$(ProjectDir)Engine\Level;$(ProjectDir)Engine\Utility</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
