@@ -1,7 +1,7 @@
 #ifndef MINE_EFFECTS_HLSLI
 #define MINE_EFFECTS_HLSLI
 
-// Matches MineEffects' 128-byte frame and 96-byte primitive constants.
+// Matches MineEffects' 128-byte frame and 112-byte primitive constants.
 cbuffer MineFrame : register(b0)
 {
     float4x4 gViewProjection;
@@ -18,6 +18,7 @@ cbuffer MinePrimitive : register(b1)
     float4 gAxisZProgress;
     float4 gColorOpacity;
     float4 gDeformation; // stretch, local wobble, triggered, reserved
+    float4 gSlosh; // x/z shear follows movement inertia; y/w reserved
 };
 struct MineVertexInput
 {
@@ -33,6 +34,19 @@ struct MineVertexOutput
     float2 uv : TEXCOORD2;
     float viewDepth : TEXCOORD3;
 };
+struct MinePixelOutput
+{
+    float4 color : SV_Target0;
+    float4 glow : SV_Target1;
+};
+MinePixelOutput MineOutput(float4 color, float3 emission)
+{
+    MinePixelOutput output;
+    output.color = color;
+    // Only emitted radiance enters the bloom mask, never refracted scenery.
+    output.glow = float4(max(emission, 0.0f.xxx), 0.0f);
+    return output;
+}
 static const float kMineTau = 6.28318530718f;
 
 float GelRadius(float3 p, out float3 gradient)
@@ -55,5 +69,9 @@ float3 GelStretch()
 float3 TransformAxis(float3 p)
 {
     return p.x * gAxisXPhase.xyz + p.y * gAxisYIntensity.xyz + p.z * gAxisZProgress.xyz;
+}
+float3 SloshShear(float3 p)
+{
+    return p + float3(gSlosh.x * p.y, 0.0f, gSlosh.z * p.y);
 }
 #endif

@@ -1,4 +1,6 @@
 #include "MineEffects.h"
+#include "MineBloom.h"
+#include "MineBombGeometry.h"
 
 #include "Camera.h"
 #include "DirectXCommon.h"
@@ -16,7 +18,7 @@
 namespace {
 constexpr float kPi = 3.14159265359f, kTau = kPi * 2.0f;
 constexpr size_t kMaxBodies = 512, kMaxBursts = 32, kMaxBubbles = 192;
-constexpr size_t kMaxDraws = 2048, kConstantStride = 256;
+constexpr size_t kMaxDraws = 4096, kConstantStride = 256;
 using Microsoft::WRL::ComPtr;
 float Dot(const Vector3& a, const Vector3& b) { return a.x*b.x+a.y*b.y+a.z*b.z; }
 Vector3 Cross(const Vector3& a, const Vector3& b) {
@@ -38,15 +40,16 @@ struct FrameConstants {
     Vector4 cameraPositionTime,cameraRightRefraction,cameraUpEmission,viewportStyle;
 };
 struct PrimitiveConstants {
-    Vector4 centerKind,axisXPhase,axisYIntensity,axisZProgress,colorOpacity,deformation;
+    Vector4 centerKind,axisXPhase,axisYIntensity,axisZProgress,colorOpacity,deformation,slosh;
 };
-static_assert(sizeof(EffectVertex)==32 && sizeof(FrameConstants)==128 && sizeof(PrimitiveConstants)==96);
+static_assert(sizeof(EffectVertex)==32 && sizeof(FrameConstants)==128 && sizeof(PrimitiveConstants)==112);
 enum class Shape { Sphere, MediumSphere, SmallSphere, Quad };
-enum class Material { Gel, Nucleus, Warning, Halo, Bubble, Pressure, ShockRing };
-struct DrawItem { PrimitiveConstants constants; Shape shape; float distance; };
+enum class Material { Gel, Nucleus, Warning, Halo, Bubble, Pressure, ShockRing, Bomb };
+struct DrawItem { PrimitiveConstants constants; Shape shape; float distance; EffectMesh meshOverride{}; };
 struct Body {
     const Mine* mine=nullptr;
     Vector3 position{},velocity{};
+    Vector3 motion{},lag{},lagVelocity{};
     Mine::State state=Mine::State::Flying;
     float phase=0,stretch=0.78f,springVelocity=2.0f,fuse=0;
 };
@@ -59,15 +62,18 @@ struct MineEffects::Impl {
     SrvManager* srv=nullptr;
     Camera* camera=nullptr;
     bool enabled=true,soloPreview=false,debugGeometry=false;
-    float emission=1.0f,opacity=1.0f,elasticity=1.0f,time=0.0f;
+    float emission=1.0f,opacity=1.0f,elasticity=1.0f,time=0.0f,bloomStrength=0.90f;
     uint64_t explosionCount=0;
     std::vector<Body> bodies,previousBodies;
     std::vector<Burst> bursts;
     std::vector<Bubble> bubbles;
     std::vector<DrawItem> draws;
     EffectMesh sphere,mediumSphere,smallSphere,quad;
+    struct BombPart { EffectMesh mesh; Vector4 color; };
+    std::vector<BombPart> bombParts;
+    MineBloom bloom;
     ComPtr<ID3D12RootSignature> root;
-    ComPtr<ID3D12PipelineState> meshPso,quadPso;
+    ComPtr<ID3D12PipelineState> meshPso,quadPso,bombPso;
     ComPtr<ID3D12Resource> vertices,frameBuffer,drawBuffer,colorCopy,depthCopy;
     ComPtr<ID3D12DescriptorHeap> copyHeap;
     D3D12_VERTEX_BUFFER_VIEW vertexView{};
@@ -94,6 +100,7 @@ void MineEffects::Initialize(DirectXCommon* dx,SrvManager* srv,Camera* camera) {
     if(!dx||!srv||!camera) throw std::invalid_argument("MineEffects needs device, heap and camera");
     auto& e=*impl_;
     e.dx=dx; e.srv=srv; e.camera=camera;
+    e.bloom.Initialize(dx,srv);
     e.CreatePipeline(); e.CreateGeometry();
     e.frameBuffer=dx->CreateBufferResource(kConstantStride);
     e.drawBuffer=dx->CreateBufferResource(kConstantStride*kMaxDraws);
@@ -133,7 +140,8 @@ void MineEffects::Update(float dt,const std::vector<std::unique_ptr<Mine>>& mine
         const auto found=std::find_if(e.previousBodies.begin(),e.previousBodies.end(),
             [&](const Body& b){return b.mine==mine.get();});
         Body body;
-        if(found!=e.previousBodies.end() && Dot(found->position-mine->GetPosition(),found->position-mine->GetPosition())<10000.0f)
+        const bool continuous=found!=e.previousBodies.end() && Dot(found->position-mine->GetPosition(),found->position-mine->GetPosition())<10000.0f;
+        if(continuous)
             body=*found;
         else {
             body.mine=mine.get();
@@ -145,23 +153,42 @@ void MineEffects::Update(float dt,const std::vector<std::unique_ptr<Mine>>& mine
         const Vector3 velocity=Finite(mine->GetVelocity())?mine->GetVelocity():Vector3{};
         const bool newlyTriggered=state==Mine::State::Triggered && body.state!=state;
         const bool stopped=state==Mine::State::Floating && body.state==Mine::State::Flying;
-        if(newlyTriggered) body.springVelocity-=1.8f;
-        if(stopped) body.springVelocity-=1.0f;
-        if(dt>0.0f) body.springVelocity+=std::clamp((velocity.y-body.velocity.y)*0.035f,-0.6f,0.6f);
+        // Visual position includes floating motion, whereas gameplay velocity
+        // does not. Sample it once on the timed update; a zero-dt resnapshot
+        // must retain the last motion or it would erase inertia every frame.
+        Vector3 motion=body.motion;
+        if(dt>0.00001f) {
+            motion=continuous?(mine->GetPosition()-body.position)*(1.0f/dt):velocity;
+            if(!Finite(motion)) motion={};
+            const float speed=std::sqrt(Dot(motion,motion));
+            if(!std::isfinite(speed)) motion={};
+            else if(speed>30.0f) motion*=30.0f/speed;
+            body.springVelocity+=std::clamp((motion.y-body.motion.y)*0.16f,-1.8f,1.8f);
+        }
+        if(newlyTriggered) body.springVelocity-=3.0f;
+        if(stopped) body.springVelocity-=2.2f;
+        body.motion=motion;
         body.state=state; body.position=mine->GetPosition(); body.velocity=velocity;
         const float duration=mine->GetTriggerFuseDuration(),remaining=mine->GetTriggerTimeRemaining();
         body.fuse=state==Mine::State::Triggered?
             ((std::isfinite(duration)&&std::isfinite(remaining)&&duration>0.0001f)?Saturate(1.0f-remaining/duration):1.0f):0.0f;
-        const float speed=std::min(20.0f,std::abs(velocity.y));
-        const float target=1.0f-0.19f*body.fuse*body.fuse+(state==Mine::State::Flying?speed*0.005f:0.0f);
+        const float target=1.0f-0.23f*body.fuse*body.fuse+
+            std::clamp(motion.y*0.05f,-0.16f,0.16f);
+        Vector3 lagTarget=motion*(-0.055f);
+        const float lagLength=std::sqrt(Dot(lagTarget,lagTarget));
+        if(lagLength>0.28f) lagTarget*=0.28f/lagLength;
         const float springTime=std::min(dt,0.25f);
         const int steps=std::max(1,static_cast<int>(std::ceil(springTime*120.0f)));
         const float step=springTime/static_cast<float>(steps);
         for(int i=0;i<steps;++i) {
-            body.springVelocity+=(-145.0f*(body.stretch-target)-9.5f*body.springVelocity)*step;
+            body.springVelocity+=(-115.0f*(body.stretch-target)-5.8f*body.springVelocity)*step;
             body.stretch=std::clamp(body.stretch+body.springVelocity*step,0.68f,1.36f);
+            body.lagVelocity+=((lagTarget-body.lag)*90.0f-body.lagVelocity*5.5f)*step;
+            body.lag+=body.lagVelocity*step;
+            const float lagDistance=std::sqrt(Dot(body.lag,body.lag));
+            if(lagDistance>0.34f) body.lag*=0.34f/lagDistance;
         }
-        if(dt>0.25f) {body.stretch=target; body.springVelocity=0;}
+        if(dt>0.25f) {body.stretch=target; body.springVelocity=0; body.lag=lagTarget; body.lagVelocity={};}
         e.bodies.push_back(body);
     }
     // Both vectors are bounded snapshots. Removed objects leave no persistent
@@ -239,16 +266,56 @@ void MineEffects::Impl::Billboard(Material material,const Vector3& position,floa
 
 void MineEffects::Impl::BuildDraws() {
     draws.clear();
+    // The team's opaque Bomb geometry is rendered before the scene snapshot,
+    // allowing the surrounding gel to refract the actual model and its color.
+    // Each instance/part gets a distinct constant slice; no shared Model CBs.
+    for(const auto& b:bodies) {
+        const float angle=time*0.30f+b.phase;
+        const float c=std::cos(angle)*0.57f,s=std::sin(angle)*0.57f;
+        for(const auto& part:bombParts) {
+            const size_t index=draws.size();
+            Add(Shape::Sphere,Material::Bomb,b.position,{c,0,-s},{0,0.57f,0},{s,0,c},
+                part.color,1.0f,b.phase,b.fuse);
+            if(draws.size()>index) draws.back().meshOverride=part.mesh;
+        }
+    }
     // Reserve the budget for every retained live body and its actual fuse cue
     // before optional light/debris; overflow bodies retain Mine::Draw in scene.
     for(const auto& b:bodies) {
         const bool warning=b.state==Mine::State::Triggered;
         const float pulse=warning?0.5f+0.5f*std::sin(kTau*(time*2.0f+b.fuse*b.fuse*3.0f)):0.0f;
-        const float stretch=1.0f+(b.stretch-1.0f)*elasticity;
-        const float wobble=(0.020f+std::min(0.085f,std::abs(b.springVelocity)*0.028f))*elasticity;
-        const Vector4 tint=warning?Vector4{1.0f,0.34f,0.17f,0.82f}:Vector4{0.18f,0.82f,0.79f,0.76f};
-        Orb(Material::Gel,b.position,0.85f,tint,0.80f+pulse*0.25f,time*4.2f+b.phase,b.fuse,
+        const float baseWobble=0.060f+std::min(0.12f,std::abs(b.springVelocity)*0.045f);
+        const float offsetPerElasticity=std::sqrt(Dot(b.lag,b.lag))*0.22f;
+        const float shearPerElasticity=std::sqrt(b.lag.x*b.lag.x+b.lag.z*b.lag.z)*1.1f;
+        auto enclosedRadius=[&](float amount) {
+            const float vertical=std::clamp(1.0f+(b.stretch-1.0f)*amount,0.45f,1.70f);
+            const float minimumStretch=std::min(vertical,1.0f/std::sqrt(vertical));
+            const float shear=shearPerElasticity*amount;
+            const float minimumShear=(std::sqrt(shear*shear+4.0f)-shear)*0.5f;
+            // GelRadius's two waves have total amplitude at most 0.80.
+            // Smallest singular values bound every direction, including shear.
+            return 0.95f*(1.0f-0.80f*baseWobble*amount)*minimumStretch*minimumShear
+                -offsetPerElasticity*amount;
+        };
+        float effectiveElasticity=std::clamp(elasticity,0.0f,1.5f);
+        if(enclosedRadius(effectiveElasticity)<0.61f) {
+            float safe=0.0f,unsafe=effectiveElasticity;
+            for(int i=0;i<8;++i) {
+                const float middle=(safe+unsafe)*0.5f;
+                if(enclosedRadius(middle)>=0.61f) safe=middle;
+                else unsafe=middle;
+            }
+            effectiveElasticity=safe;
+        }
+        // Keep the rigid 0.57-radius Bomb inside the gel with 0.04 clearance.
+        // Limit all deformation channels together to retain their motion phase.
+        const float stretch=1.0f+(b.stretch-1.0f)*effectiveElasticity;
+        const float wobble=baseWobble*effectiveElasticity;
+        const Vector4 tint=warning?Vector4{1.0f,0.40f,0.12f,0.90f}:Vector4{0.24f,0.88f,0.60f,0.88f};
+        const size_t shellIndex=draws.size();
+        Orb(Material::Gel,b.position+b.lag*(0.22f*effectiveElasticity),0.95f,tint,0.95f+pulse*0.4f,time*6.0f+b.phase,b.fuse,
             {stretch,wobble,warning?1.0f:0.0f,0});
+        if(draws.size()>shellIndex) draws.back().constants.slosh={b.lag.x*1.1f*effectiveElasticity,0,b.lag.z*1.1f*effectiveElasticity,0};
         if(warning) Billboard(Material::Warning,b.position,1.42f,
             {1.0f,0.24f,0.075f,0.85f},0.9f+pulse*0.45f,b.phase,b.fuse);
     }
@@ -262,13 +329,6 @@ void MineEffects::Impl::BuildDraws() {
         Add(Shape::Quad,Material::ShockRing,b.position,{radius,0,0},{0,0,radius},{0,1,0},
             {1.0f,0.35f,0.10f,fade*0.80f},1.45f,b.phase,travel);
     }
-    for(const auto& b:bodies) {
-        const bool warning=b.state==Mine::State::Triggered;
-        const float pulse=warning?0.5f+0.5f*std::sin(kTau*(time*2.0f+b.fuse*b.fuse*3.0f)):0.0f;
-        const Vector3 center=b.position+Vector3{0,-0.075f+(b.stretch-1.0f)*0.13f,0};
-        Billboard(Material::Nucleus,center,0.25f+0.055f*b.fuse,
-            {1.0f,0.29f,0.075f,0.88f},1.15f+pulse*1.0f,b.phase);
-    }
     for(const auto& b:bursts) {
         const float flash=std::exp(-b.age*22.0f);
         Billboard(Material::Nucleus,b.position,0.48f+std::min(b.radius,6.0f)*0.12f,
@@ -276,8 +336,8 @@ void MineEffects::Impl::BuildDraws() {
         Billboard(Material::Halo,b.position,1.5f+std::min(b.radius,9.0f)*0.45f,
             {1.0f,0.22f,0.075f,flash},2.2f,b.phase);
     }
-    for(const auto& b:bodies) Billboard(Material::Halo,b.position,1.7f,
-        {1.0f,0.24f,0.07f,0.32f},0.60f+b.fuse*0.55f,b.phase);
+    for(const auto& b:bodies) Billboard(Material::Halo,b.position,1.85f,
+        {1.0f,0.28f,0.055f,0.22f},0.65f+b.fuse*0.7f,b.phase);
     for(const auto& b:bubbles) {
         const float life=Saturate(b.age/b.lifetime);
         const float travel=(1.0f-std::exp(-b.age*3.1f))/3.1f;
@@ -286,9 +346,12 @@ void MineEffects::Impl::BuildDraws() {
             {0.45f,0.90f,0.86f,(1.0f-life)*0.65f},0.65f,b.phase+time*2.0f,life,
             {1.0f+0.07f*std::sin(time*7.0f+b.phase),0.018f,0,0});
     }
-    // Stable back-to-front composition also places far nuclei behind nearer
-    // gel. Equal-center halos preserve insertion order after their own shell.
+    // Opaque model parts precede the snapshot. Transparent shells and halos
+    // then use stable back-to-front composition.
     std::stable_sort(draws.begin(),draws.end(),[](const DrawItem& a,const DrawItem& b) {
+        const bool aOpaque=a.constants.centerKind.w==static_cast<float>(Material::Bomb);
+        const bool bOpaque=b.constants.centerKind.w==static_cast<float>(Material::Bomb);
+        if(aOpaque!=bOpaque) return aOpaque;
         return a.distance>b.distance;
     });
 }
@@ -318,6 +381,10 @@ void MineEffects::Impl::CreateGeometry() {
     const EffectVertex a{{-1,-1,0},{0,0,-1},{0,1}},b{{-1,1,0},{0,0,-1},{0,0}},
         c{{1,-1,0},{0,0,-1},{1,1}},d{{1,1,0},{0,0,-1},{1,0}};
     triangle(a,b,c); triangle(c,b,d); quad.count=6;
+    const auto bomb=LoadMineBombGeometry();
+    const UINT bombFirst=static_cast<UINT>(data.size());
+    for(const auto& vertex:bomb.vertices) data.push_back({vertex.position,vertex.normal,vertex.uv});
+    for(const auto& part:bomb.parts) bombParts.push_back({{bombFirst+part.first,part.count},part.color});
     vertices=dx->CreateBufferResource(data.size()*sizeof(EffectVertex));
     void* mapped=nullptr;
     Check(vertices->Map(0,nullptr,&mapped),"Map Mine procedural geometry");
@@ -336,6 +403,7 @@ void MineEffects::DrawImGui() {
         ImGui::EndDisabled();
         ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x*0.52f);
         ImGui::SliderFloat("Glow##MineVFX",&e.emission,0.0f,2.5f);
+        ImGui::SliderFloat("Light Spread##MineVFX",&e.bloomStrength,0.0f,3.0f);
         ImGui::SliderFloat("Gel Opacity##MineVFX",&e.opacity,0.0f,1.5f);
         ImGui::SliderFloat("Elasticity##MineVFX",&e.elasticity,0.0f,1.5f);
         ImGui::PopItemWidth();
@@ -377,6 +445,7 @@ void MineEffects::Impl::CreatePipeline() {
         "Create Mine VFX root signature");
     const auto vs = dx->CompilesSharder(L"resources/shaders/MineEffects.VS.hlsl", L"vs_6_0");
     const auto ps = dx->CompilesSharder(L"resources/shaders/MineEffects.PS.hlsl", L"ps_6_0");
+    const auto bombPs = dx->CompilesSharder(L"resources/shaders/MineBomb.PS.hlsl", L"ps_6_0");
     D3D12_INPUT_ELEMENT_DESC inputs[] = {
         {"POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,0,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
         {"NORMAL",0,DXGI_FORMAT_R32G32B32_FLOAT,0,12,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
@@ -394,14 +463,25 @@ void MineEffects::Impl::CreatePipeline() {
     blend.BlendOp=D3D12_BLEND_OP_ADD;
     blend.SrcBlendAlpha=D3D12_BLEND_ONE; blend.DestBlendAlpha=D3D12_BLEND_INV_SRC_ALPHA;
     blend.BlendOpAlpha=D3D12_BLEND_OP_ADD; blend.RenderTargetWriteMask=D3D12_COLOR_WRITE_ENABLE_ALL;
+    pso.BlendState.IndependentBlendEnable=TRUE;
+    pso.BlendState.RenderTarget[1]=blend;
+    pso.BlendState.RenderTarget[1].DestBlend=D3D12_BLEND_ONE;
+    pso.BlendState.RenderTarget[1].DestBlendAlpha=D3D12_BLEND_ONE;
     pso.DepthStencilState.DepthEnable=TRUE; pso.DepthStencilState.DepthWriteMask=D3D12_DEPTH_WRITE_MASK_ZERO;
     pso.DepthStencilState.DepthFunc=D3D12_COMPARISON_FUNC_LESS_EQUAL;
-    pso.NumRenderTargets=1; pso.RTVFormats[0]=kSceneColorFormat; pso.DSVFormat=DXGI_FORMAT_D32_FLOAT;
+    pso.NumRenderTargets=2; pso.RTVFormats[0]=pso.RTVFormats[1]=kSceneColorFormat; pso.DSVFormat=DXGI_FORMAT_D32_FLOAT;
     pso.SampleDesc.Count=1; pso.SampleMask=D3D12_DEFAULT_SAMPLE_MASK;
     pso.PrimitiveTopologyType=D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     Check(dx->GetDevice()->CreateGraphicsPipelineState(&pso,IID_PPV_ARGS(&meshPso)),"Create Mine VFX mesh PSO");
     pso.RasterizerState.CullMode=D3D12_CULL_MODE_NONE;
     Check(dx->GetDevice()->CreateGraphicsPipelineState(&pso,IID_PPV_ARGS(&quadPso)),"Create Mine VFX billboard PSO");
+    pso.PS={bombPs->GetBufferPointer(),bombPs->GetBufferSize()};
+    pso.RasterizerState.CullMode=D3D12_CULL_MODE_BACK;
+    pso.BlendState.RenderTarget[0].BlendEnable=FALSE;
+    // Opaque fittings also erase emission from geometry behind them.
+    pso.BlendState.RenderTarget[1].BlendEnable=FALSE;
+    pso.DepthStencilState.DepthWriteMask=D3D12_DEPTH_WRITE_MASK_ALL;
+    Check(dx->GetDevice()->CreateGraphicsPipelineState(&pso,IID_PPV_ARGS(&bombPso)),"Create Mine Bomb mesh PSO");
 }
 
 bool MineEffects::Impl::Capture(ID3D12Resource* color, ID3D12Resource* depth) {
@@ -454,31 +534,38 @@ void MineEffects::Draw(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth) {
     auto& e=*impl_;
     if (!e.enabled || !e.dx || !e.camera) return;
     e.BuildDraws();
-    if (e.draws.empty() || !e.Capture(sceneColor,sceneDepth)) return;
+    if (e.draws.empty() || !e.bloom.Begin(sceneColor,sceneDepth)) return;
     const auto& w=e.camera->GetWorldMatrix();
     *e.frame={e.camera->GetViewProjectionMatrix(),Pack(e.camera->GetTranslate(),e.time),
         {w.m[0][0],w.m[0][1],w.m[0][2],6.0f},
         {w.m[1][0],w.m[1][1],w.m[1][2],e.emission},
         {static_cast<float>(sceneColor->GetDesc().Width),static_cast<float>(sceneColor->GetDesc().Height),e.opacity,0.30f}};
     auto* cmd=e.dx->GetCommandList();
-    ID3D12DescriptorHeap* heaps[]={e.copyHeap.Get()};
-    cmd->SetDescriptorHeaps(1,heaps);
     cmd->SetGraphicsRootSignature(e.root.Get());
     cmd->SetGraphicsRootConstantBufferView(0,e.frameBuffer->GetGPUVirtualAddress());
-    cmd->SetGraphicsRootDescriptorTable(2,e.copyHeap->GetGPUDescriptorHandleForHeapStart());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     cmd->IASetVertexBuffers(0,1,&e.vertexView);
-    for(size_t i=0;i<e.draws.size();++i) {
+    auto drawPrimitive=[&](size_t i) {
         const auto& item=e.draws[i];
         std::memcpy(e.drawData+i*kConstantStride,&item.constants,sizeof(item.constants));
         // Each draw gets its own immutable CB slice; PostDraw fences protect
         // reuse next frame, just as the engine's other mapped render buffers do.
         cmd->SetGraphicsRootConstantBufferView(1,e.drawBuffer->GetGPUVirtualAddress()+i*kConstantStride);
-        cmd->SetPipelineState(item.shape==Shape::Quad?e.quadPso.Get():e.meshPso.Get());
-        const auto mesh=item.shape==Shape::Sphere?e.sphere:
-            (item.shape==Shape::MediumSphere?e.mediumSphere:(item.shape==Shape::SmallSphere?e.smallSphere:e.quad));
+        const bool opaque=item.constants.centerKind.w==static_cast<float>(Material::Bomb);
+        cmd->SetPipelineState(opaque?e.bombPso.Get():(item.shape==Shape::Quad?e.quadPso.Get():e.meshPso.Get()));
+        const auto mesh=item.meshOverride.count?item.meshOverride:(item.shape==Shape::Sphere?e.sphere:
+            (item.shape==Shape::MediumSphere?e.mediumSphere:(item.shape==Shape::SmallSphere?e.smallSphere:e.quad)));
         cmd->DrawInstanced(mesh.count,1,mesh.first,0);
-    }
-    e.srv->PreDraw(); // Restore the shared heap for engine particles/post FX.
+    };
+    size_t transparentStart=0;
+    while(transparentStart<e.draws.size() && e.draws[transparentStart].constants.centerKind.w==static_cast<float>(Material::Bomb))
+        drawPrimitive(transparentStart++);
+    // The opaque Bomb writes depth and color before this immutable snapshot.
+    if(!e.Capture(sceneColor,sceneDepth)) {e.bloom.Composite(0.0f);return;}
+    ID3D12DescriptorHeap* heaps[]={e.copyHeap.Get()};
+    cmd->SetDescriptorHeaps(1,heaps);
+    cmd->SetGraphicsRootDescriptorTable(2,e.copyHeap->GetGPUDescriptorHandleForHeapStart());
+    for(size_t i=transparentStart;i<e.draws.size();++i) drawPrimitive(i);
+    e.bloom.Composite(e.bloomStrength);
 }
 

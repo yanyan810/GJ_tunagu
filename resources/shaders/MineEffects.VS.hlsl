@@ -19,8 +19,8 @@ MineVertexOutput main(MineVertexInput input)
         float3 bitangent = cross(input.normal, tangent);
         float3 deformedTangent = (tangent * radius + local * dot(gradient, tangent)) * stretch;
         float3 deformedBitangent = (bitangent * radius + local * dot(gradient, bitangent)) * stretch;
-        normal = cross(TransformAxis(deformedTangent), TransformAxis(deformedBitangent));
-        local *= radius * stretch;
+        normal = cross(TransformAxis(SloshShear(deformedTangent)), TransformAxis(SloshShear(deformedBitangent)));
+        local = SloshShear(local * radius * stretch);
     }
     else normal = input.normal.x * gAxisXPhase.xyz + input.normal.y * gAxisYIntensity.xyz + input.normal.z * gAxisZProgress.xyz;
     output.worldPosition = gCenterKind.xyz + TransformAxis(local);
