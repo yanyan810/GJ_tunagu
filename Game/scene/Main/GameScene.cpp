@@ -326,7 +326,6 @@ void GameScene::OnEnter(GameApp& app) {
         wall->SetMaterialColor({ 0.05f, 0.75f, 1.0f, 0.18f });
         arenaWalls_.push_back(std::move(wall));
     }
-}
 
     // GameScene.mp3 BGM の再生開始
     if (app.Audio()) {
@@ -335,7 +334,8 @@ void GameScene::OnEnter(GameApp& app) {
         app.Audio()->Play(bgmHandle_, 0.5f);
     }
 }
-void GameScene::OnExit(GameApp& /*app*/) {
+
+void GameScene::OnExit(GameApp& app) {
     auto checkpoint = std::chrono::steady_clock::now();
     auto report = [&](const char* stage) {
         const auto now = std::chrono::steady_clock::now();
@@ -344,18 +344,16 @@ void GameScene::OnExit(GameApp& /*app*/) {
         OutputDebugStringA(message.c_str());
         checkpoint = now;
     };
-    preparedBoss_.reset();
-    report("Prepared boss");
-    spareDebris_.clear();
-    report("Spare creatures");
-    arenaWalls_.clear();
-
-void GameScene::OnExit(GameApp& app) {
     if (app.Audio() && bgmHandle_ != 0) {
         app.Audio()->Stop(bgmHandle_);
         app.Audio()->Unload(bgmHandle_);
         bgmHandle_ = 0;
     }
+    preparedBoss_.reset();
+    report("Prepared boss");
+    spareDebris_.clear();
+    report("Spare creatures");
+    arenaWalls_.clear();
     bossHpBarFillSprite_.reset();
     bossHpBarCatchupSprite_.reset();
     bossHpBarBgSprite_.reset();
