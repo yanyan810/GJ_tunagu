@@ -737,6 +737,45 @@
     <ClCompile Include="Game\boss\MineEffects.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
+    <ClCompile Include="Game\boss\ScrewEffects.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\BossWaterEffectRenderer.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\ShockwaveEffects.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\boss\AnchorEffects.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
+    <ClInclude Include="Game\boss\BossWaterEffectRenderer.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\ShockwaveEffects.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\AnchorEffects.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <FxCompile Include="resources\shaders\BossWaterEffects.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\BossWaterEffects.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <None Include="resources\shaders\BossWaterEffects.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <ClInclude Include="Game\boss\ScrewEffects.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <FxCompile Include="resources\shaders\ScrewEffects.VS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\ScrewEffects.PS.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
     <ClCompile Include="Game\boss\MineBombGeometry.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
@@ -768,6 +807,9 @@
       <Filter>shaders</Filter>
     </FxCompile>
     <None Include="resources\shaders\MineEffects.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="resources\shaders\ScrewEffects.hlsli">
       <Filter>shaders</Filter>
     </None>
     <ClInclude Include="Game\boss\PingBeamEffects.h">

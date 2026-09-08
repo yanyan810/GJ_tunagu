@@ -10,6 +10,9 @@
 #include "ModelManager.h"
 #include "boss/PingBeamEffects.h"
 #include "boss/MineEffects.h"
+#include "boss/ScrewEffects.h"
+#include "boss/ShockwaveEffects.h"
+#include "boss/AnchorEffects.h"
 #include "RenderManager.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -209,6 +212,12 @@ void BossTestScene::OnEnter(GameApp& app) {
     pingBeamEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
     mineEffects_ = std::make_unique<MineEffects>();
     mineEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
+    screwEffects_ = std::make_unique<ScrewEffects>();
+    screwEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
+    shockwaveEffects_ = std::make_unique<ShockwaveEffects>();
+    shockwaveEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
+    anchorEffects_ = std::make_unique<AnchorEffects>();
+    anchorEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
     screwAnimation_.Initialize(*boss_);
     pingBeamTestPlayer_ = CreateObject(app, camera_.get(), "cube/cube.obj",
         pingBeamTargetPosition_, {}, { 1.0f, 1.0f, 1.0f });
@@ -345,6 +354,9 @@ void BossTestScene::OnEnter(GameApp& app) {
 }
 
 void BossTestScene::OnExit(GameApp& app) {
+    anchorEffects_.reset();
+    shockwaveEffects_.reset();
+    screwEffects_.reset();
     mineEffects_.reset();
     pingBeamEffects_.reset();
     if (app.GetInput()) {
@@ -625,9 +637,11 @@ void BossTestScene::TriggerShockwave_() {
     shockwaveAffectedMines_.clear();
     const Vector3 center = bossPosition_ + shockwavePositionOffset_;
     shockwave_.Trigger(center, center.y, shockwaveSettings_, random_);
+    if (shockwaveEffects_) shockwaveEffects_->OnTrigger(shockwave_, shockwaveSettings_, center.y, shockwaveAreaScale_);
 }
 
 void BossTestScene::ResetShockwave_() {
+    if (shockwaveEffects_) shockwaveEffects_->Reset();
     shockwave_.Reset();
     shockwaveRocks_.clear();
     shockwaveAffectedMines_.clear();
@@ -635,19 +649,23 @@ void BossTestScene::ResetShockwave_() {
 
 void BossTestScene::TriggerAnchor_() {
     anchorAttack_.Trigger(bossPosition_ + anchorCenterOffset_, anchorSettings_);
+    if (anchorEffects_) anchorEffects_->OnTrigger(anchorAttack_, anchorSettings_);
 }
 
 void BossTestScene::ResetAnchor_() {
+    if (anchorEffects_) anchorEffects_->Reset();
     anchorAttack_.Reset();
 }
 
 void BossTestScene::TriggerScrew_() {
+    if (screwEffects_) screwEffects_->Reset();
     screwGatheredMines_.clear();
     for (auto& target : screwTestTargets_) target->gathered = false;
     screwAttack_.Trigger(bossPosition_, bossRotation_, screwSettings_);
 }
 
 void BossTestScene::ResetScrew_() {
+    if (screwEffects_) screwEffects_->Reset();
     screwAttack_.Reset();
     screwGatheredMines_.clear();
     screwReleasedMines_.clear();
@@ -740,6 +758,8 @@ void BossTestScene::ReleaseScrewTargets_(bool gatheredOnly) {
         target->gathered = false;
         target->released = true;
     }
+    // Reuse the actual release origin, including the independent Release Only test.
+    if (screwEffects_) screwEffects_->OnRelease(gatherPoint, screwSettings_);
     screwGatheredMines_.clear();
 }
 
@@ -762,6 +782,7 @@ void BossTestScene::UpdateScrewTestTargets_(float dt) {
 
 void BossTestScene::UpdateScrew_(float dt) {
     screwAttack_.Update(dt);
+    if (screwEffects_) screwEffects_->Update(dt, screwAttack_);
 
     if (screwAttack_.IsGathering()) {
         for (auto& mine : mines_) {
@@ -888,6 +909,7 @@ void BossTestScene::UpdateAnchor_(GameApp& app, float dt) {
     const Vector3 anchorCenter = bossPosition_ + anchorCenterOffset_;
     if (anchorAttack_.IsRunning()) anchorAttack_.SetCenter(anchorCenter);
     anchorAttack_.Update(dt);
+    if (anchorEffects_) anchorEffects_->Update(dt, anchorAttack_);
     // AnchorAttack owns the complete model orientation. Do not compose the
     // orbit angle or model offset a second time in the test scene.
     const Vector3 anchorVisualRotation = anchorAttack_.GetSelfRotation();
@@ -1040,6 +1062,7 @@ void BossTestScene::UpdateAnchor_(GameApp& app, float dt) {
 void BossTestScene::UpdateShockwave_(GameApp& app, float dt) {
     const bool waveWasActive = shockwave_.IsActive();
     shockwave_.Update(dt);
+    if (shockwaveEffects_) shockwaveEffects_->Update(dt, shockwave_, shockwaveAreaScale_);
 
     for (const auto& spawn : shockwave_.ConsumeRockSpawns()) {
         ShockwaveRockSpawn scaledSpawn = spawn;
@@ -1055,6 +1078,7 @@ void BossTestScene::UpdateShockwave_(GameApp& app, float dt) {
             spawn.outwardDirection.z * std::max(0.01f, shockwaveAreaScale_.z)
         };
         scaledSpawn.outwardDirection = Matrix4x4::Normalize(scaledDirection);
+        if (shockwaveEffects_) shockwaveEffects_->OnRockSpawn(scaledSpawn);
         auto rock = std::make_unique<ShockwaveRock>();
         rock->Initialize(
             app.ObjCom(), app.Dx(), camera_.get(), scaledSpawn, shockwaveSettings_.rock, random_);
@@ -1811,6 +1835,35 @@ void BossTestScene::Update(GameApp& app, float dt) {
 
 void BossTestScene::Draw(GameApp& app) {
     if (floor_) floor_->Draw();
+    const bool soloShockwave = shockwaveEffects_ && shockwaveEffects_->IsEnabled() && shockwaveEffects_->IsSoloPreview();
+    const bool soloAnchor = anchorEffects_ && anchorEffects_->IsEnabled() && anchorEffects_->IsSoloPreview();
+    if (soloShockwave || soloAnchor) {
+        if (boss_) boss_->Draw();
+        for (const auto& mine : mines_) {
+            if (!mineEffects_ || !mineEffects_->ReplacesMine(*mine)) mine->Draw();
+        }
+        if (soloShockwave) for (const auto& rock : shockwaveRocks_) rock->Draw();
+        if (soloAnchor) {
+            if (anchorAttack_.IsAnchorVisible() && anchorObject_) anchorObject_->Draw();
+            for (size_t i = 0; i < anchorChainVisibleCount_; ++i) anchorChainLinks_[i]->Draw();
+        }
+        auto* sceneColor = app.Render()->GetOffscreen()->GetResource();
+        auto* sceneDepth = app.Dx()->GetDepthStencilResource();
+        if (mineEffects_) mineEffects_->Draw(sceneColor, sceneDepth);
+        if (soloShockwave) shockwaveEffects_->Draw(sceneColor, sceneDepth);
+        if (soloAnchor) anchorEffects_->Draw(sceneColor, sceneDepth);
+        return;
+    }
+    if (screwEffects_ && screwEffects_->IsEnabled() && screwEffects_->IsSoloPreview()) {
+        if (boss_) boss_->Draw();
+        for (const auto& mine : mines_) {
+            if (!mineEffects_ || !mineEffects_->ReplacesMine(*mine)) mine->Draw();
+        }
+        for (const auto& target : screwTestTargets_) if (target->object) target->object->Draw();
+        if (mineEffects_) mineEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+        screwEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+        return;
+    }
     if (mineEffects_ && mineEffects_->IsEnabled() && mineEffects_->IsSoloPreview()) {
         if (boss_) boss_->Draw();
         for (const auto& mine : mines_) {
@@ -1840,7 +1893,7 @@ void BossTestScene::Draw(GameApp& app) {
     }
     if (showShockwaveRange_ && shockwaveVisual_) shockwaveVisual_->Draw();
     for (const auto& rock : shockwaveRocks_) rock->Draw();
-    if (anchorAttack_.IsWarningVisible() && anchorWarningRing_) anchorWarningRing_->Draw();
+    if ((!anchorEffects_ || !anchorEffects_->IsEnabled()) && anchorAttack_.IsWarningVisible() && anchorWarningRing_) anchorWarningRing_->Draw();
     if (anchorAttack_.IsAnchorVisible() && anchorObject_) anchorObject_->Draw();
     for (size_t i = 0; i < anchorChainVisibleCount_; ++i) anchorChainLinks_[i]->Draw();
     if (showAnchorOrbitRange_) {
@@ -1878,6 +1931,9 @@ void BossTestScene::Draw(GameApp& app) {
         for (const auto& marker : pingBeamUnitPositionDebug_) if (marker) marker->Draw();
     }
     if (mineEffects_) mineEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+    if (screwEffects_) screwEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+    if (shockwaveEffects_) shockwaveEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
+    if (anchorEffects_) anchorEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
     if (pingBeamEffects_) pingBeamEffects_->Draw(app.Render()->GetOffscreen()->GetResource(), app.Dx()->GetDepthStencilResource());
 }
 
@@ -2060,6 +2116,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
             if (ImGui::Button("Trigger Shockwave")) pendingTriggerShockwave_ = true;
             ImGui::SameLine();
             if (ImGui::Button("Reset Shockwave")) pendingResetShockwave_ = true;
+            if (shockwaveEffects_) shockwaveEffects_->DrawImGui();
             ImGui::Text("Radius: %.2f / Rocks: %d / Active: %s",
                 shockwave_.GetRadius(), static_cast<int>(shockwaveRocks_.size()),
                 shockwave_.IsActive() ? "Yes" : "No");
@@ -2131,6 +2188,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
             if (ImGui::Button("Trigger Anchor")) pendingTriggerAnchor_ = true;
             ImGui::SameLine();
             if (ImGui::Button("Reset Anchor")) pendingResetAnchor_ = true;
+            if (anchorEffects_) anchorEffects_->DrawImGui();
             const Vector3 anchorPosition = anchorAttack_.GetPosition();
             ImGui::Text("State: %s / State Time: %.2f", AnchorAttack::StateName(anchorAttack_.GetState()), anchorAttack_.GetStateTime());
             ImGui::Text("Speed: %.2f / Tangent Yaw: %.2f / Position: %.2f, %.2f, %.2f",
@@ -2178,6 +2236,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
             if (ImGui::Button("Reset Screw")) pendingResetScrew_ = true;
             ImGui::SameLine();
             if (ImGui::Button("Trigger Release Only")) pendingReleaseOnly_ = true;
+            if (screwEffects_) screwEffects_->DrawImGui();
             ImGui::SeparatorText("Suction / Release Test Targets");
             if (ImGui::Button("Add Release Dummy")) pendingAddScrewTargetType_ = 0;
             ImGui::SameLine();
