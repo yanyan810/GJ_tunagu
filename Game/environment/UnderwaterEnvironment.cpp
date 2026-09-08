@@ -182,6 +182,11 @@ Vector3 UnderwaterEnvironment::FindOpenWaterPosition(const Vector3& desired) {
     return reefScene_ ? reefScene_->GetCollisionWorld().ResolveSphere(desired, 2.0f) : desired;
 }
 
+const ReefCollisionWorld* UnderwaterEnvironment::GetBeamCollisionWorld() {
+    SyncCollisionSettings_();
+    return reefScene_ ? &reefScene_->GetCollisionWorld() : nullptr;
+}
+
 void UnderwaterEnvironment::Update(float dt) {
     environmentTime_ = std::fmod(environmentTime_ + std::max(dt, 0.0f), 4096.0f);
 

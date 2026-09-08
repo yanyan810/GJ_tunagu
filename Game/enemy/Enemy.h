@@ -4,7 +4,6 @@
 #include "Vector3.h"
 #include "MathStruct.h"
 #include "boss/ShipScrewAnimation.h"
-#include "boss/BossReadability.h"
 
 class Object3d;
 class Object3dCommon;
@@ -42,7 +41,6 @@ public:
     bool IsAttacksEnabled() const { return attacksEnabled_; }
     void SetManagedCombat(bool managed);
     void SetCombatMovementLocked(bool locked) { combatMovementLocked_ = locked; }
-    void SetReadabilityEnabled(bool enabled) { readability_.SetEnabled(enabled); }
     void SetBattleCenter(const Vector3& center) {
         battleCenter_ = center;
         fixedBattleCenter_ = true;
@@ -53,7 +51,6 @@ public:
 
 private:
     std::unique_ptr<Object3d> shipModel_;
-    BossReadability readability_;
     ShipScrewAnimation screwAnimation_;
     std::unique_ptr<Object3d> orbitDebugModel_;
     std::unique_ptr<Object3d> collisionDebugModel_;

@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
+#include "BossAttackGuidance.h"
 
 class Object3d;
 class Object3dCommon;
@@ -12,6 +14,7 @@ class DirectXCommon;
 class SrvManager;
 class Camera;
 class Player;
+class ReefCollisionWorld;
 struct ID3D12Resource;
 
 // Main-game host for reusable boss attacks. Owns scheduling, hit bookkeeping,
@@ -36,10 +39,15 @@ public:
     void Reset(Player* player = nullptr);
     // Call before Player::Update, then Update after the ship and player move.
     void BeginPlayerFrame(float dt, Player& player, bool enabled);
-    void Update(float dt, Player& player, const Vector3& arenaCenter, bool enabled, float groundY = -22.0f);
+    void Update(float dt, Player& player, const Vector3& arenaCenter, bool enabled,
+        float groundY = -22.0f, const ReefCollisionWorld* beamWorld = nullptr);
     void DrawOpaque();
     void DrawEffects(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth);
     void DrawImGui();
+    void DrawWarnings();
+    void PauseWarnings();
+    std::span<const BossAttackGuidance::Threat> GetWarnings() const;
+    size_t GetWarningVertexCount() const;
     bool IsScrewActive() const;
     bool WantsStationaryShip() const;
     Stats GetStats() const;

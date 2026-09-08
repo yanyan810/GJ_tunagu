@@ -407,6 +407,7 @@ void GameScene::Update(GameApp& app, float dt) {
 
     const bool runSimulation = !simulationPaused_ || stepOneFrame_;
     if (!runSimulation) {
+        if (bossCombat_) bossCombat_->PauseWarnings();
         if (camera_) ParticleManager::GetInstance()->Update(0.0f, *camera_);
         return;
     }
@@ -430,7 +431,8 @@ void GameScene::Update(GameApp& app, float dt) {
         bossShip_->Update(dt, player_->GetPosition());
     }
     if (bossCombat_ && player_) bossCombat_->Update(dt, *player_, oceanFlow_.center, combatEnabled(),
-        underwaterEnvironment_ ? underwaterEnvironment_->GetFloorHeight() : -22.0f);
+        underwaterEnvironment_ ? underwaterEnvironment_->GetFloorHeight() : -22.0f,
+        underwaterEnvironment_ ? underwaterEnvironment_->GetBeamCollisionWorld() : nullptr);
     if (bossShip_ && player_) {
         if (combatEnabled()) bossShip_->CheckCollisionWithPlayer(player_.get());
 
@@ -789,6 +791,7 @@ void GameScene::DrawOverlay2D(GameApp&) {
                 }
             }
         }
+    if (bossCombat_) bossCombat_->DrawWarnings();
     }
 
 
