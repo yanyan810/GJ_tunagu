@@ -1,4 +1,4 @@
-﻿#include "Player.h"
+#include "Player.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
@@ -357,9 +357,15 @@ void Player::Update(float dt, const Input& input, std::vector<std::unique_ptr<De
                     float ry = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
                     float rz = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * spread;
 
-                    // 投射初速をすさまじい勢い（65.0m/s ～ チャージ長押しで最高 90.0m/s）に超強化
+                    // 装備デブリ全体の投擲速度バフ・投擲ダメージバフの集計
+                    float totalThrowSpeedBuff = 0.0f;
+                    for (const auto& att : attachedDebris_) {
+                        totalThrowSpeedBuff += att->GetThrowSpeedBuff();
+                    }
+
+                    // 投射初速をすさまじい勢い（65.0m/s ～ チャージ長押しで最高 90.0m/s）に超強化（投擲速度UPバフ適用）
                     float chargeBonus = (std::min)(25.0f, chargeTimer_ * 15.0f);
-                    float baseSpeed = 65.0f + chargeBonus;
+                    float baseSpeed = (65.0f + chargeBonus) * (1.0f + totalThrowSpeedBuff);
                     Vector3 velocity = {
                         (forward.x + rx) * baseSpeed,
                         (forward.y + ry) * baseSpeed,
@@ -487,7 +493,7 @@ void Player::CheckDebrisCollision(std::vector<std::unique_ptr<Debris>>& debrisLi
 
     for (auto it = debrisList.begin(); it != debrisList.end(); ) {
         auto& debris = *it;
-        if (debris->GetState() == DebrisState::Floating) {
+        if (debris->GetState() == DebrisState::Floating && debris->IsCatchable()) {
             float debrisRadius = 1.0f; // ゴミの衝突半径
             
             Vector3 dPos = debris->GetPosition();

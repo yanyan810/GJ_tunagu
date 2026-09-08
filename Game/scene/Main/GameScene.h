@@ -36,6 +36,10 @@ private:
     std::unique_ptr<Sprite> hpBarBgSprite_;
     std::unique_ptr<Sprite> hpBarFillSprite_;
 
+    // 2D UI スプライトで構築する強力生物頭上 HPバー
+    std::unique_ptr<Sprite> creatureHpBarBgSprite_;
+    std::unique_ptr<Sprite> creatureHpBarFillSprite_;
+
     // 2D UI スプライトで構築する画面右上 ボスHPバー
     std::unique_ptr<Sprite> bossHpBarFrameSprite_;   // 外枠 (ダークゴールド/ブロンズ)
     std::unique_ptr<Sprite> bossHpBarBgSprite_;      // 背景バー (暗赤色/ダークグレー)

@@ -1,4 +1,4 @@
-﻿#include "DebugAITestScene.h"
+#include "DebugAITestScene.h"
 
 #include "GameApp.h"
 #include "Camera.h"
@@ -112,7 +112,7 @@ void DebugAITestScene::OnEnter(GameApp& app) {
     enemyObject_ = std::make_unique<Object3d>();
     enemyObject_->Initialize(app.ObjCom(), app.Dx());
     enemyObject_->SetCamera(camera_.get());
-    enemyObject_->SetModel("teapot.obj");
+    enemyObject_->SetModel("cube/cube.obj");
     enemyObject_->SetTranslate({ 4.0f, 0.0f, 0.0f });
     enemyObject_->SetScale({ 0.8f, 0.8f, 0.8f });
     enemyObject_->SetEnableLighting(0);

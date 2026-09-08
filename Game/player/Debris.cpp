@@ -37,15 +37,17 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "ウニ";
         modelPath = "sea_urchin/sea_urchin.gltf";
         weight_ = 1.2f;
+        maxHp_ = hp_ = 30.0f;     // 倒してから拾える (HP 30)
+        moveSpeed_ = 2.0f;
         hpBuff_ = 30.0f;          // HP +30
         throwAtkBuff_ = 0.5f;     // 投擲ダメージ +50%
-        atk_ = 35.0f;
+        atk_ = 50.0f;             // 高投擲ダメージ
         scale_ = { 1.4f, 1.4f, 1.4f };
         color_ = { 0.55f, 0.15f, 0.75f, 1.0f }; // 紫 (ウニ)
         break;
-    case DebrisType::Teapot:
+    case DebrisType::DrumCan:
         name_ = "ドラム缶";
-        modelPath = "teapot.obj";
+        modelPath = "drumCan/drumCan.gltf";
         weight_ = 3.5f;
         thrust_ = 0.0f;
         atk_ = 10.0f;
@@ -134,8 +136,11 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "カジキ";
         modelPath = "marlin/marlin.gltf";
         weight_ = 1.8f;
+        maxHp_ = hp_ = 60.0f;
+        moveSpeed_ = 6.5f;
+        throwSpeedBuff_ = 0.80f; // 投擲速度UP
+        throwAtkBuff_ = 1.00f;   // 投擲ダメージUP
         atk_ = 90.0f;
-        throwAtkBuff_ = 1.00f;
         scale_ = { 2.0f, 0.5f, 0.5f };
         color_ = { 0.10f, 0.35f, 0.95f, 1.0f }; // ディープブルー (カジキ)
         break;
@@ -143,8 +148,9 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "イルカ";
         modelPath = "dolphin/dolphin.gltf";
         weight_ = 0.8f;
-        speedBuff_ = 0.50f;
-        chargeSpeedBuff_ = 0.40f;
+        maxHp_ = hp_ = 40.0f;
+        moveSpeed_ = 7.0f;
+        speedBuff_ = 0.80f;      // 移動速度大幅UP (1能力特化)
         scale_ = { 1.9f, 1.9f, 1.9f };
         color_ = { 0.30f, 0.80f, 1.00f, 1.0f }; // スカイブルー (イルカ)
         break;
@@ -152,8 +158,9 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "シャチ";
         modelPath = "orca/orca.gltf";
         weight_ = 2.5f;
-        atkBuff_ = 0.70f;
-        defenseBuff_ = 0.20f;
+        maxHp_ = hp_ = 100.0f;
+        moveSpeed_ = 4.5f;
+        atkBuff_ = 1.00f;        // 攻撃力大幅UP (+100%, 1能力特化)
         scale_ = { 2.2f, 2.2f, 2.2f };
         color_ = { 0.15f, 0.15f, 0.25f, 1.0f }; // ダークネイビー (シャチ)
         break;
@@ -161,8 +168,10 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "カニ";
         modelPath = "crab/crab.gltf";
         weight_ = 2.0f;
-        hpBuff_ = 45.0f;
-        defenseBuff_ = 0.35f;
+        maxHp_ = hp_ = 80.0f;
+        moveSpeed_ = 2.5f;
+        hpBuff_ = 50.0f;         // HP増加
+        defenseBuff_ = 0.35f;    // 近距離攻撃/ガード
         scale_ = { 1.7f, 1.7f, 1.7f };
         color_ = { 0.90f, 0.40f, 0.10f, 1.0f }; // ダークオレンジ (カニ)
         break;
@@ -170,8 +179,10 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "シャコ";
         modelPath = "mantis_shrimp/mantis_shrimp.gltf";
         weight_ = 1.2f;
-        atk_ = 60.0f;
-        atkBuff_ = 0.40f;
+        maxHp_ = hp_ = 50.0f;
+        moveSpeed_ = 3.5f;
+        atk_ = 60.0f;            // 衝撃波攻撃
+        atkBuff_ = 0.40f;        // 人工武器シナジー
         scale_ = { 1.5f, 1.5f, 1.5f };
         color_ = { 0.40f, 1.00f, 0.20f, 1.0f }; // 蛍光グリーン (シャコ)
         break;
@@ -179,13 +190,17 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "サメ";
         modelPath = "shark/shark.gltf";
         weight_ = 2.2f;
-        atk_ = 40.0f;
+        maxHp_ = hp_ = 90.0f;
+        moveSpeed_ = 5.5f;
+        atk_ = 50.0f;            // 自動追尾攻撃特化
         atkBuff_ = 0.50f;
-        speedBuff_ = 0.20f;
         scale_ = { 2.4f, 2.4f, 2.4f };
         color_ = { 0.85f, 0.15f, 0.15f, 1.0f }; // ディープレッド (サメ)
         break;
     }
+
+    targetYaw_ = (static_cast<float>(std::rand()) / RAND_MAX) * 3.14159f * 2.0f;
+    rot_.y = targetYaw_;
 
     // モデルマネージャ経由でロード
     ModelManager::GetInstance()->LoadModel(modelPath);
@@ -196,7 +211,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
     model_->SetModel(modelPath);
     modelCenter_ = {};
     modelRotation_ = {};
-    marineModel_ = type_ != DebrisType::Teapot && type_ != DebrisType::Screw;
+    marineModel_ = type_ != DebrisType::Screw && type_ != DebrisType::DrumCan;
     if (marineModel_) {
         // Preserve proportions and normalize authored sizes around the pickup point.
         AABB bounds{};
@@ -208,9 +223,21 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
             scale_ = { uniformScale, uniformScale, uniformScale };
             modelCenter_ = (bounds.min + bounds.max) * 0.5f;
         }
-        if (type_ == DebrisType::Archerfish) modelRotation_.y = 3.14159265f;
-        if (type_ == DebrisType::Shrimp || type_ == DebrisType::Pufferfish)
-            modelRotation_.y = -1.5707963f;
+        // モデル固有の頭の向き（ローカル軸）を進行方向 (+Z軸) に合わせる回転補正
+        if (type_ == DebrisType::Marlin ||
+            type_ == DebrisType::Dolphin ||
+            type_ == DebrisType::Orca ||
+            type_ == DebrisType::Shark ||
+            type_ == DebrisType::Crab ||
+            type_ == DebrisType::MantisShrimp ||
+            type_ == DebrisType::Shrimp ||
+            type_ == DebrisType::Pufferfish ||
+            type_ == DebrisType::Remora ||
+            type_ == DebrisType::Halfbeak) {
+            modelRotation_.y = -1.5707963f; // -90度回転補正（頭を進行方向+Zへ向ける）
+        } else if (type_ == DebrisType::Archerfish) {
+            modelRotation_.y = 3.14159265f;
+        }
         model_->SetMaterialColor({ 1.0f, 1.0f, 1.0f, 1.0f });
         model_->PlayAnimation("", true);
     }
@@ -239,9 +266,36 @@ void Debris::UpdateFloating(float dt) {
     float floatAmp = 0.15f;
     pos_.y += std::sin(floatTimer_ * floatSpeed + floatOffset_) * floatAmp * dt;
 
-    // ゆっくり回転させて漂っている感を出す
-    rot_.y += 0.4f * dt;
-    if (!marineModel_) rot_.x += 0.2f * dt;
+    if (IsStrongCreature() && hp_ > 0.0f) {
+        swimTimer_ += dt;
+
+        // 定期的に泳ぐ方向（Target Yaw）をゆるやかに変更
+        if (swimTimer_ >= 4.5f) {
+            swimTimer_ = 0.0f;
+            float randomTurn = (static_cast<float>(std::rand()) / RAND_MAX * 1.57f) - 0.785f; // -45度〜+45度
+            targetYaw_ += randomTurn;
+        }
+
+        // マップ中央（原点）から離れすぎた場合（半径 60.0f）、原点方向へ旋回誘導
+        float distFromCenterSq = pos_.x * pos_.x + pos_.z * pos_.z;
+        if (distFromCenterSq > 60.0f * 60.0f) {
+            targetYaw_ = std::atan2(-pos_.x, -pos_.z);
+        }
+
+        // targetYaw_ へなめらかに旋回
+        float yawDiff = targetYaw_ - rot_.y;
+        while (yawDiff > 3.14159f) yawDiff -= 6.28318f;
+        while (yawDiff < -3.14159f) yawDiff += 6.28318f;
+        rot_.y += yawDiff * (std::min)(1.0f, 2.0f * dt);
+
+        // 現在の向き（Yaw）に向かって自走前進
+        pos_.x += std::sin(rot_.y) * moveSpeed_ * dt;
+        pos_.z += std::cos(rot_.y) * moveSpeed_ * dt;
+    } else {
+        // ゆっくり回転させて漂っている感を出す
+        rot_.y += 0.4f * dt;
+        if (!marineModel_) rot_.x += 0.2f * dt;
+    }
 
     ApplyModelTransform_(rot_);
     model_->Update(dt);
@@ -384,4 +438,34 @@ void Debris::Throw(const Vector3& pos, const Vector3& velocity) {
     pos_ = pos;
     velocity_ = velocity;
     throwTimer_ = 0.0f;
+}
+
+bool Debris::IsStrongCreature() const {
+    return type_ == DebrisType::Uni ||
+           type_ == DebrisType::Marlin ||
+           type_ == DebrisType::Dolphin ||
+           type_ == DebrisType::Orca ||
+           type_ == DebrisType::Crab ||
+           type_ == DebrisType::MantisShrimp ||
+           type_ == DebrisType::Shark;
+}
+
+bool Debris::IsCatchable() const {
+    if (!IsStrongCreature()) return true;
+    return hp_ <= 0.0f;
+}
+
+bool Debris::TakeDamage(float damage) {
+    if (!IsStrongCreature() || hp_ <= 0.0f) return false;
+    hp_ -= damage;
+    if (hp_ <= 0.0f) {
+        hp_ = 0.0f;
+        return true; // 撃破された
+    }
+    return false;
+}
+
+Vector3 Debris::GetHeadPosition() const {
+    float headOffset = (std::max)({ scale_.x, scale_.y, scale_.z }) * 1.2f + 1.0f;
+    return { pos_.x, pos_.y + headOffset, pos_.z };
 }

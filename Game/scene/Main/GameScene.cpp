@@ -42,6 +42,51 @@ namespace {
         // 画面内（マージンを含めて ±1.15 の範囲）に収まっているか判定
         return (ndcX >= -1.15f && ndcX <= 1.15f && ndcY >= -1.15f && ndcY <= 1.15f && ndcZ >= 0.0f && ndcZ <= 1.0f);
     }
+
+    // 3Dワールド座標をスクリーン2D座標へ変換するヘルパー関数
+    Vector3 WorldToScreen(const Vector3& worldPos, const Matrix4x4& vpMat, float screenWidth = 1280.0f, float screenHeight = 720.0f) {
+        float x = worldPos.x * vpMat.m[0][0] + worldPos.y * vpMat.m[1][0] + worldPos.z * vpMat.m[2][0] + vpMat.m[3][0];
+        float y = worldPos.x * vpMat.m[0][1] + worldPos.y * vpMat.m[1][1] + worldPos.z * vpMat.m[2][1] + vpMat.m[3][1];
+        float z = worldPos.x * vpMat.m[0][2] + worldPos.y * vpMat.m[1][2] + worldPos.z * vpMat.m[2][2] + vpMat.m[3][2];
+        float w = worldPos.x * vpMat.m[0][3] + worldPos.y * vpMat.m[1][3] + worldPos.z * vpMat.m[2][3] + vpMat.m[3][3];
+
+        if (w <= 0.001f) return { -1.0f, -1.0f, -1.0f };
+
+        float ndcX = x / w;
+        float ndcY = y / w;
+        float ndcZ = z / w;
+
+        if (ndcX < -1.2f || ndcX > 1.2f || ndcY < -1.2f || ndcY > 1.2f || ndcZ < 0.0f || ndcZ > 1.0f) {
+            return { -1.0f, -1.0f, -1.0f };
+        }
+
+        float screenX = (ndcX + 1.0f) * 0.5f * screenWidth;
+        float screenY = (1.0f - ndcY) * 0.5f * screenHeight;
+
+        return { screenX, screenY, ndcZ };
+    }
+
+    // 通常生物・基本ドロップを高確率（85%）で選出する重み付けスポーン関数
+    DebrisType GetWeightedRandomDebrisType() {
+        int roll = std::rand() % 100;
+        if (roll < 85) {
+            // 通常生物 (8種) & 基本ドロップ (3種)
+            const DebrisType normalTypes[] = {
+                DebrisType::Uni, DebrisType::DrumCan, DebrisType::Screw,
+                DebrisType::Archerfish, DebrisType::Pufferfish, DebrisType::Remora,
+                DebrisType::Shell, DebrisType::Shrimp, DebrisType::Jellyfish,
+                DebrisType::Halfbeak, DebrisType::Starfish
+            };
+            return normalTypes[std::rand() % 11];
+        } else {
+            // 強力生物 (6種)
+            const DebrisType strongTypes[] = {
+                DebrisType::Marlin, DebrisType::Dolphin, DebrisType::Orca,
+                DebrisType::Crab, DebrisType::MantisShrimp, DebrisType::Shark
+            };
+            return strongTypes[std::rand() % 6];
+        }
+    }
 }
 
 GameScene::GameScene() = default;
@@ -87,6 +132,15 @@ void GameScene::OnEnter(GameApp& app) {
     hpBarFillSprite_->SetPosition({ 34.0f, 34.0f });
     hpBarFillSprite_->SetColor({ 0.0f, 1.0f, 0.0f, 1.0f }); // 初期値：緑
 
+    // 強力生物の頭上 HPバー用スプライト初期化
+    creatureHpBarBgSprite_ = std::make_unique<Sprite>();
+    creatureHpBarBgSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
+    creatureHpBarBgSprite_->SetColor({ 0.10f, 0.10f, 0.10f, 0.85f }); // ダークグレー背景
+
+    creatureHpBarFillSprite_ = std::make_unique<Sprite>();
+    creatureHpBarFillSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
+    creatureHpBarFillSprite_->SetColor({ 0.0f, 1.0f, 0.0f, 1.0f });
+
     // 2D UI スプライトで構築する画面右上 ボスHPバーの初期化
     bossHpBarFrameSprite_ = std::make_unique<Sprite>();
     bossHpBarFrameSprite_->Initialize(app.SpriteCom(), app.Dx(), "noise0.png");
@@ -130,18 +184,17 @@ void GameScene::OnEnter(GameApp& app) {
         debrisList_.push_back(std::move(debris));
     }
 
-    // ランダムに16個の各種海洋生物をマップ全体に配置
-    const int totalTypes = 17; // 全17種類
-    for (int i = 0; i < 16; ++i) {
-        float x = (static_cast<float>(std::rand()) / RAND_MAX * 140.0f) - 70.0f;
+    // 通常生物・基本ドロップを高確率（85%）で優先してマップ全体（45個）に広範囲配置
+    for (int i = 0; i < 45; ++i) {
+        float x = (static_cast<float>(std::rand()) / RAND_MAX * 160.0f) - 80.0f;
         float y = (static_cast<float>(std::rand()) / RAND_MAX * 40.0f) - 20.0f;
-        float z = (static_cast<float>(std::rand()) / RAND_MAX * 140.0f) - 70.0f;
+        float z = (static_cast<float>(std::rand()) / RAND_MAX * 160.0f) - 80.0f;
 
         if (x * x + z * z < 36.0f) {
             z += 12.0f;
         }
 
-        DebrisType type = static_cast<DebrisType>(std::rand() % totalTypes);
+        DebrisType type = GetWeightedRandomDebrisType();
         auto debris = std::make_unique<Debris>();
         debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), type, { x, y, z });
         debrisList_.push_back(std::move(debris));
@@ -157,6 +210,8 @@ void GameScene::OnExit(GameApp& /*app*/) {
     bossHpBarCatchupSprite_.reset();
     bossHpBarBgSprite_.reset();
     bossHpBarFrameSprite_.reset();
+    creatureHpBarFillSprite_.reset();
+    creatureHpBarBgSprite_.reset();
     hpBarFillSprite_.reset();
     hpBarBgSprite_.reset();
     debrisList_.clear();
@@ -247,6 +302,31 @@ void GameScene::Update(GameApp& app, float dt) {
                 }
             }
         }
+
+        // 投げられたゴミ/海洋生物と未撃破の強力生物の衝突判定
+        for (auto& thrownDebris : debrisList_) {
+            if (thrownDebris->GetState() == DebrisState::Thrown && !thrownDebris->IsDead()) {
+                for (auto& targetDebris : debrisList_) {
+                    if (targetDebris.get() != thrownDebris.get() &&
+                        targetDebris->GetState() == DebrisState::Floating &&
+                        targetDebris->IsStrongCreature() &&
+                        !targetDebris->IsCatchable()) {
+
+                        Vector3 tPos = targetDebris->GetPosition();
+                        Vector3 thPos = thrownDebris->GetPosition();
+                        float distSq = (tPos.x - thPos.x) * (tPos.x - thPos.x) +
+                                       (tPos.y - thPos.y) * (tPos.y - thPos.y) +
+                                       (tPos.z - thPos.z) * (tPos.z - thPos.z);
+                        float hitDist = 2.5f;
+                        if (distSq <= hitDist * hitDist) {
+                            targetDebris->TakeDamage(thrownDebris->GetAtk());
+                            thrownDebris->SetDead(true);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ゴミオブジェクトの更新（漂流 / 投射状態）
@@ -260,6 +340,18 @@ void GameScene::Update(GameApp& app, float dt) {
             [](const std::unique_ptr<Debris>& d) { return d->IsDead(); }),
         debrisList_.end()
     );
+
+    // マップ上の浮遊海洋生物・デブリが減少した場合に通常生物を中心に自動補充
+    if (debrisList_.size() < 35) {
+        float x = (static_cast<float>(std::rand()) / RAND_MAX * 160.0f) - 80.0f;
+        float y = (static_cast<float>(std::rand()) / RAND_MAX * 40.0f) - 20.0f;
+        float z = (static_cast<float>(std::rand()) / RAND_MAX * 160.0f) - 80.0f;
+
+        DebrisType type = GetWeightedRandomDebrisType();
+        auto debris = std::make_unique<Debris>();
+        debris->Initialize(app.ObjCom(), app.Dx(), camera_.get(), type, { x, y, z });
+        debrisList_.push_back(std::move(debris));
+    }
 
     for (const auto& enemy : enemies_) {
         enemy->Update(dt);
@@ -461,7 +553,74 @@ void GameScene::DrawOverlay2D(GameApp&) {
     if (bossHpBarBgSprite_) bossHpBarBgSprite_->Draw();
     if (bossHpBarCatchupSprite_) bossHpBarCatchupSprite_->Draw();
     if (bossHpBarFillSprite_) bossHpBarFillSprite_->Draw();
-}
+
+    // ----------------------------------------------------
+    // 常時 2D スプライト描画による強力生物の頭上 HPバー
+    // ----------------------------------------------------
+    if (creatureHpBarBgSprite_ && creatureHpBarFillSprite_ && camera_) {
+        Matrix4x4 activeVpMat = camera_->GetViewProjectionMatrix();
+        if (debugCameraEnabled_ && debugCamera_) {
+            activeVpMat = debugCamera_->GetViewMatrix() * camera_->GetProjectionMatrix();
+        }
+
+        Matrix4x4 viewMat = Matrix4x4::MakeIdentity4x4();
+        Matrix4x4 projMat = Matrix4x4::MakeOrthographicMatrix(0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
+
+        const DirectX::TexMetadata& bgMeta = TextureManager::GetInstance()->GetMetaData(creatureHpBarBgSprite_->GetTextureFilePath());
+        float bgTexW = (std::max)(1.0f, static_cast<float>(bgMeta.width));
+        float bgTexH = (std::max)(1.0f, static_cast<float>(bgMeta.height));
+
+        const DirectX::TexMetadata& fillMeta = TextureManager::GetInstance()->GetMetaData(creatureHpBarFillSprite_->GetTextureFilePath());
+        float fillTexW = (std::max)(1.0f, static_cast<float>(fillMeta.width));
+        float fillTexH = (std::max)(1.0f, static_cast<float>(fillMeta.height));
+
+        for (const auto& debris : debrisList_) {
+            if (debris && debris->GetState() == DebrisState::Floating && debris->IsStrongCreature() && !debris->IsCatchable()) {
+                Vector3 headWorldPos = debris->GetHeadPosition();
+                Vector3 screenPos = WorldToScreen(headWorldPos, activeVpMat, 1280.0f, 720.0f);
+                    if (screenPos.z >= 0.0f) {
+                        float ratio = (debris->GetMaxHp() > 0.0f) ? (debris->GetHp() / debris->GetMaxHp()) : 0.0f;
+                        ratio = std::clamp(ratio, 0.0f, 1.0f);
+
+                        // Playerと同配色の「緑 (100%) -> 黄 (50%) -> 赤 (0%)」グラデーション補間
+                        float r = 0.0f, g = 0.0f, b = 0.0f;
+                        if (ratio >= 0.5f) {
+                            float t = (ratio - 0.5f) * 2.0f;
+                            r = 1.0f - t;
+                            g = 1.0f;
+                        } else {
+                            float t = ratio * 2.0f;
+                            r = 1.0f;
+                            g = t;
+                        }
+
+                        float barWidth = 80.0f;
+                        float barHeight = 10.0f;
+                        float posX = screenPos.x - barWidth * 0.5f;
+                        float posY = screenPos.y;
+
+                        // 背景バー設定＆描画
+                        creatureHpBarBgSprite_->SetPosition({ posX - 2.0f, posY - 2.0f });
+                        creatureHpBarBgSprite_->SetScale({ (barWidth + 4.0f) / bgTexW, (barHeight + 4.0f) / bgTexH, 1.0f });
+                        creatureHpBarBgSprite_->SetColor({ 0.10f, 0.10f, 0.10f, 0.85f });
+                        creatureHpBarBgSprite_->Update(viewMat, projMat);
+                        creatureHpBarBgSprite_->Draw();
+
+                        // メインHPバー設定＆描画
+                        float fillWidth = barWidth * ratio;
+                        if (fillWidth > 0.0f) {
+                            creatureHpBarFillSprite_->SetPosition({ posX, posY });
+                            creatureHpBarFillSprite_->SetScale({ fillWidth / fillTexW, barHeight / fillTexH, 1.0f });
+                            creatureHpBarFillSprite_->SetColor({ r, g, b, 1.0f });
+                            creatureHpBarFillSprite_->Update(viewMat, projMat);
+                            creatureHpBarFillSprite_->Draw();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 
 void GameScene::DrawImGui(GameApp& app) {
 #ifdef USE_IMGUI
@@ -555,9 +714,9 @@ void GameScene::DrawImGui(GameApp& app) {
     };
 
     const CreatureInfo guideItems[] = {
-        { "ウニ",         ImVec4(0.55f, 0.15f, 0.75f, 1.0f), "基本ドロップ", "HP+30 / 投擲強撃(Dmg+50%)" },
-        { "ドラム缶",     ImVec4(0.40f, 0.40f, 0.45f, 1.0f), "基本ドロップ", "重量3.5kg / 投擲攻撃" },
-        { "スクリュー",   ImVec4(0.90f, 0.80f, 0.20f, 1.0f), "基本ドロップ", "推進力+12 / 移動強化" },
+        { "ウニ",         ImVec4(0.55f, 0.15f, 0.75f, 1.0f), "倒して拾う", "HP増加(HP+30) + 投擲ダメージ高(Atk 50)" },
+        { "ドラム缶",     ImVec4(0.40f, 0.40f, 0.45f, 1.0f), "基本ドロップ", "重量3.5kg / 人工武器" },
+        { "スクリュー",   ImVec4(0.90f, 0.80f, 0.20f, 1.0f), "基本ドロップ", "推進力+12 / 人工武器" },
         { "テッポウウオ", ImVec4(1.00f, 0.90f, 0.10f, 1.0f), "通常生物",     "弾丸攻撃(Atk 15)" },
         { "ハリセンボン", ImVec4(1.00f, 0.55f, 0.10f, 1.0f), "通常生物",     "投擲超ダメージ(Atk 50, +80%)" },
         { "コバンザメ",   ImVec4(0.90f, 0.30f, 0.90f, 1.0f), "通常生物",     "自動回収 / 移動速度+10%" },
@@ -566,12 +725,12 @@ void GameScene::DrawImGui(GameApp& app) {
         { "クラゲ",       ImVec4(0.20f, 0.90f, 1.00f, 1.0f), "通常生物",     "チャージ速度+50% UP" },
         { "サヨリ",       ImVec4(0.10f, 1.00f, 0.60f, 1.0f), "通常生物",     "移動速度+25% UP" },
         { "ヒトデ",       ImVec4(1.00f, 0.95f, 0.15f, 1.0f), "通常生物",     "投擲ダメージ+40% UP" },
-        { "カジキ",       ImVec4(0.10f, 0.35f, 0.95f, 1.0f), "強力生物",     "超高威力投擲(Atk 90, +100%)" },
-        { "イルカ",       ImVec4(0.30f, 0.80f, 1.00f, 1.0f), "強力生物",     "爆速移動+50% & チャージ+40%" },
-        { "シャチ",       ImVec4(0.15f, 0.15f, 0.25f, 1.0f), "強力生物",     "攻撃力+70% & 被ダメ20%軽減" },
-        { "カニ",         ImVec4(0.90f, 0.40f, 0.10f, 1.0f), "強力生物",     "HP+45 & 被ダメ35%鉄壁ガード" },
-        { "シャコ",       ImVec4(0.40f, 1.00f, 0.20f, 1.0f), "強力生物",     "衝撃波攻撃(Atk 60, +40%)" },
-        { "サメ",         ImVec4(0.85f, 0.15f, 0.15f, 1.0f), "強力生物",     "自動追尾攻撃 & 攻撃+50%/速度+20%" }
+        { "カジキ",       ImVec4(0.10f, 0.35f, 0.95f, 1.0f), "倒して拾う", "投擲速度UP(+80%) + 投擲ダメージUP(Atk 90)" },
+        { "イルカ",       ImVec4(0.30f, 0.80f, 1.00f, 1.0f), "倒して拾う", "移動速度大幅UP(+80%) [1能力特化]" },
+        { "シャチ",       ImVec4(0.15f, 0.15f, 0.25f, 1.0f), "倒して拾う", "攻撃力大幅UP(+100%) [1能力特化]" },
+        { "カニ",         ImVec4(0.90f, 0.40f, 0.10f, 1.0f), "倒して拾う", "HP増加(HP+50) + 近距離攻撃/ガード" },
+        { "シャコ",       ImVec4(0.40f, 1.00f, 0.20f, 1.0f), "倒して拾う", "衝撃波攻撃(Atk 60) + 人工武器シナジー" },
+        { "サメ",         ImVec4(0.85f, 0.15f, 0.15f, 1.0f), "倒して拾う", "自動追尾攻撃 [1能力特化]" }
     };
 
     if (ImGui::BeginTable("GuideTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -598,5 +757,70 @@ void GameScene::DrawImGui(GameApp& app) {
         ImGui::EndTable();
     }
     ImGui::End();
+
+    // ----------------------------------------------------
+    // 未撃破の強力生物の頭上に Player と同配色の HP バーを描画
+    // ----------------------------------------------------
+    if (camera_) {
+        ImDrawList* drawList = ImGui::GetForegroundDrawList();
+        Matrix4x4 activeVpMat = camera_->GetViewProjectionMatrix();
+        if (debugCameraEnabled_ && debugCamera_) {
+            activeVpMat = debugCamera_->GetViewMatrix() * camera_->GetProjectionMatrix();
+        }
+
+        for (const auto& debris : debrisList_) {
+            if (debris && debris->GetState() == DebrisState::Floating && debris->IsStrongCreature() && !debris->IsCatchable()) {
+                Vector3 headWorldPos = debris->GetHeadPosition();
+                Vector3 screenPos = WorldToScreen(headWorldPos, activeVpMat, 1280.0f, 720.0f);
+                if (screenPos.z >= 0.0f) {
+                    float ratio = (debris->GetMaxHp() > 0.0f) ? (debris->GetHp() / debris->GetMaxHp()) : 0.0f;
+                    ratio = std::clamp(ratio, 0.0f, 1.0f);
+
+                    // Playerと同配色の「緑 (100%) -> 黄 (50%) -> 赤 (0%)」グラデーション補間
+                    float r = 0.0f, g = 0.0f, b = 0.0f;
+                    if (ratio >= 0.5f) {
+                        float t = (ratio - 0.5f) * 2.0f;
+                        r = 1.0f - t;
+                        g = 1.0f;
+                    } else {
+                        float t = ratio * 2.0f;
+                        r = 1.0f;
+                        g = t;
+                    }
+
+                    float barWidth = 90.0f;
+                    float barHeight = 10.0f;
+                    float posX = screenPos.x - barWidth * 0.5f;
+                    float posY = screenPos.y;
+
+                    // 1. 黒枠・背景バー
+                    drawList->AddRectFilled(
+                        ImVec2(posX - 2.0f, posY - 2.0f),
+                        ImVec2(posX + barWidth + 2.0f, posY + barHeight + 2.0f),
+                        IM_COL32(15, 15, 15, 230), 3.0f
+                    );
+
+                    // 2. メインHPゲージ (グラデーションカラー)
+                    float fillWidth = barWidth * ratio;
+                    if (fillWidth > 0.0f) {
+                        drawList->AddRectFilled(
+                            ImVec2(posX, posY),
+                            ImVec2(posX + fillWidth, posY + barHeight),
+                            IM_COL32(static_cast<int>(r * 255), static_cast<int>(g * 255), static_cast<int>(b * 255), 255), 2.0f
+                        );
+                    }
+
+                    // 3. 名称とHP数値テキスト
+                    char hpText[64];
+                    snprintf(hpText, sizeof(hpText), "%s HP %.0f/%.0f", debris->GetName().c_str(), debris->GetHp(), debris->GetMaxHp());
+                    drawList->AddText(
+                        ImVec2(posX, posY - 16.0f),
+                        IM_COL32(255, 255, 255, 255),
+                        hpText
+                    );
+                }
+            }
+        }
+    }
 #endif
 }

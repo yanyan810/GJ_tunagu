@@ -12,7 +12,7 @@ class Camera;
 enum class DebrisType {
     // 基本・ドロップ
     Uni,           // ウニ (HP増加 + 投擲時高ダメージ)
-    Teapot,        // ドラム缶 / ティーポット
+    DrumCan,       // ドラム缶
     Screw,         // スクリュー (推進器)
 
     // 普通に拾える海洋生物 (8種)
@@ -101,8 +101,17 @@ public:
     float GetChargeSpeedBuff() const { return chargeSpeedBuff_; }
     float GetDefenseBuff() const { return defenseBuff_; }
     float GetThrowAtkBuff() const { return throwAtkBuff_; }
+    float GetThrowSpeedBuff() const { return throwSpeedBuff_; }
     const std::string& GetName() const { return name_; }
     const Vector4& GetColor() const { return color_; }
+
+    // 強力生物・耐久値 (HP) 関連
+    bool IsStrongCreature() const;
+    bool IsCatchable() const;
+    bool TakeDamage(float damage);
+    float GetHp() const { return hp_; }
+    float GetMaxHp() const { return maxHp_; }
+    Vector3 GetHeadPosition() const;
 
 private:
     void ApplyModelTransform_(const Vector3& rotation);
@@ -112,6 +121,12 @@ private:
     bool marineModel_ = false;
     DebrisType type_;
     DebrisState state_ = DebrisState::Floating;
+
+    float hp_ = 0.0f;
+    float maxHp_ = 0.0f;
+    float moveSpeed_ = 0.0f;
+    float swimTimer_ = 0.0f;
+    float targetYaw_ = 0.0f;
 
     // トランスフォーム
     Vector3 pos_ = { 0.0f, 0.0f, 0.0f };
@@ -135,6 +150,7 @@ private:
     float chargeSpeedBuff_ = 0.0f; // チャージ速度倍率加算
     float defenseBuff_ = 0.0f;     // ダメージ軽減率 (0.2 = 20%減)
     float throwAtkBuff_ = 0.0f;    // 投擲ダメージ倍率加算
+    float throwSpeedBuff_ = 0.0f;  // 投擲速度倍率加算
 
     // フワフワ挙動用
     float floatTimer_ = 0.0f;

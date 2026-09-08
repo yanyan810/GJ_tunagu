@@ -1,5 +1,6 @@
 #include "GameApp.h"
 #include "SceneManager.h"
+#include "scene/Flow/TitleScene.h"
 #include "scene/Main/GameScene.h"
 #include "scene/Flow/GameOverScene.h"
 #include "scene/Flow/GameClearScene.h"
@@ -201,12 +202,13 @@ bool GameApp::Initialize_() {
 
     // SceneManager
     sceneMgr_ = std::make_unique<SceneManager>();
+    sceneMgr_->Register("Title", [] { return std::make_unique<TitleScene>(); });
     sceneMgr_->Register("Game", [] { return std::make_unique<GameScene>(); });
     sceneMgr_->Register("BossTest", [] { return std::make_unique<BossTestScene>(); });
     sceneMgr_->Register("Ship", [] { return std::make_unique<ShipScene>(); });
     sceneMgr_->Register("GameOver", [] { return std::make_unique<GameOverScene>(); });
     sceneMgr_->Register("GameClear", [] { return std::make_unique<GameClearScene>(); });
-    sceneMgr_->Change(*this, "Game");
+    sceneMgr_->Change(*this, "Title");
 
 
     OutputDebugStringA("[GameApp] Initialize END\n");
