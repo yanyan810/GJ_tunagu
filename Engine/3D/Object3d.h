@@ -261,6 +261,7 @@ public:
 	}
 
 private:
+	void RefreshViewConstants_();
 	void EnsureInstanceMaterial_();
 	void RebuildNodeTransformResources_();
 	void BindCaustics_(ID3D12GraphicsCommandList* commandList) const;

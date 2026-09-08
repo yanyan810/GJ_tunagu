@@ -1,4 +1,5 @@
 #include "Object3d.h"
+#include "FrameProfiler.h"
 #include "Object3dCommon.h"
 #include "PrimitiveCommon.h"
 #include "WinApp.h"
@@ -410,6 +411,24 @@ void Object3d::Update(float dt)
 
 
 
+void Object3d::RefreshViewConstants_()
+{
+	if (!camera_ && object3dCommon) {
+		camera_ = object3dCommon->GetDefaultCamera();
+	}
+	if (cameraData_ && camera_) {
+		cameraData_->worldPosition = camera_->GetTranslate();
+	}
+	if (transformationMatrixDataModel) {
+		// The camera can move after Update, including while gameplay is paused.
+		// Keep the simulated world/pose and refresh only the view-dependent data.
+		const Matrix4x4& world = transformationMatrixDataModel->World;
+		transformationMatrixDataModel->WVP = camera_
+			? Matrix4x4::Multiply(world, camera_->GetViewProjectionMatrix())
+			: world;
+	}
+}
+
 void Object3d::Draw()
 {
 	if (!isVisible_) {
@@ -420,10 +439,9 @@ void Object3d::Draw()
 		OutputDebugStringA("[Object3d] Draw skipped: model_ is null\n");
 		return;
 	}
+	FrameProfiler::Get().AddCounter("Object draws", 1);
 
-	if (cameraData_ && camera_) {
-		cameraData_->worldPosition = camera_->GetTranslate();
-	}
+	RefreshViewConstants_();
 
 	auto* cmd = dx_->GetCommandList();
 
@@ -561,7 +579,7 @@ void Object3d::Draw()
 
 		// =====================================================
 		// =====================================================
-		{
+		if (model_->HasUnskinnedMeshes()) {
 			auto SetNormalPipelineState = [&]() {
 				if (primitiveCommon_) {
 					if (useEnvironmentMap_) {
@@ -676,6 +694,10 @@ void Object3d::Draw()
 			transformationMatrixDataModel->WVP = Matrix4x4::Multiply(originalWorld, vp);
 			transformationMatrixDataModel->WorldInverseTranspose =
 				Matrix4x4::Transpose(Matrix4x4::Inverse(originalWorld));
+		} else {
+			// Fully skinned models were drawn above. Avoid node-vector allocation,
+			// animation evaluation, inverse matrices and redundant PSO setup here.
+			FrameProfiler::Get().AddCounter("Rigid setup skipped", 1);
 		}
 	} else {
 		EnsureInstanceMaterial_();
@@ -855,6 +877,8 @@ void Object3d::DrawWithOverrideSrv(const D3D12_GPU_DESCRIPTOR_HANDLE& srv)
 	if (!model_) {
 		return;
 	}
+
+	RefreshViewConstants_();
 
 	auto* cmd = dx_->GetCommandList();
 

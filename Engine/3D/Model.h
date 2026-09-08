@@ -273,6 +273,8 @@ public:
 	}
 
 	bool IsMeshSkinned(uint32_t meshIndex) const;
+	// Cached with node runtime data; mixed models still need their rigid meshes.
+	bool HasUnskinnedMeshes() const { return hasUnskinnedMeshes_; }
 
 	int32_t FindNodeIndexByName(const std::string& name) const {
 		auto it = nodeNameToIndex_.find(name);
@@ -311,6 +313,7 @@ private:
 	ModelCommon* modelCommon_;
 
 	ModelData modelData_;
+	bool hasUnskinnedMeshes_ = false;
 
 	// 頂点データ（バッファ）
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;   // 頂点リソース

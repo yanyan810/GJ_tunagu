@@ -14,6 +14,8 @@
 #include "ShockwaveRock.h"
 #include "Player.h"
 #include "Object3d.h"
+#include "DirectXCommon.h"
+#include "FrameProfiler.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -64,6 +66,7 @@ struct BossCombatController::Impl {
     struct MineMeta { float age=0; bool gathered=false, released=false; };
     struct RockMeta { bool hit=false; };
     Object3d* ship=nullptr;
+    DirectXCommon* dx=nullptr;
     Camera* camera=nullptr;
     BossThreatHud hud;
     std::vector<BossAttackGuidance::Threat> warnings;
@@ -127,6 +130,7 @@ void BossCombatController::Initialize(Object3dCommon* objects, DirectXCommon* dx
     Camera* camera, Object3d* ship) {
     auto& e=*impl_;
     e.ship=ship;
+    e.dx=dx;
     e.camera=camera;e.hud.Initialize(dx);e.warnings.reserve(80);
     e.settings.Load();e.activePing=e.settings.ping;
     e.rig.Initialize(objects,dx,camera,ship);
@@ -485,6 +489,7 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
 
 void BossCombatController::Update(float dt,Player& player,const Vector3& arenaCenter,bool enabled,float groundY,
     const ReefCollisionWorld* beamWorld) {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Boss combat update");
     auto& e=*impl_;
     if(!e.initialized) return;
     enabled=enabled&&e.frameEnabled&&!player.IsDead();
@@ -587,17 +592,22 @@ void BossCombatController::Impl::BuildTelegraph() {
 }
 void BossCombatController::DrawOpaque() {
     auto& e=*impl_;if(!e.enabled) return;
+    auto cpu = FrameProfiler::Get().ScopeCpu("Boss attack models");
+    auto gpu = FrameProfiler::Get().ScopeGpu(e.dx->GetCommandList(), "Boss attack models");
     e.rig.DrawOpaque();
     for(const auto& rock:e.rocks) rock->Draw();
     for(const auto& mine:e.mines) if(!e.mineFx.ReplacesMine(*mine)) mine->Draw();
 }
 void BossCombatController::DrawEffects(ID3D12Resource* color,ID3D12Resource* depth) {
     auto& e=*impl_;if(!e.enabled) return;
+    auto cpu = FrameProfiler::Get().ScopeCpu("Boss effects");
+    auto gpu = FrameProfiler::Get().ScopeGpu(e.dx->GetCommandList(), "Boss effects");
     e.mineFx.Draw(color,depth);e.screwFx.Draw(color,depth);e.waveFx.Draw(color,depth);
     e.anchorFx.Draw(color,depth);e.pingFx.Draw(color,depth);
     e.BuildTelegraph();e.telegraph.Draw(color,depth,{.9f,.7f,.75f,1.0f});
 }
 void BossCombatController::DrawWarnings() {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Boss warnings");
     auto& e=*impl_;if(e.enabled&&e.camera) e.hud.Draw(e.warnings,*e.camera,e.playerPosition,e.time,e.presentationPlaying);
 }
 void BossCombatController::PauseWarnings() {impl_->presentationPlaying=false;impl_->hud.Silence();}
