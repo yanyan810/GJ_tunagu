@@ -70,6 +70,7 @@ public:
     );
 
     void Draw();
+    void DrawExhibit(const Vector3& position, float size, float yaw = 1.2f, float animationDelta = 0.0f);
 
     // 投射処理
     void Throw(const Vector3& pos, const Vector3& velocity);

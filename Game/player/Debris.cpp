@@ -1,4 +1,4 @@
-#include "Debris.h"
+﻿#include "Debris.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
 #include "DirectXCommon.h"
@@ -25,9 +25,6 @@ void Debris::Respawn(const Vector3& position) {
     pos_ = position;
     state_ = DebrisState::Floating;
     isDead_ = false;
-    hp_ = maxHp_;
-    swimTimer_ = 0.0f;
-    targetYaw_ = 0.0f;
     velocity_ = {};
     rot_ = {};
     localOffset_ = {};
@@ -49,7 +46,6 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
 
     std::string modelPath = "cube/cube.obj";
     scale_ = { 1.0f, 1.0f, 1.0f };
-    atk_ = 35.0f; // 基本投擲ダメージの底上げ
 
     switch (type_) {
     // --- ドロップ・基本 ---
@@ -57,11 +53,11 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "ウニ";
         modelPath = "sea_urchin/sea_urchin.gltf";
         weight_ = 1.2f;
-        maxHp_ = hp_ = 30.0f;     // 倒してから拾える
+        maxHp_ = hp_ = 30.0f;     // 倒してから拾える (HP 30)
         moveSpeed_ = 2.0f;
         hpBuff_ = 30.0f;          // HP +30
         throwAtkBuff_ = 0.5f;     // 投擲ダメージ +50%
-        atk_ = 65.0f;             // 高投擲ダメージ (65.0)
+        atk_ = 50.0f;             // 高投擲ダメージ
         scale_ = { 1.4f, 1.4f, 1.4f };
         color_ = { 0.55f, 0.15f, 0.75f, 1.0f }; // 紫 (ウニ)
         break;
@@ -70,7 +66,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         modelPath = "drumCan/drumCan.gltf";
         weight_ = 3.5f;
         thrust_ = 0.0f;
-        atk_ = 40.0f;
+        atk_ = 10.0f;
         scale_ = { 1.3f, 1.3f, 1.3f };
         color_ = { 0.40f, 0.40f, 0.45f, 1.0f }; // ダークグレー (ドラム缶)
         break;
@@ -88,7 +84,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "テッポウウオ";
         modelPath = "Archerfish/Archerfish.gltf";
         weight_ = 0.6f;
-        atk_ = 35.0f;
+        atk_ = 15.0f;
         scale_ = { 1.0f, 0.4f, 0.4f };
         color_ = { 1.00f, 0.90f, 0.10f, 1.0f }; // イエロー (テッポウウオ)
         break;
@@ -96,7 +92,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "ハリセンボン";
         modelPath = "pufferfish/pufferfish.gltf";
         weight_ = 1.0f;
-        atk_ = 55.0f;
+        atk_ = 50.0f;
         throwAtkBuff_ = 0.8f;
         scale_ = { 1.5f, 1.5f, 1.5f };
         color_ = { 1.00f, 0.55f, 0.10f, 1.0f }; // オレンジ (ハリセンボン)
@@ -151,12 +147,12 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         color_ = { 1.00f, 0.95f, 0.15f, 1.0f }; // イエロー (ヒトデ)
         break;
 
-    // --- 倒してから装備できる強力な海洋生物 (6種: HPマイルド化) ---
+    // --- 倒してから装備できる強力な海洋生物 (6種) ---
     case DebrisType::Marlin:
         name_ = "カジキ";
         modelPath = "marlin/marlin.gltf";
         weight_ = 1.8f;
-        maxHp_ = hp_ = 35.0f;     // ウニ1発・通常生物1〜2発で撃破可能
+        maxHp_ = hp_ = 60.0f;
         moveSpeed_ = 6.5f;
         throwSpeedBuff_ = 0.80f; // 投擲速度UP
         throwAtkBuff_ = 1.00f;   // 投擲ダメージUP
@@ -168,7 +164,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "イルカ";
         modelPath = "dolphin/dolphin.gltf";
         weight_ = 0.8f;
-        maxHp_ = hp_ = 25.0f;     // 1〜2発で撃破可能
+        maxHp_ = hp_ = 40.0f;
         moveSpeed_ = 7.0f;
         speedBuff_ = 0.80f;      // 移動速度大幅UP (1能力特化)
         scale_ = { 1.9f, 1.9f, 1.9f };
@@ -178,7 +174,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "シャチ";
         modelPath = "orca/orca.gltf";
         weight_ = 2.5f;
-        maxHp_ = hp_ = 55.0f;     // 大型最高耐久 (約2〜3発で撃破可能)
+        maxHp_ = hp_ = 100.0f;
         moveSpeed_ = 4.5f;
         atkBuff_ = 1.00f;        // 攻撃力大幅UP (+100%, 1能力特化)
         scale_ = { 2.2f, 2.2f, 2.2f };
@@ -188,7 +184,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "カニ";
         modelPath = "crab/crab.gltf";
         weight_ = 2.0f;
-        maxHp_ = hp_ = 45.0f;     // 約2発で撃破可能
+        maxHp_ = hp_ = 80.0f;
         moveSpeed_ = 2.5f;
         hpBuff_ = 50.0f;         // HP増加
         defenseBuff_ = 0.35f;    // 近距離攻撃/ガード
@@ -199,7 +195,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "シャコ";
         modelPath = "mantis_shrimp/mantis_shrimp.gltf";
         weight_ = 1.2f;
-        maxHp_ = hp_ = 30.0f;     // 1〜2発で撃破可能
+        maxHp_ = hp_ = 50.0f;
         moveSpeed_ = 3.5f;
         atk_ = 60.0f;            // 衝撃波攻撃
         atkBuff_ = 0.40f;        // 人工武器シナジー
@@ -210,7 +206,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
         name_ = "サメ";
         modelPath = "shark/shark.gltf";
         weight_ = 2.2f;
-        maxHp_ = hp_ = 50.0f;     // 約2発で撃破可能
+        maxHp_ = hp_ = 90.0f;
         moveSpeed_ = 5.5f;
         atk_ = 50.0f;            // 自動追尾攻撃特化
         atkBuff_ = 0.50f;
@@ -279,6 +275,7 @@ void Debris::ApplyModelTransform_(const Vector3& rotation) {
 
 void Debris::UpdateFloating(float dt) {
     if (!model_) return;
+    model_->SetScale(scale_);
 
     floatTimer_ += dt;
 
@@ -420,6 +417,44 @@ bool Debris::IsVisualVisible_() const {
         !outside(1, 1.0f) && !outside(1, -1.0f) && !outside(2, -1.0f);
 }
 
+void Debris::DrawExhibit(const Vector3& position, float size, float yaw, float animationDelta) {
+    if (!model_) return;
+    AABB bounds{};
+    Vector3 center = modelCenter_;
+    float factor = 1.0f;
+    if (model_->GetModel()->GetLocalAABB(bounds)) {
+        if (type_ == DebrisType::DrumCan) {
+            // Account for the authored node scale/translation before fitting the exhibit.
+            const auto meshBounds = model_->GetModel()->GetMeshesLocalAABBs();
+            bool first = true;
+            for (size_t i = 0; i < meshBounds.size(); ++i) {
+                const auto matrix = model_->GetModel()->GetNodeWorldMatrix(
+                    model_->GetModel()->GetMeshOwnerNodeIndex(static_cast<uint32_t>(i)));
+                const auto& box = meshBounds[i].localAABB;
+                for (int corner = 0; corner < 8; ++corner) {
+                    const Vector3 p = TransformCoord({(corner & 1) ? box.max.x : box.min.x,
+                        (corner & 2) ? box.max.y : box.min.y, (corner & 4) ? box.max.z : box.min.z}, matrix);
+                    if (first) { bounds.min = bounds.max = p; first = false; }
+                    bounds.min = {std::min(bounds.min.x, p.x), std::min(bounds.min.y, p.y), std::min(bounds.min.z, p.z)};
+                    bounds.max = {std::max(bounds.max.x, p.x), std::max(bounds.max.y, p.y), std::max(bounds.max.z, p.z)};
+                }
+            }
+        }
+        center = (bounds.min + bounds.max) * 0.5f;
+        const Vector3 extent = bounds.max - bounds.min;
+        factor = size / std::max({extent.x, extent.y, extent.z, 0.001f});
+    }
+    const Vector3 displayScale{factor, factor, factor};
+    const Vector3 rotation = modelRotation_ + Vector3{0.0f, yaw, 0.0f};
+    const auto basis = Matrix4x4::MakeAffineMatrix(displayScale, rotation, {});
+    model_->SetScale(displayScale);
+    model_->SetRotate(rotation);
+    model_->SetTranslate(position - TransformCoord(center, basis));
+    // Thumbnails keep the default zero delta; the main exhibit can animate.
+    model_->Update(animationDelta);
+    model_->Draw();
+}
+
 void Debris::Draw() {
     if (!IsVisualVisible_()) return;
     if (model_) {
@@ -445,9 +480,8 @@ void Debris::Update(float dt) {
 void Debris::UpdateThrown(float dt) {
     if (!model_) return;
 
-    // 自動追尾・ホーミング能力を持つ海洋生物（サメ等）のみ追尾し、通常の投擲物はまっすぐ飛ぶ
-    bool isHomingCreature = (type_ == DebrisType::Shark);
-    if (hasTarget_ && isHomingCreature) {
+    // ボスへのエイムアシスト（飛行中に緩やかに吸い込まれる誘導）
+    if (hasTarget_) {
         Vector3 toTarget = { targetPos_.x - pos_.x, targetPos_.y - pos_.y, targetPos_.z - pos_.z };
         float len = std::sqrt(toTarget.x * toTarget.x + toTarget.y * toTarget.y + toTarget.z * toTarget.z);
         if (len > 0.001f) {

@@ -196,6 +196,9 @@
     <ClCompile Include="Game\scene\Flow\TitleScene.cpp">
       <Filter>Game\Scene\Flow</Filter>
     </ClCompile>
+    <ClCompile Include="Game\scene\Flow\StageSelectScene.cpp">
+      <Filter>Game\Scene\Flow</Filter>
+    </ClCompile>
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp">
       <Filter>Game\Environment</Filter>
     </ClCompile>
@@ -350,6 +353,9 @@
     <ClInclude Include="Engine\2D\Sprite.h">
       <Filter>Engine\2D</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\2D\TextSprite.h">
+      <Filter>Engine\2D</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\2D\SpriteCommon.h">
       <Filter>Engine\2D</Filter>
     </ClInclude>
@@ -442,6 +448,9 @@
       <Filter>Game\Scene\Main</Filter>
     </ClInclude>
     <ClInclude Include="Game\scene\Flow\TitleScene.h">
+      <Filter>Game\Scene\Flow</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\scene\Flow\StageSelectScene.h">
       <Filter>Game\Scene\Flow</Filter>
     </ClInclude>
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h">

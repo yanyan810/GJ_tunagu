@@ -31,7 +31,7 @@ int gTestSceneAttackTuningTarget = 0;
 
 void ImGuiManagaer::Initialize([[maybe_unused]]WinApp* winApp, [[maybe_unused]] DirectXCommon* dxCommon, [[maybe_unused]] SrvManager* srvManager)
 {
-#ifdef USE_IMGUI
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
 
 
 
@@ -53,6 +53,8 @@ void ImGuiManagaer::Initialize([[maybe_unused]]WinApp* winApp, [[maybe_unused]] 
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
     const char* japaneseFontPaths[] = {
+        "resources/tex/font/menu.ttf",
+        "tex/font/menu.ttf",
         "C:/Windows/Fonts/meiryo.ttc",
         "C:/Windows/Fonts/YuGothM.ttc",
         "C:/Windows/Fonts/msgothic.ttc",
@@ -116,14 +118,16 @@ void ImGuiManagaer::SetPreviewTexture(uint32_t srvIndex)
 
 void ImGuiManagaer::Begin()
 {
-#ifdef USE_IMGUI
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
 
 
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+#ifdef USE_IMGUI
     BeginDockSpace_();
     DrawEditorPanels_();
+#endif
 
 #endif // USE_IMGUI
 
@@ -450,7 +454,7 @@ void ImGuiManagaer::DrawEditorPanels_()
 
 void ImGuiManagaer::End(ID3D12GraphicsCommandList* cmd)
 {
-#ifdef USE_IMGUI
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
 
 
     ImGui::Render();
@@ -469,7 +473,7 @@ void ImGuiManagaer::End(ID3D12GraphicsCommandList* cmd)
 void ImGuiManagaer::Shutdown()
 {
 
-#ifdef USE_IMGUI
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
 
 
     if (!initialized_) return;

@@ -260,6 +260,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\scene\Flow\GameClearScene.cpp" />
     <ClCompile Include="Game\scene\Flow\GameOverScene.cpp" />
     <ClCompile Include="Game\scene\Flow\TitleScene.cpp" />
+    <ClCompile Include="Game\scene\Flow\StageSelectScene.cpp" />
     <ClCompile Include="main.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">false</WholeProgramOptimization>
@@ -553,6 +554,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\2D\Sprite.h" />
+    <ClInclude Include="Engine\2D\TextSprite.h" />
     <ClInclude Include="Engine\2D\SpriteCommon.h" />
     <ClInclude Include="Engine\2D\TextureManager.h" />
     <ClInclude Include="Engine\3D\Model.h" />
@@ -682,6 +684,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Game\scene\Flow\GameClearScene.h" />
     <ClInclude Include="Game\scene\Flow\GameOverScene.h" />
     <ClInclude Include="Game\scene\Flow\TitleScene.h" />
+    <ClInclude Include="Game\scene\Flow\StageSelectScene.h" />
     <ClInclude Include="Game\player\Player.h" />
     <ClInclude Include="Game\player\Debris.h" />
   </ItemGroup>

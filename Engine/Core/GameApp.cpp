@@ -2,6 +2,7 @@
 #include "SceneManager.h"
 #include "AudioSystem.h"
 #include "scene/Flow/TitleScene.h"
+#include "scene/Flow/StageSelectScene.h"
 #include "scene/Main/GameScene.h"
 #include "scene/Flow/GameOverScene.h"
 #include "scene/Flow/GameClearScene.h"
@@ -45,7 +46,7 @@ int GameApp::Run() {
 
         const float dt = 1.0f / 60.0f;
 
-#ifdef USE_IMGUI
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
         // ★ ImGui フレーム開始（ここで1回だけ）
         imgui_->Begin();
 #endif // DEBUG
@@ -107,7 +108,7 @@ bool GameApp::Initialize_() {
     skyboxCommon_->Initialize(dx_.get());
 
 
-#ifdef USE_IMGUI
+#if defined(USE_IMGUI) || defined(USE_GAME_UI)
     imgui_ = std::make_unique<ImGuiManagaer>();
     imgui_->Initialize(win_.get(), dx_.get(), srv_.get());
     imgui_->SetSceneTexture(render_->GetOffscreenSrvIndex());
@@ -211,6 +212,7 @@ bool GameApp::Initialize_() {
     // SceneManager
     sceneMgr_ = std::make_unique<SceneManager>();
     sceneMgr_->Register("Title", [] { return std::make_unique<TitleScene>(); });
+    sceneMgr_->Register("StageSelect", [] { return std::make_unique<StageSelectScene>(); });
     sceneMgr_->Register("Game", [] { return std::make_unique<GameScene>(); });
     sceneMgr_->Register("BossTest", [] { return std::make_unique<BossTestScene>(); });
     sceneMgr_->Register("TestBattle", [] { return std::make_unique<TestBattleScene>(); });
@@ -370,6 +372,11 @@ void GameApp::Draw() {
 #ifndef USE_IMGUI
     render_->DrawOffscreenToBackBuffer();
     sceneMgr_->DrawOverlay2D(*this);
+#ifdef USE_GAME_UI
+    // Shipping UI is drawn over the game without the development editor.
+    sceneMgr_->DrawImGui(*this);
+    if (imgui_) imgui_->End(dx_->GetCommandList());
+#endif
 #endif
 
     // ③ Offscreenの中身を画面へ貼る
