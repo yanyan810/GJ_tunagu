@@ -288,6 +288,8 @@
     </ClCompile>
     <ClCompile Include="Engine\Core\ImGuiManagaer.cpp" />
     <ClCompile Include="Engine\Core\GameApp.cpp" />
+    <ClCompile Include="Engine\Core\FrameProfiler.cpp" />
+    <ClCompile Include="Engine\Core\FramePacer.cpp" />
     <ClCompile Include="Engine\Utility\StringUtility.cpp" />
     <ClCompile Include="Engine\Core\WinApp.cpp" />
     <ClCompile Include="Engine\Particle\ParticleManager.cpp" />
@@ -572,6 +574,8 @@
     <ClInclude Include="Engine\Core\SceneManager.h" />
     <ClInclude Include="Engine\Level\LevelLoader.h" />
     <ClInclude Include="Engine\Core\GameApp.h" />
+    <ClInclude Include="Engine\Core\FrameProfiler.h" />
+    <ClInclude Include="Engine\Core\FramePacer.h" />
     <ClInclude Include="Engine\DebugAI\Protocol\DebugGenericTypes.h" />
     <ClInclude Include="Engine\DebugAI\Protocol\DebugProtocol.h" />
     <ClInclude Include="Engine\DebugAI\Protocol\IGenericGameDebugAdapter.h" />

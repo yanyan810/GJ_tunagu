@@ -1,4 +1,5 @@
 ﻿#include "DirectXCommon.h"
+#include "FrameProfiler.h"
 #include <cassert>
 #include <dxgidebug.h>
 
@@ -114,8 +115,12 @@ Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompilesSharder(
 	filePath.c_str(),
 	L"-E", L"main",
 	L"-T", profile,
-	L"-Zi",L"-Qembed_debug",
-	L"-Od",
+
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
+	L"-Zi", L"-Qembed_debug", L"-Od",
+#else
+	L"-O3",
+#endif
 	L"-Zpr",
 	};
 
@@ -297,9 +302,11 @@ void DirectXCommon::Initialize(WinApp* winApp) {
 	hr = computeCommandList->Close();
 	hr = computeCommandAllocator->Reset();
 	hr = computeCommandList->Reset(computeCommandAllocator.Get(), nullptr);
+	FrameProfiler::Get().InitializeGpu(device_.Get(), commandQueue.Get());
 }
 
 DirectXCommon::~DirectXCommon() {
+	FrameProfiler::Get().ShutdownGpu();
 	if (fenceEvent) {
 		CloseHandle(fenceEvent);
 		fenceEvent = nullptr;
@@ -584,6 +591,7 @@ void DirectXCommon::DXCCompilerSpawn() {
 //}
 
 void DirectXCommon::InitializeFixFPS() {
+	framePacer_.Initialize();
 
 	reference_ = std::chrono::steady_clock::now();
 	fps_ = 0.0f;
@@ -591,29 +599,12 @@ void DirectXCommon::InitializeFixFPS() {
 }
 
 void DirectXCommon::UpdateFixFPS() {
-
-	using namespace std::chrono;
-
-	const microseconds kMinTime(uint64_t(1000000.0f / 60.0f));
-	const microseconds kMinCheckTime(uint64_t(1000000.0f / 65.0f));
-
-	auto now = steady_clock::now();
-	auto elapsed = duration_cast<microseconds>(now - reference_);
-
-	if (elapsed < kMinCheckTime) {
-		while (steady_clock::now() - reference_ < kMinTime) {
-			std::this_thread::sleep_for(microseconds(1));
-		}
-		now = steady_clock::now();
-		elapsed = duration_cast<microseconds>(now - reference_);
-	}
-
+	auto profile = FrameProfiler::Get().ScopeCpu("60 Hz limit sleep");
+	framePacer_.Wait();
+	const auto now = std::chrono::steady_clock::now();
+	const double elapsed = std::chrono::duration<double>(now - reference_).count();
 	reference_ = now;
-
-	if (elapsed.count() > 0) {
-		float elapsedSec = static_cast<float>(elapsed.count()) / 1'000'000.0f;
-		fps_ = 1.0f / elapsedSec;
-	}
+	if (elapsed > 0.0) fps_ = static_cast<float>(1.0 / elapsed);
 }
 
 
@@ -645,6 +636,7 @@ void DirectXCommon::PreDraw(bool clearDepth) {
 
 
 void DirectXCommon::PostDraw() {
+	auto profile = FrameProfiler::Get().ScopeCpu("PostDraw total");
 	const UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 
 	// OutputDebugStringA(std::format("[PreDraw] backBufferIndex = {}\n", backBufferIndex).c_str());
@@ -657,15 +649,23 @@ void DirectXCommon::PostDraw() {
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	commandList->ResourceBarrier(1, &barrier);
 
-	HRESULT hr = commandList->Close(); assert(SUCCEEDED(hr));
+	FrameProfiler::Get().ResolveGpuFrame(commandList.Get());
+	HRESULT hr;
+	{
+	auto submitProfile = FrameProfiler::Get().ScopeCpu("Command submit");
+	hr = commandList->Close(); assert(SUCCEEDED(hr));
 	hr = computeCommandList->Close(); assert(SUCCEEDED(hr));
 	
 	ID3D12CommandList* lists[] = { computeCommandList.Get(), commandList.Get() };
 	commandQueue->ExecuteCommandLists(2, lists);
+	}
 
 	UpdateFixFPS();
 
+	{
+	auto presentProfile = FrameProfiler::Get().ScopeCpu("Present / VSync");
 	hr = swapChain->Present(1, 0);
+	}
 	if (FAILED(hr)) {
 		char buf[256];
 		sprintf_s(buf, "[Present] hr=0x%08X\n", hr);
@@ -677,20 +677,31 @@ void DirectXCommon::PostDraw() {
 	}
 
 	if (hr == DXGI_STATUS_OCCLUDED) {
+		auto occludedProfile = FrameProfiler::Get().ScopeCpu("Occluded window sleep");
 		Sleep(16);
 	}
 
+	{
+	auto fenceProfile = FrameProfiler::Get().ScopeCpu("Frame fence wait");
 	fenceValue++;
 	hr = commandQueue->Signal(fence.Get(), fenceValue); assert(SUCCEEDED(hr));
 	if (fence->GetCompletedValue() < fenceValue) {
 		hr = fence->SetEventOnCompletion(fenceValue, fenceEvent); assert(SUCCEEDED(hr));
 		WaitForSingleObject(fenceEvent, INFINITE);
 	}
+	}
+	const UINT64 completed = fence->GetCompletedValue();
+	if (completed >= fenceValue && completed != UINT64_MAX) {
+		FrameProfiler::Get().ReadGpuAfterFence();
+	}
+	{
+	auto resetProfile = FrameProfiler::Get().ScopeCpu("Command reset");
 	hr = commandAllocator->Reset();                           assert(SUCCEEDED(hr));
 	hr = commandList->Reset(commandAllocator.Get(), nullptr); assert(SUCCEEDED(hr));
 
 	hr = computeCommandAllocator->Reset(); assert(SUCCEEDED(hr));
 	hr = computeCommandList->Reset(computeCommandAllocator.Get(), nullptr); assert(SUCCEEDED(hr));
+	}
 
 	// const UINT idxAfter = swapChain->GetCurrentBackBufferIndex();
 	// OutputDebugStringA(std::format("[After Present] backBufferIndex = {}\n", idxAfter).c_str());

@@ -1,6 +1,7 @@
 #include "GameScene.h"
 #include "boss/BossWaterEffectRenderer.h"
 #include "RenderManager.h"
+#include "FrameProfiler.h"
 #include "GameApp.h"
 #include "Input.h"
 #include "AudioSystem.h"
@@ -598,6 +599,7 @@ void GameScene::Update(GameApp& app, float dt) {
     };
     if (bossCombat_ && player_) bossCombat_->BeginPlayerFrame(dt, *player_, combatEnabled());
     if (player_ && app.GetInput() && !debugCameraEnabled_) {
+        auto cpu = FrameProfiler::Get().ScopeCpu("Player update and collision");
         player_->Update(dt, *app.GetInput(), debrisList_);
         // プレイヤーと漂うゴミとの衝突判定
         player_->CheckDebrisCollision(debrisList_);
@@ -699,6 +701,7 @@ void GameScene::Update(GameApp& app, float dt) {
 
     // ゴミオブジェクトの更新（漂流 / 投射状態）
     for (auto& debris : debrisList_) {
+        auto cpu = FrameProfiler::Get().ScopeCpu("Creatures update");
         debris->Update(dt);
     }
     
@@ -889,7 +892,11 @@ void GameScene::Update(GameApp& app, float dt) {
 void GameScene::Draw(GameApp& app) {
     if (underwaterEnvironment_) underwaterEnvironment_->DrawBackground();
     if (underwaterEnvironment_) underwaterEnvironment_->Draw();
-    if (player_) player_->Draw();
+    if (player_) {
+        auto cpu = FrameProfiler::Get().ScopeCpu("Player draw");
+        auto gpu = FrameProfiler::Get().ScopeGpu(app.Dx()->GetCommandList(), "Player draw");
+        player_->Draw();
+    }
     if (IsBossEntrance_()) {
         const float t = oceanFlow_.elapsed - OceanBattleFlow::kExploreSeconds;
         if (t >= 4.0f && t < 8.5f) entranceSun_->Draw();
@@ -899,8 +906,13 @@ void GameScene::Draw(GameApp& app) {
     if (bossCombat_) bossCombat_->DrawOpaque();
 
     // 漂うゴミの描画
+    {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Creatures draw");
+    auto gpu = FrameProfiler::Get().ScopeGpu(app.Dx()->GetCommandList(), "Creatures draw");
+    FrameProfiler::Get().AddCounter("Active creatures", debrisList_.size());
     for (auto& debris : debrisList_) {
         if (debris->GetState() != DebrisState::Attached) debris->Draw();
+    }
     }
 
     for (const auto& enemy : enemies_) enemy->Draw();

@@ -1,6 +1,7 @@
 #include "environment/UnderwaterEnvironment.h"
 
 #include "Camera.h"
+#include "FrameProfiler.h"
 #include "DirectXCommon.h"
 #include "Object3d.h"
 #include "Object3dCommon.h"
@@ -188,6 +189,7 @@ const ReefCollisionWorld* UnderwaterEnvironment::GetBeamCollisionWorld() {
 }
 
 void UnderwaterEnvironment::Update(float dt) {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Environment update");
     environmentTime_ = std::fmod(environmentTime_ + std::max(dt, 0.0f), 4096.0f);
 
     if (!floor_) {
@@ -243,6 +245,8 @@ void UnderwaterEnvironment::Update(float dt) {
 }
 
 void UnderwaterEnvironment::DrawBackground() {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Ocean background");
+    auto gpu = FrameProfiler::Get().ScopeGpu(dx_ ? dx_->GetCommandList() : nullptr, "Ocean background");
     // View-dependent parameters belong to drawing: the scene can skip Update
     // while paused and still move its camera. Do not advance clocks or emit here.
     ApplyBackgroundSettings_();
@@ -260,6 +264,8 @@ void UnderwaterEnvironment::DrawBackground() {
 }
 
 void UnderwaterEnvironment::Draw() {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Seabed and reef");
+    auto gpu = FrameProfiler::Get().ScopeGpu(dx_ ? dx_->GetCommandList() : nullptr, "Seabed and reef");
     if (floor_) {
         ApplyFloorSettings_();
         ApplyCausticsSettings_();
@@ -302,6 +308,8 @@ void UnderwaterEnvironment::DrawReefShadow_() {
 }
 
 void UnderwaterEnvironment::DrawWaterDepth() {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Water capture and depth");
+    auto gpu = FrameProfiler::Get().ScopeGpu(dx_ ? dx_->GetCommandList() : nullptr, "Water capture and depth");
     if (waterSurface_) {
         if (dx_ && renderManager_ && renderManager_->GetOffscreen()) {
             waterSurface_->CaptureScene(renderManager_->GetOffscreen()->GetResource(),
@@ -312,6 +320,8 @@ void UnderwaterEnvironment::DrawWaterDepth() {
 }
 
 void UnderwaterEnvironment::DrawWaterSurface() {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Water surface");
+    auto gpu = FrameProfiler::Get().ScopeGpu(dx_ ? dx_->GetCommandList() : nullptr, "Water surface");
     if (waterSurface_) {
         waterSurface_->DrawColor();
     }

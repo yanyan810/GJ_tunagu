@@ -4,6 +4,7 @@
 #include "SrvManager.h"
 #include "WinApp.h"
 #include "TextureManager.h"
+#include "FrameProfiler.h"
 
 #include <cassert>
 #include <algorithm>
@@ -737,6 +738,8 @@ void RenderManager::CreatePipelineState(
 
 void RenderManager::DrawToneMapPass_(uint32_t srcSrvIndex)
 {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Tone map");
+    auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Tone map");
     auto* cmd = dx_->GetCommandList();
     assert(dx_->GetCurrentRenderTargetFormat() == kDisplayColorFormat);
     cmd->SetGraphicsRootSignature(copyImageRootSignature_.Get());
@@ -754,6 +757,8 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
 
     const int modeIndex = static_cast<int>(mode);
     assert(modeIndex >= 0 && modeIndex < kEffectCount);
+    auto cpu = FrameProfiler::Get().ScopeCpu(kEffectNames[modeIndex]);
+    auto gpu = FrameProfiler::Get().ScopeGpu(cmd, kEffectNames[modeIndex]);
 
     cmd->SetGraphicsRootSignature(copyImageRootSignature_.Get());
     cmd->SetPipelineState(pipelineStates_[modeIndex].Get());
@@ -829,6 +834,8 @@ void RenderManager::DrawFullscreenPass(PostEffectMode mode, uint32_t srcSrvIndex
 
 void RenderManager::DrawAdditiveCompositePass(uint32_t baseSrvIndex, uint32_t addSrvIndex)
 {
+    auto cpu = FrameProfiler::Get().ScopeCpu("Additive composite");
+    auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Additive composite");
     auto* cmd = dx_->GetCommandList();
 
     cmd->SetGraphicsRootSignature(copyImageRootSignature_.Get());

@@ -1,4 +1,5 @@
 #include "GameApp.h"
+#include "FrameProfiler.h"
 #include "SceneManager.h"
 #include "AudioSystem.h"
 #include "scene/Flow/TitleScene.h"
@@ -42,6 +43,7 @@ int GameApp::Run() {
 
     // ループ
     while (!quit_) {
+        FrameProfiler::Get().BeginFrame();
         if (win_->ProcessMessage()) break;
 
         const float dt = 1.0f / 60.0f;
@@ -59,6 +61,7 @@ int GameApp::Run() {
 
         //描画
         Draw();
+        FrameProfiler::Get().EndFrame();
     }
 
     Finalize_();
@@ -113,6 +116,8 @@ bool GameApp::Initialize_() {
     imgui_->Initialize(win_.get(), dx_.get(), srv_.get());
     imgui_->SetSceneTexture(render_->GetOffscreenSrvIndex());
 #endif
+
+    FrameProfiler::Get().InitializeUi(win_->GetHwnd(), dx_.get(), srv_.get());
 
     // GameApp::Initialize など
     skinCom_ = std::make_unique<SkinningCommon>();
@@ -244,6 +249,7 @@ void GameApp::Finalize_() {
     if (sceneMgr_) sceneMgr_->Shutdown(*this);
     sceneMgr_.reset();
     report("Scenes and creature pool");
+    FrameProfiler::Get().ShutdownUi();
     if (imgui_) imgui_->Shutdown();
     if (debugAI_) debugAI_->Shutdown();
     if (audio_) audio_->Finalize();
@@ -286,8 +292,10 @@ void GameApp::Finalize_() {
 }
 
 void GameApp::Update(float dt) {
+    auto updateProfile = FrameProfiler::Get().ScopeCpu("Update total");
 
     input_->Update();
+    if (input_->IsKeyTrigger(DIK_F8)) FrameProfiler::Get().CycleMode();
     if (audio_) audio_->Update();
 
     unsigned int simulationUpdates = 1;
@@ -320,11 +328,16 @@ void GameApp::Update(float dt) {
 }
 
 void GameApp::Draw() {
+    FrameProfiler::Get().BeginGpuFrame(dx_->GetComputeCommandList());
+    {
+    auto drawProfile = FrameProfiler::Get().ScopeCpu("Draw recording");
 
     srv_->PreDraw();
 
     // ① Offscreenへ描く
     render_->BeginOffscreen();
+    {
+    auto gpuScene = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Scene total");
     sceneMgr_->DrawRender(*this);
     sceneMgr_->Draw3D(*this);
     sceneMgr_->Draw2D(*this);
@@ -356,21 +369,39 @@ void GameApp::Draw() {
         render_->ClearParticlePostLayer();
     }
     render_->EndOffscreen();
+    }
 
 #ifdef USE_IMGUI
-    const uint32_t sceneTextureSrvIndex = render_->RenderPostEffectsForSceneTexture();
+    uint32_t sceneTextureSrvIndex;
+    {
+        auto cpu = FrameProfiler::Get().ScopeCpu("Post effects recording");
+        auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Post effects total");
+        sceneTextureSrvIndex = render_->RenderPostEffectsForSceneTexture();
+    }
 
-    render_->BeginPreview();
-    sceneMgr_->DrawPreview(*this);
-    render_->EndPreview();
+    {
+        auto cpu = FrameProfiler::Get().ScopeCpu("Preview recording");
+        auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Preview");
+        render_->BeginPreview();
+        sceneMgr_->DrawPreview(*this);
+        render_->EndPreview();
+    }
 #endif
 
     // ② BackBufferへ
     dx_->PreDraw(false);
 
-    ParticleManager::GetInstance()->UpdateCompute(dx_->GetComputeCommandList());
+    {
+        auto cpu = FrameProfiler::Get().ScopeCpu("Particle compute record");
+        auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetComputeCommandList(), "Particle compute");
+        ParticleManager::GetInstance()->UpdateCompute(dx_->GetComputeCommandList());
+    }
 #ifndef USE_IMGUI
-    render_->DrawOffscreenToBackBuffer();
+    {
+        auto cpu = FrameProfiler::Get().ScopeCpu("Post effects recording");
+        auto gpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Post effects total");
+        render_->DrawOffscreenToBackBuffer();
+    }
     sceneMgr_->DrawOverlay2D(*this);
 #endif
 
@@ -388,10 +419,19 @@ void GameApp::Draw() {
         imgui_->SetPreviewTexture(render_->GetPreviewSrvIndex());
             sceneMgr_->DrawImGui(*this);
             render_->DrawImGui(); // ポストエフェクト切り替えUI
+        FrameProfiler::Get().DrawOverlay(dx_->GetCommandList());
+        auto uiGpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Editor UI");
         imgui_->End(dx_->GetCommandList());
     }
 #endif
 
+#ifndef USE_IMGUI
+    {
+        auto uiGpu = FrameProfiler::Get().ScopeGpu(dx_->GetCommandList(), "Profiler overlay");
+        FrameProfiler::Get().DrawOverlay(dx_->GetCommandList());
+    }
+#endif
+    }
     dx_->PostDraw();
 }
 

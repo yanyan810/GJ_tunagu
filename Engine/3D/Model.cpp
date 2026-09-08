@@ -1,9 +1,37 @@
 #include "Model.h"
+#include "FrameProfiler.h"
 #include <sstream>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <cassert>
+
+// Counts actual submitted triangle-list draws, including repeated/instanced
+// passes. Resource guards and skipped meshes never reach this function.
+static void RecordModelDraw_(uint32_t elementCount, uint32_t instanceCount = 1) {
+	auto& profiler = FrameProfiler::Get();
+	if (!profiler.IsCapturing()) return;
+	profiler.AddCounter("Model draw calls", 1);
+	profiler.AddCounter("Model triangles", static_cast<uint64_t>(elementCount / 3) * instanceCount);
+}
+
+// Adjacent meshes share the same skin palette, transform and buffer bindings.
+// Preserve their index order and material identity; never bridge a rigid mesh.
+static size_t FindSkinnedDrawRun_(const std::vector<Model::MeshData>& meshes,
+	size_t first, uint32_t& indexCount) {
+	const auto& initial = meshes[first];
+	indexCount = initial.indexCount;
+	size_t end = first + 1;
+	if (!initial.skinned || indexCount % 3 != 0) return end;
+	for (; end < meshes.size(); ++end) {
+		const auto& next = meshes[end];
+		const uint64_t count = static_cast<uint64_t>(indexCount) + next.indexCount;
+		if (!next.skinned || next.materialIndex != initial.materialIndex || next.indexCount % 3 != 0 ||
+			static_cast<uint64_t>(initial.startIndex) + indexCount != next.startIndex || count > UINT32_MAX) break;
+		indexCount = static_cast<uint32_t>(count);
+	}
+	return end;
+}
 
 // ================================
 // Assimp helpers (materials/meshes)
@@ -876,6 +904,7 @@ void Model::Draw(ID3D12GraphicsCommandList* cmd) {
 		cmd->SetGraphicsRootDescriptorTable(2, handle);
 
 		// ★Indexed
+		RecordModelDraw_(mesh.indexCount);
 		cmd->DrawIndexedInstanced(
 			mesh.indexCount,
 			1,
@@ -938,6 +967,7 @@ void Model::Draw(ID3D12GraphicsCommandList* cmd, uint32_t instanceCount) {
 		if (useIndexed && mesh.indexCount > 0) {
 			// ★Indexed描画
 			// IB詰めで index に vOffset 足してるなら BaseVertexLocation は 0 でOK
+			RecordModelDraw_(mesh.indexCount, instanceCount);
 			cmd->DrawIndexedInstanced(
 				mesh.indexCount,   // IndexCountPerInstance
 				instanceCount,     // InstanceCount
@@ -948,6 +978,7 @@ void Model::Draw(ID3D12GraphicsCommandList* cmd, uint32_t instanceCount) {
 		}
 		else {
 			// ★非Indexed描画（従来）
+			RecordModelDraw_(mesh.vertexCount, instanceCount);
 			cmd->DrawInstanced(
 				mesh.vertexCount,
 				instanceCount,
@@ -1006,9 +1037,11 @@ void Model::Draw(ID3D12GraphicsCommandList* cmd,
 		cmd->SetGraphicsRootDescriptorTable(2, handle);
 
 		if (useIndexed && mesh.indexCount > 0) {
+			RecordModelDraw_(mesh.indexCount, instanceCount);
 			cmd->DrawIndexedInstanced(mesh.indexCount, instanceCount, mesh.startIndex, 0, 0);
 		}
 		else {
+			RecordModelDraw_(mesh.vertexCount, instanceCount);
 			cmd->DrawInstanced(mesh.vertexCount, instanceCount, mesh.startVertex, 0);
 		}
 	}
@@ -1062,6 +1095,7 @@ void Model::DrawSkinned(ID3D12GraphicsCommandList* cmd, const SkinCluster& sc)
 		cmd->SetGraphicsRootDescriptorTable(3, handle);
 
 		// ★IB は vOffset 足し込み済みなので BaseVertexLocation=0
+		RecordModelDraw_(mesh.indexCount);
 		cmd->DrawIndexedInstanced(mesh.indexCount, 1, mesh.startIndex, 0, 0);
 	}
 }
@@ -1080,11 +1114,15 @@ void Model::DrawSkinnedCompute(ID3D12GraphicsCommandList* cmd, const SkinCluster
 	// Material (b0)
 	cmd->SetGraphicsRootConstantBufferView(0, GetActiveMaterialCBV_());
 
-	for (const auto& mesh : modelData_.meshes) {
+	for (size_t meshIndex = 0; meshIndex < modelData_.meshes.size();) {
+		const auto& mesh = modelData_.meshes[meshIndex];
 
 		if (!mesh.skinned) {
+			++meshIndex;
 			continue; // 剣などスキン無しはここでは描かない
 		}
+		uint32_t indexCount = 0;
+		meshIndex = FindSkinnedDrawRun_(modelData_.meshes, meshIndex, indexCount);
 		BindMaterialForMesh_(cmd, mesh);
 
 		D3D12_GPU_DESCRIPTOR_HANDLE handle{};
@@ -1113,7 +1151,8 @@ void Model::DrawSkinnedCompute(ID3D12GraphicsCommandList* cmd, const SkinCluster
 		cmd->SetGraphicsRootDescriptorTable(2, handle);
 
 		// ★IB は vOffset 足し込み済みなので BaseVertexLocation=0
-		cmd->DrawIndexedInstanced(mesh.indexCount, 1, mesh.startIndex, 0, 0);
+		RecordModelDraw_(indexCount);
+		cmd->DrawIndexedInstanced(indexCount, 1, mesh.startIndex, 0, 0);
 	}
 }
 
@@ -1142,6 +1181,7 @@ void Model::DrawMeshIndexed(ID3D12GraphicsCommandList* cmd, uint32_t meshIndex, 
 	cmd->SetGraphicsRootDescriptorTable(2, handle);
 
 	// ---- draw ----
+	RecordModelDraw_(mesh.indexCount, instanceCount);
 	cmd->DrawIndexedInstanced(
 		mesh.indexCount,
 		instanceCount,
@@ -1183,6 +1223,7 @@ void Model::DrawSkinnedOneMesh(ID3D12GraphicsCommandList* cmd, const SkinCluster
 
 	cmd->SetGraphicsRootDescriptorTable(3, handle);
 
+	RecordModelDraw_(mesh.indexCount);
 	cmd->DrawIndexedInstanced(mesh.indexCount, 1, mesh.startIndex, 0, 0);
 }
 
@@ -2206,14 +2247,6 @@ void Model::ComputeNodeGlobalMatrices(const Animation* anim, float time,
 			outGlobals[i] = locals[i];
 		}
 	}
-	auto& anims = GetAnimations();
-	OutputDebugStringA(("[Anim] count=" + std::to_string(anims.size()) + "\n").c_str());
-	if (!anims.empty()) {
-		OutputDebugStringA(("[Anim] tracks=" + std::to_string(anims.begin()->second.nodeAnimations.size()) + "\n").c_str());
-	}
-
-
-
 }
 
 void Model::DrawOneMesh(ID3D12GraphicsCommandList* cmd, uint32_t meshIndex, uint32_t texRootParam, const D3D12_GPU_DESCRIPTOR_HANDLE* overrideSrv)
@@ -2247,6 +2280,7 @@ void Model::DrawOneMesh(ID3D12GraphicsCommandList* cmd, uint32_t meshIndex, uint
 	cmd->SetGraphicsRootDescriptorTable(texRootParam, handle);
 
 	// ★Indexed 前提（あなたの Model::Draw と同じ）
+	RecordModelDraw_(mesh.indexCount);
 	cmd->DrawIndexedInstanced(mesh.indexCount, 1, mesh.startIndex, 0, 0);
 }
 
@@ -2258,6 +2292,8 @@ bool Model::IsMeshSkinned(uint32_t meshIndex) const {
 void Model::BuildNodeRuntime_()
 {
 	OutputDebugStringA("[DBG] BuildNodeRuntime_ CALLED\n");
+	hasUnskinnedMeshes_ = std::any_of(modelData_.meshes.begin(), modelData_.meshes.end(),
+		[](const MeshData& mesh) { return !mesh.skinned; });
 
 	nodePtrs_.clear();
 	parentIndex_.clear();

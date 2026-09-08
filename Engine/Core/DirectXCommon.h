@@ -11,6 +11,7 @@
 #include <chrono>
 #include <thread>
 #include "MathStruct.h"
+#include "FramePacer.h"
 
 class DirectXCommon
 {
@@ -233,6 +234,7 @@ private:
 
 	// 現在のFPS
 	float fps_ = 0.0f;
+	FramePacer framePacer_;
 
 };
 
