@@ -389,24 +389,19 @@ void GameScene::Update(GameApp& app, float dt) {
         return;
     }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F3)) {
-        RequestChangeScene_("Ship");
-        return;
-    }
-    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F2)) {
-        RequestChangeScene_("BossTest");
-        return;
-    }
-
-    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F1)) {
-        debugCameraEnabled_ = !debugCameraEnabled_;
-        app.GetInput()->SetCameraControlEnabled(debugCameraEnabled_);
-        if (debugCameraEnabled_ && camera_ && debugCamera_) {
-            debugCamera_->SetPosition(camera_->GetTranslate());
-            debugCamera_->SetRotation(camera_->GetRotate());
+        if (bossShip_ && !bossShip_->IsDead()) {
+            bossShip_->TakeDamage(99999.0f);
+        } else {
+            RequestChangeScene_("Ship");
+            return;
         }
     }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F4)) {
-        simulationPaused_ = !simulationPaused_;
+        if (bossShip_ && !bossShip_->IsDead()) {
+            bossShip_->TakeDamage(99999.0f);
+        } else {
+            simulationPaused_ = !simulationPaused_;
+        }
     }
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
         app.RequestQuit();
@@ -471,51 +466,46 @@ void GameScene::Update(GameApp& app, float dt) {
         bool isBossVisibleInScreen = IsBossInScreen(bossShip_->GetPosition(), camera_.get());
         player_->SetTargetPos(bossShip_->GetPosition(), (!bossShip_->IsDead() && isBossVisibleInScreen));
 
-        // ボス撃破時の爆散演出＆クリア画面自動遷移タイマー処理
-        if (bossShip_->IsDead()) {
-            if (clearTransitionTimer_ == 0.0f) {
-                bossShip_->TriggerExplosion(); // 初回フレームで爆散シーケンス開始！
-            }
-            clearTransitionTimer_ += dt;
-            bossShip_->UpdateExplosion(dt); // 毎フレーム爆散物理シミュレーションを更新
-
-            // カメラの臨場感ある微振動（爆発シェイク）
-            if (camera_ && clearTransitionTimer_ < 2.2f) {
-                float shake = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * 0.8f;
-                Vector3 currentCamPos = camera_->GetTranslate();
-                camera_->SetTranslate({ currentCamPos.x + shake, currentCamPos.y + shake * 0.5f, currentCamPos.z + shake });
-            }
-
-            if (clearTransitionTimer_ >= 2.8f) {
-                app.Scenes().Change(app, "GameClear");
-                return;
-            }
-        }
-
-        // 投げられたゴミ/海洋生物とボス船の衝突判定
-        for (auto& debris : debrisList_) {
-            if (debris->GetState() == DebrisState::Thrown && !debris->IsDead()) {
-                if (bossShip_->CheckCollisionWithDebris(debris.get())) {
-                    debris->SetDead(true);
-                    bossHpShakeTimer_ = 0.35f; // 被弾時にHPバーを振動させる
+        // 投げられたゴミ/海洋生物とボス船の衝突判定（生存時のみ）
+        if (!bossShip_->IsDead()) {
+            for (auto& debris : debrisList_) {
+                if (debris->GetState() == DebrisState::Thrown && !debris->IsDead()) {
+                    if (bossShip_->CheckCollisionWithDebris(debris.get())) {
+                        debris->SetDead(true);
+                        bossHpShakeTimer_ = 0.35f; // 被弾時にHPバーを振動させる
+                    }
                 }
             }
         }
     }
 
-    // Include deaths from this frame's attacks and thrown creatures before drawing.
-    if (bossShip_ && bossShip_->IsDead()) {
-        if (bossCombat_) bossCombat_->Reset(player_.get());
-        if (player_) player_->SetTargetPos(bossShip_->GetPosition(), false);
-    }
+    // プレイヤー死亡時判定
     if (player_ && player_->IsDead()) {
         if (bossCombat_) bossCombat_->Reset(player_.get());
         app.Scenes().Change(app, "GameOver");
         return;
     }
+
+    // ボス撃破時の爆散演出＆クリア画面自動遷移タイマー処理
     if (bossShip_ && bossShip_->IsDead()) {
+        if (bossCombat_) bossCombat_->Reset(player_.get());
+        if (player_) player_->SetTargetPos(bossShip_->GetPosition(), false);
+
+        if (clearTransitionTimer_ == 0.0f) {
+            bossShip_->TriggerExplosion(); // 初回フレームで爆散シーケンス（パーツ拡散運動）開始！
+        }
         clearTransitionTimer_ += dt;
-        if (clearTransitionTimer_ >= 1.5f) {
+        bossShip_->UpdateExplosion(dt); // 毎フレーム爆散物理シミュレーションを更新
+
+        // カメラの臨場感ある微振動（爆発シェイク）
+        if (camera_ && clearTransitionTimer_ < 2.5f) {
+            float shake = ((static_cast<float>(std::rand()) / RAND_MAX) - 0.5f) * 0.8f;
+            Vector3 currentCamPos = camera_->GetTranslate();
+            camera_->SetTranslate({ currentCamPos.x + shake, currentCamPos.y + shake * 0.5f, currentCamPos.z + shake });
+        }
+
+        // 爆散演出が終わったら（2.8秒経過後）、ゲームクリアシーンへ遷移
+        if (clearTransitionTimer_ >= 2.8f) {
             app.Scenes().Change(app, "GameClear");
             return;
         }
