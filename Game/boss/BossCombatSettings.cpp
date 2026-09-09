@@ -167,6 +167,7 @@ void BossCombatSettings::Load() {
     screw.gatherRadius=Number(s,"gatherRadius",screw.gatherRadius,0.05f,120);
     screw.holdTime=Number(s,"holdTime",screw.holdTime,0.05f,30);
     screw.releasePower=Number(s,"releasePower",screw.releasePower,0,120);
+    battle.screwMineReleasePower=screw.releasePower;
     screw.releaseSpread=Number(s,"releaseSpread",screw.releaseSpread,0,120);
     screw.releaseFullPowerDistance=Number(s,"releaseFullPowerDistance",screw.releaseFullPowerDistance,0.05f,120);
     screw.releaseMinPowerDistance=Number(s,"releaseMinPowerDistance",screw.releaseMinPowerDistance,screw.releaseFullPowerDistance,120);

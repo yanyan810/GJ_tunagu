@@ -121,6 +121,9 @@ bool Parse(const DiskFile& file, Json& document, BossCombatSettings& values,
             }
             if(!settings->contains("wave.interval"))
                 values.battle.waveVolley.interval=std::max(values.battle.waveVolley.interval,values.windup);
+            // Keep old shared-force presets unchanged until the new mine value is saved.
+            if(!settings->contains("screw.mineRelease"))
+                values.battle.screwMineReleasePower=values.screw.releasePower;
         }
         return ValidateBossTuningSettings(values, error);
     } catch (const std::exception& exception) {

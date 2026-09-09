@@ -1,6 +1,7 @@
 #pragma once
 
 #include "boss/MineSpawnPoint.h"
+#include "MineTerrainCollision.h"
 #include "Vector3.h"
 #include <memory>
 
@@ -10,6 +11,7 @@ class Object3d;
 class Object3dCommon;
 
 struct MineMotionSettings {
+    MineTerrainSettings terrain{};
     float drag = 0.8f;
     float floatingTransitionSpeed = 0.75f;
     Vector3 floatingAmplitude{ 0.35f, 0.8f, 0.25f };
@@ -43,6 +45,7 @@ public:
         Object3dCommon* objectCommon, DirectXCommon* dx, Camera* camera,
         const MineEmissionSample& emission, const MineMotionSettings& settings);
     void Update(float dt);
+    void Update(float dt,const ReefCollisionWorld* terrain,float floorY);
     // Reuse the preallocated instance when the main-game host launches again.
     void Relaunch(const MineEmissionSample& emission, const MineMotionSettings& settings);
     void Draw();

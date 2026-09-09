@@ -214,6 +214,9 @@
     <ClCompile Include="Game\boss\ShockwaveRockVisual.cpp">
       <Filter>Game\Enemy</Filter>
     </ClCompile>
+    <ClCompile Include="Game\boss\MineTerrainCollision.cpp">
+      <Filter>Game\Enemy</Filter>
+    </ClCompile>
     <ClCompile Include="Game\environment\UnderwaterEnvironment.cpp">
       <Filter>Game\Environment</Filter>
     </ClCompile>
@@ -489,6 +492,9 @@
       <Filter>Game\Enemy</Filter>
     </ClInclude>
     <ClInclude Include="Game\boss\ShockwaveRockVisual.h">
+      <Filter>Game\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\boss\MineTerrainCollision.h">
       <Filter>Game\Enemy</Filter>
     </ClInclude>
     <ClInclude Include="Game\environment\UnderwaterEnvironment.h">
