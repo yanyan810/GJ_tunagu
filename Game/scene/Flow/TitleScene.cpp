@@ -1,4 +1,4 @@
-#include "TitleScene.h"
+﻿#include "TitleScene.h"
 #include "Sprite.h"
 #include "GameApp.h"
 #include "Input.h"
@@ -131,7 +131,16 @@ void TitleScene::Update(GameApp& app, float dt) {
         RequestChangeScene_("TestBattle");
         return;
     }
+
+ 
 #endif
+
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
+        app.RequestQuit();
+        return;
+    }
+
+
     timer_ += dt;
 
     // シネマティックカメラのゆっくりとした回転運動
