@@ -53,7 +53,6 @@ private:
     // にくまるフォントテロップ2Dスプライト (全5ステップ)
     std::array<std::unique_ptr<Sprite>, 5> telopSprites_;
 
-    int bgmHandle_ = 0;
     int divingSeHandle_ = 0;
     int throwSeHandle_ = 0;
     int punchSeHandle_ = 0;

@@ -80,7 +80,7 @@ private:
     float bossHpCatchupRatio_ = 1.0f; // ダメージ減算追従補間用
     float bossHpShakeTimer_ = 0.0f;   // 被弾時のHPバー振動タイマー
     float clearTransitionTimer_ = 0.0f; // ボス撃破後のクリア画面遷移用タイマー
-    float bossSpawnTimer_ = 60.0f;     // ボス出現までの収集タイムタイマー (60秒)
+    float bossSpawnTimer_ = OceanBattleFlow::kExploreSeconds;     // ボス出現までの収集タイムタイマー (30秒)
     bool isBossSpawned_ = false;       // ボスが出現済みかどうか
     float warningTimer_ = 0.0f;        // ボス出現直後のWARNING演出タイマー
     bool debugCameraEnabled_ = false;

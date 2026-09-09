@@ -377,7 +377,7 @@ SceneLoadTask GameScene::Load(GameApp& app) {
     bossHpCatchupRatio_ = 1.0f;
     bossHpShakeTimer_ = 0.0f;
     clearTransitionTimer_ = 0.0f;
-    bossSpawnTimer_ = 60.0f;     // 60秒間（1分間）の海洋生物収集タイム
+    bossSpawnTimer_ = OceanBattleFlow::kExploreSeconds; // 30秒間の海洋生物収集タイム
     isBossSpawned_ = false;       // 開始時点では未出現
     warningTimer_ = 0.0f;
 
