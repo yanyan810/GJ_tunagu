@@ -335,6 +335,12 @@ bool BossTuningStore::Save(const BossCombatSettings& settings) {
 
 const BossCombatSettings& BossTuningStore::Current() const { return impl_->current; }
 uint64_t BossTuningStore::Revision() const { return impl_->revision; }
-bool BossTuningStore::ToolsEnabled() const { return impl_->startupToolsAllowed && impl_->tools; }
+bool BossTuningStore::ToolsEnabled() const {
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
+    return true;
+#else
+    return impl_->startupToolsAllowed && impl_->tools;
+#endif
+}
 bool BossTuningStore::HotReloadEnabled() const { return ToolsEnabled() && impl_->hotReload; }
 const std::string& BossTuningStore::Status() const { return impl_->status; }

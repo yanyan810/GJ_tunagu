@@ -17,6 +17,7 @@ class Camera;
 
 class Player;
 class ReefCollisionWorld;
+class Debris;
 
 
 struct ID3D12Resource;
@@ -44,7 +45,8 @@ public:
     // Call before Player::Update, then Update after the ship and player move.
     void BeginPlayerFrame(float dt, Player& player, bool enabled);
     void Update(float dt, Player& player, const Vector3& arenaCenter, bool enabled,
-        float groundY = -22.0f, const ReefCollisionWorld* beamWorld = nullptr);
+        float groundY = -22.0f, const ReefCollisionWorld* beamWorld = nullptr,
+        std::span<const std::unique_ptr<Debris>> creatures = {});
     void DrawOpaque();
     void DrawEffects(ID3D12Resource* sceneColor, ID3D12Resource* sceneDepth);
     void DrawImGui();

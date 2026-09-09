@@ -42,6 +42,9 @@ public:
     // 再生
     void Play(SoundHandle handle, float volume = 1.0f);
     void StopAll();
+    void StopSceneAudio();
+    void PlayMenuConfirm();
+    void PlayMenuSelect();
 
     // 再生が終わった Voice を破棄（毎フレーム呼ぶ）
     void Update();
@@ -78,6 +81,7 @@ private:
 
 private:
     SoundHandle nextHandle_ = 1;
+    SoundHandle menuConfirm_ = 0, menuSelect_ = 0;
 
     IXAudio2* xAudio2_ = nullptr;
     IXAudio2MasteringVoice* masterVoice_ = nullptr;

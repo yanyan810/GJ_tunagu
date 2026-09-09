@@ -95,7 +95,19 @@ void AudioSystem::Unload(SoundHandle handle) {
     }
 }
 
+void AudioSystem::PlayMenuConfirm() {
+    if (!menuConfirm_) menuConfirm_ = LoadAudioFile(L"resources/Music/crick.mp3", false);
+    Play(menuConfirm_, 0.8f);
+}
+
+void AudioSystem::PlayMenuSelect() {
+    if (!menuSelect_) menuSelect_ = LoadAudioFile(L"resources/Music/sentaku.mp3", false);
+    Stop(menuSelect_);
+    Play(menuSelect_, 0.6f);
+}
+
 void AudioSystem::UnloadAll() {
+    menuConfirm_ = menuSelect_ = 0;
     StopAll();
     sounds_.clear();
 }
@@ -143,6 +155,12 @@ void AudioSystem::Play(SoundHandle handle, float volume) {
     }
 
     playing_.push_back({ handle, sv, false });
+}
+
+void AudioSystem::StopSceneAudio() {
+    for (auto& p : playing_) {
+        if (p.handle != menuConfirm_ && p.handle != menuSelect_) DestroyVoice_(p.voice);
+    }
 }
 
 void AudioSystem::StopAll() {

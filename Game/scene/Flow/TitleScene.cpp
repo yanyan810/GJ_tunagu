@@ -99,7 +99,7 @@ SceneLoadTask TitleScene::Load(GameApp& app) {
 
     // Title.mp3 の BGM 再生開始
     if (app.Audio()) {
-        app.Audio()->StopAll();
+        app.Audio()->StopSceneAudio();
         bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/Title.mp3", true);
         app.Audio()->Play(bgmHandle_, 0.6f);
         divingSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/ダイビング（水中）.mp3", false);
@@ -122,6 +122,16 @@ void TitleScene::OnExit(GameApp& app) {
 }
 
 void TitleScene::Update(GameApp& app, float dt) {
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F7)) {
+        RequestChangeScene_("BossEntrance");
+        return;
+    }
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F5)) {
+        RequestChangeScene_("TestBattle");
+        return;
+    }
+#endif
     timer_ += dt;
 
     // シネマティックカメラのゆっくりとした回転運動
@@ -165,8 +175,8 @@ void TitleScene::Update(GameApp& app, float dt) {
         if (app.GetInput()->IsKeyTrigger(DIK_SPACE) ||
             app.GetInput()->IsKeyTrigger(DIK_RETURN) ||
             click) {
-            if (app.Audio() && divingSeHandle_ != 0) {
-                app.Audio()->Play(divingSeHandle_, 1.0f);
+            if (app.Audio()) {
+                app.Audio()->PlayMenuConfirm();
             }
             app.Scenes().Change(app, "StageSelect");
             return;

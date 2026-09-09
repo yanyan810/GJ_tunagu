@@ -1,6 +1,5 @@
 #include "BossTestScene.h"
-#include "Player.h"
-#include "Debris.h"
+#include "scene/Main/OceanBattleFlow.h"
 #include "environment/UnderwaterEnvironment.h"
 #include "enemy/Enemy.h"
 
@@ -223,11 +222,17 @@ void BossTestScene::OnEnter(GameApp& app) {
         floor_.reset();
         battleEnvironment_ = std::make_unique<UnderwaterEnvironment>();
         battleEnvironment_->Initialize(app.ObjCom(), app.Dx(), camera_.get(), app.Render());
-        battlePlayer_ = std::make_unique<Player>();
-        battlePlayer_->Initialize(app.ObjCom(), app.Dx(), camera_.get());
-        battleEnvironment_->BindPlayer(*battlePlayer_);
-        battlePlayer_->Update(0.0f, *app.GetInput(), battleDebris_);
-        pingBeamTargetPosition_ = battlePlayer_->GetPosition();
+        battleEnvironment_->SetArenaBounds({}, OceanBattleFlow::kBattleHalfSize);
+        for (int i = 0; i < 4; ++i) {
+            const float half = OceanBattleFlow::kBattleHalfSize;
+            const float side = i % 2 == 0 ? -1.0f : 1.0f;
+            auto wall = CreateObject(app, camera_.get(), "bossEntrance/fence.obj",
+                { i < 2 ? 0.0f : side * half, 3.0f, i < 2 ? side * half : 0.0f },
+                { 0.0f, i < 2 ? 0.0f : 1.5707963f, 0.0f }, { half, 25.0f, 0.35f });
+            wall->SetEnableLighting(0);
+            wall->SetMaterialColor({ 0.15f, 0.65f, 0.8f, 0.8f });
+            battleWalls_.push_back(std::move(wall));
+        }
     }
     pingBeamEffects_ = std::make_unique<PingBeamEffects>();
     pingBeamEffects_->Initialize(app.Dx(), app.Srv(), camera_.get());
@@ -380,8 +385,7 @@ void BossTestScene::OnExit(GameApp& app) {
     shockwaveEffects_.reset();
     screwEffects_.reset();
     mineEffects_.reset();
-    battleDebris_.clear();
-    battlePlayer_.reset();
+    battleWalls_.clear();
     if (battleEnvironment_) battleEnvironment_->Shutdown();
     battleEnvironment_.reset();
     pingBeamEffects_.reset();
@@ -1769,6 +1773,12 @@ bool BossTestScene::LoadMineSettings_() {
 }
 
 void BossTestScene::Update(GameApp& app, float dt) {
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F7)) {
+        RequestChangeScene_("BossEntrance");
+        return;
+    }
+#endif
     if (pendingLoadSettings_) {
         if (LoadMineSettings_()) RebuildMineDebugObjects_(app);
         pendingLoadSettings_ = false;
@@ -1776,17 +1786,7 @@ void BossTestScene::Update(GameApp& app, float dt) {
     Input* input = app.GetInput();
     // BossTestScene always leaves the cursor available to ImGui. Keyboard
     // camera translation remains active, but F1/Tab cannot recapture it.
-    if (battleScale_ && input && input->IsKeyTrigger(DIK_F1)) {
-        battlePlayerControl_ = !battlePlayerControl_;
-        if (!battlePlayerControl_) {
-            debugCamera_->SetPosition(camera_->GetTranslate());
-            debugCamera_->SetRotation(camera_->GetRotate());
-        }
-    }
-    if (battleScale_ && input) input->SetCameraControlEnabled(battlePlayerControl_);
-    if (!battleScale_ && input && input->IsCameraControlEnabled()) {
-        input->SetCameraControlEnabled(false);
-    }
+    if (input && input->IsCameraControlEnabled()) input->SetCameraControlEnabled(false);
     if (input && input->IsKeyTrigger(DIK_F2)) {
         RequestChangeScene_("Game");
         return;
@@ -1880,27 +1880,21 @@ void BossTestScene::Update(GameApp& app, float dt) {
         return;
     }
 
-    if (battlePlayer_ && battlePlayerControl_ && input) {
-        battlePlayer_->Update(dt, *input, battleDebris_);
-        const Vector3 target = battlePlayer_->GetTailPosition();
-        const float yaw = battlePlayer_->GetCameraYaw();
-        const float pitch = battlePlayer_->GetCameraPitch();
-        const Vector3 desired = target + Vector3{
-            -std::sin(yaw) * std::cos(pitch) * 11.5f,
-            std::sin(pitch) * 11.5f, -std::cos(yaw) * std::cos(pitch) * 11.5f };
-        camera_->SetTranslate(battleEnvironment_->ConstrainCamera(target, desired));
-        camera_->SetRotate({ pitch, yaw, 0.0f });
-        camera_->Update();
-    } else if (debugCamera_ && camera_) {
+    if (debugCamera_ && camera_) {
+#ifdef USE_IMGUI
+        if (!ImGui::GetIO().WantCaptureKeyboard)
+#endif
         debugCamera_->Update(dt);
         camera_->SetTranslate(debugCamera_->GetPosition());
         camera_->SetRotate(debugCamera_->GetRotation());
         camera_->Update();
     }
 
-    if (battlePlayer_) {
-        pingBeamTargetPosition_ = battlePlayer_->GetPosition();
-        battleEnvironment_->SetPlayerSnapshot(battlePlayer_->GetPosition(), battlePlayer_->GetYaw(), battlePlayer_->GetPitch());
+    if (battleEnvironment_) {
+        const float half = OceanBattleFlow::kBattleHalfSize;
+        pingBeamTargetPosition_.x = std::clamp(pingBeamTargetPosition_.x, -half, half);
+        pingBeamTargetPosition_.z = std::clamp(pingBeamTargetPosition_.z, -half, half);
+        battleEnvironment_->SetPlayerSnapshot({}, 0.0f, 0.0f);
         battleEnvironment_->Update(dt);
     }
     ApplyBossTransform_();
@@ -1940,7 +1934,7 @@ void BossTestScene::Draw(GameApp& app) {
         battleEnvironment_->DrawBackground();
         battleEnvironment_->Draw();
     }
-    if (battlePlayer_) battlePlayer_->Draw();
+    for (const auto& wall : battleWalls_) wall->Draw();
     if (floor_) floor_->Draw();
     const bool soloShockwave = shockwaveEffects_ && shockwaveEffects_->IsEnabled() && shockwaveEffects_->IsSoloPreview();
     const bool soloAnchor = anchorEffects_ && anchorEffects_->IsEnabled() && anchorEffects_->IsSoloPreview();
@@ -2023,8 +2017,8 @@ void BossTestScene::Draw(GameApp& app) {
         for (const auto& marker : screwReleaseDirectionDebug_) marker->Draw();
     }
     const bool showPingDebug = !pingBeamEffects_ || !pingBeamEffects_->IsEnabled() || pingBeamEffects_->ShowDebugGeometry();
+    if ((battleScale_ || showPingDebug) && pingBeamTestPlayer_) pingBeamTestPlayer_->Draw();
     if (showPingDebug) {
-        if (pingBeamTestPlayer_) pingBeamTestPlayer_->Draw();
         for (int i = 0; i < PingBeamAttack::kPingCount; ++i) {
             if (pingBeamAttack_.IsMarkerVisible(i) && pingBeamMarkers_[i]) pingBeamMarkers_[i]->Draw();
         }
@@ -2053,9 +2047,10 @@ void BossTestScene::DrawImGui(GameApp& app) {
     ImGui::SetNextWindowSizeConstraints(ImVec2(430.0f, 300.0f), ImVec2(1000.0f, 2000.0f));
     ImGui::Begin(battleScale_ ? "Test Battle Scene" : "Boss Test Scene");
     if (battleScale_) {
-        ImGui::TextWrapped("Game-scale ship, Player and underwater stage. F1: switch Player / editor. F2: Game.");
-        ImGui::TextWrapped("Attack ranges use the existing BossAttacks.json editor. These preview attacks are not yet wired into GameScene's bullet/net attacks. No damage is applied to Player here.");
-        ImGui::Text("Mode: %s", battlePlayerControl_ ? "Player (F1 to edit)" : "Editor");
+        ImGui::TextWrapped("Boss attack editor only. No playable Player or battle progression. F2: Game.");
+        ImGui::Text("Game-scale ship / Arena: %.0f x %.0f", OceanBattleFlow::kBattleHalfSize * 2.0f, OceanBattleFlow::kBattleHalfSize * 2.0f);
+        ImGui::TextWrapped("Edit Boss Attacks, then Trigger / Test Fire. Save writes BossAttacks.json.");
+        ImGui::TextWrapped("Green cube: aim decoy. Move it with Test Player Position under Ping Beam.");
     } else if (ImGui::Button("Open Test Battle Scene")) {
         RequestChangeScene_("TestBattle");
     }
@@ -2104,7 +2099,7 @@ void BossTestScene::DrawImGui(GameApp& app) {
         ImGui::Text("Rotation: %.2f, %.2f, %.2f", rotation.x, rotation.y, rotation.z);
         ImGui::TextDisabled("W/S forward/back / A/D left/right / E up / Q down");
         ImGui::TextDisabled(battleScale_
-            ? "F1: Player / editor (free camera) / F2: return to Game"
+            ? "Editor camera only / F2: return to Game"
             : "Mouse look is disabled in BossTestScene / F2: return to Game");
     }
 
@@ -2403,12 +2398,8 @@ void BossTestScene::DrawImGui(GameApp& app) {
             ImGui::TreePop();
         }
         if (ImGui::TreeNodeEx("Ping Beam", ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (!battleScale_) {
-                ImGui::DragFloat3("Test Player Position##PingBeam", &pingBeamTargetPosition_.x, 0.1f, -1000.0f, 1000.0f);
-                ImGui::TextDisabled("Green cube is the Player proxy passed into PingBeamAttack::Update.");
-            } else {
-                ImGui::TextDisabled("Beam targets the actual Player. Use F1 to swim to a test position.");
-            }
+            ImGui::DragFloat3("Test Player Position##PingBeam", &pingBeamTargetPosition_.x, 0.1f, -1000.0f, 1000.0f);
+            ImGui::TextDisabled("Green cube is an aim decoy. Position editing only; no Player controls.");
             ImGui::DragFloat("Tracking Time##PingBeam", &pingBeamSettings_.trackingTime, 0.02f, 0.0f, 20.0f);
             ImGui::DragFloat("Tracking Rotation Speed##PingBeam", &pingBeamSettings_.trackingRotationSpeed, 0.05f, 0.0f, 50.0f);
             ImGui::SeparatorText("Per-sphere Orbit (sip local XZ plane)");

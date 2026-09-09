@@ -119,7 +119,7 @@ void GameClearScene::OnEnter(GameApp& app) {
 
     // Clear.mp3 BGM の再生開始
     if (app.Audio()) {
-        app.Audio()->StopAll();
+        app.Audio()->StopSceneAudio();
         bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/Clear.mp3", true);
         app.Audio()->Play(bgmHandle_, 0.6f);
     }
@@ -193,6 +193,7 @@ void GameClearScene::Update(GameApp& app, float dt) {
         if (app.GetInput()->IsKeyTrigger(DIK_SPACE) ||
             app.GetInput()->IsKeyTrigger(DIK_RETURN) ||
             app.GetInput()->IsMouseLeftTrigger()) {
+            if (app.Audio()) app.Audio()->PlayMenuConfirm();
             app.Scenes().Change(app, "Title");
             return;
         }

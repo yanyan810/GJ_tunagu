@@ -73,7 +73,7 @@ namespace {
     }
 }
 
-GameScene::GameScene() = default;
+GameScene::GameScene(bool previewEntrance) : previewEntrance_(previewEntrance) {}
 GameScene::~GameScene() = default;
 
 void GameScene::UpdateOcean_(GameApp& app, float dt) {
@@ -90,6 +90,7 @@ void GameScene::UpdateOcean_(GameApp& app, float dt) {
     }
     bossSpawnTimer_ = std::max(0.0f, OceanBattleFlow::kExploreSeconds - oceanFlow_.elapsed);
     if (!oceanFlow_.locked) return;
+    UpdateBossAudio_(app);
     const float half = oceanFlow_.HalfSize();
     const Vector3 center = oceanFlow_.center;
     underwaterEnvironment_->SetArenaBounds(center, half);
@@ -112,6 +113,35 @@ void GameScene::UpdateOcean_(GameApp& app, float dt) {
         entranceSplash_->Clear();
         isBossSpawned_ = true;
         warningTimer_ = 3.5f;
+    }
+}
+
+void GameScene::UpdateBossAudio_(GameApp& app) {
+    auto* audio = app.Audio();
+    if (!audio) return;
+    const float t = oceanFlow_.elapsed - OceanBattleFlow::kExploreSeconds;
+    const auto cue = [&](unsigned int bit, float at) {
+        if (t < at || (entranceAudioCues_ & bit)) return false;
+        entranceAudioCues_ |= bit;
+        return true;
+    };
+    if (cue(1u, 0.0f)) {
+        audio->Stop(bgmHandle_);
+        audio->Play(entranceBgm_, 0.5f);
+    }
+    if (cue(2u, 0.0f)) audio->Play(bossMoveSe_, 0.75f);
+    if (cue(4u, 2.0f)) audio->Play(fenceFallSe_, 0.9f);
+    if (cue(8u, 6.0f)) {
+        audio->Stop(bossMoveSe_);
+        audio->Play(bossMoveSe_, 0.9f);
+    }
+    if (cue(16u, 8.5f)) {
+        audio->Stop(bossMoveSe_);
+        audio->Play(landingSe_, 1.0f);
+    }
+    if (cue(32u, OceanBattleFlow::kShrinkSeconds)) {
+        audio->Stop(entranceBgm_);
+        audio->Play(battleBgm_, 0.55f);
     }
 }
 
@@ -439,9 +469,14 @@ SceneLoadTask GameScene::Load(GameApp& app) {
     }
     // GameScene.mp3 BGM の再生開始および各種 SE の読み込み
     if (app.Audio()) {
-        app.Audio()->StopAll();
+        app.Audio()->StopSceneAudio();
         bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/GameScene.mp3", true);
-        app.Audio()->Play(bgmHandle_, 0.5f);
+        entranceBgm_ = app.Audio()->LoadAudioFile(L"resources/Music/bossscene/bgm.mp3", false);
+        battleBgm_ = app.Audio()->LoadAudioFile(L"resources/Music/bossscene/bossBattleBgm.mp3", true);
+        bossMoveSe_ = app.Audio()->LoadAudioFile(L"resources/Music/bossscene/boss_move2.mp3", false);
+        fenceFallSe_ = app.Audio()->LoadAudioFile(L"resources/Music/bossscene/fence_fall.mp3", false);
+        landingSe_ = app.Audio()->LoadAudioFile(L"resources/Music/bossscene/sip_landing.mp3", false);
+        if (!previewEntrance_) app.Audio()->Play(bgmHandle_, 0.5f);
         throwSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/水面に石投げ2.mp3", false);
         punchSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/小パンチ.mp3", false);
         explosionSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/爆発1.mp3", false);
@@ -449,6 +484,8 @@ SceneLoadTask GameScene::Load(GameApp& app) {
     if (player_) {
         player_->SetAudioHandles(app.Audio(), throwSeHandle_, punchSeHandle_);
     }
+    entranceAudioCues_ = 0;
+    if (previewEntrance_) oceanFlow_.elapsed = OceanBattleFlow::kExploreSeconds;
     deathPhase_ = DeathPhase::None;
     deathFade_ = std::make_unique<Sprite>();
     deathFade_->Initialize(app.SpriteCom(), app.Dx(), "");
@@ -468,6 +505,10 @@ void GameScene::OnExit(GameApp& app) {
     if (bossCombat_) bossCombat_->Reset(player_.get());
     bossCombat_.reset();
     if (app.Audio()) {
+        for (int* handle : { &entranceBgm_, &battleBgm_, &bossMoveSe_, &fenceFallSe_, &landingSe_ }) {
+            app.Audio()->Unload(*handle);
+            *handle = 0;
+        }
         if (bgmHandle_ != 0) { app.Audio()->Stop(bgmHandle_); app.Audio()->Unload(bgmHandle_); bgmHandle_ = 0; }
         if (throwSeHandle_ != 0) { app.Audio()->Unload(throwSeHandle_); throwSeHandle_ = 0; }
         if (punchSeHandle_ != 0) { app.Audio()->Unload(punchSeHandle_); punchSeHandle_ = 0; }
@@ -506,10 +547,18 @@ void GameScene::OnExit(GameApp& app) {
 }
 
 void GameScene::Update(GameApp& app, float dt) {
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F7)) {
+        RequestChangeScene_("BossEntrance");
+        return;
+    }
+#endif
     if (deathPhase_ != DeathPhase::None) { UpdateDeath_(app, dt); return; }
-    if (player_ && (player_->IsDead() || (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F7)))) {
+    if (player_ && player_->IsDead()) {
         BeginDeath_(app); return;
     }
+
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F5)) {
         RequestChangeScene_("TestBattle");
         return;
@@ -541,6 +590,7 @@ void GameScene::Update(GameApp& app, float dt) {
             simulationPaused_ = !simulationPaused_;
         }
     }
+#endif
     if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_ESCAPE)) {
         app.RequestQuit();
         return;
@@ -589,7 +639,7 @@ void GameScene::Update(GameApp& app, float dt) {
     }
     if (bossCombat_ && player_) bossCombat_->Update(dt, *player_, oceanFlow_.center, combatEnabled(),
         underwaterEnvironment_ ? underwaterEnvironment_->GetFloorHeight() : -22.0f,
-        underwaterEnvironment_ ? underwaterEnvironment_->GetBeamCollisionWorld() : nullptr);
+        underwaterEnvironment_ ? underwaterEnvironment_->GetBeamCollisionWorld() : nullptr, debrisList_);
     if (player_ && player_->IsDead()) { BeginDeath_(app); return; }
     if (bossShip_ && player_) {
         if (combatEnabled()) bossShip_->CheckCollisionWithPlayer(player_.get());
@@ -1072,6 +1122,7 @@ void GameScene::DrawImGui(GameApp& app) {
     ImGui::Text("Frame: %.1f ms / %.1f FPS", fps > 0.0f ? 1000.0f / fps : 0.0f, fps);
     ImGui::Text("Creatures / equipment: %zu", debrisList_.size());
     ImGui::Text("Prepared spare creatures: %zu", spareDebris_.size());
+    if (ImGui::Button("Boss Entrance Preview (F7)")) RequestChangeScene_("BossEntrance");
     if (ImGui::Button("Test Battle Scene (F5)")) RequestChangeScene_("TestBattle");
     ImGui::TextUnformatted("F1: Debug Camera / F4: Pause");
     if (ImGui::Checkbox("Debug Camera", &debugCameraEnabled_)) {

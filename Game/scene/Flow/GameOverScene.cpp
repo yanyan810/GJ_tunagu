@@ -90,7 +90,7 @@ void GameOverScene::OnEnter(GameApp& app) {
     selection_ = 0;
     mouseX_ = mouseY_ = -1;
     if (app.Audio()) {
-        app.Audio()->StopAll();
+        app.Audio()->StopSceneAudio();
         bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/gameover.mp3", true);
         impactSeHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/tunacan.mp3", false);
         app.Audio()->Play(bgmHandle_, 0.6f);
@@ -120,6 +120,7 @@ void GameOverScene::Update(GameApp& app, float dt) {
     if (input->IsCameraControlEnabled()) input->SetCameraControlEnabled(false);
     // Ignore the death-frame input that brought the player here.
     if (phase_ != Phase::Ready) return;
+    const int previousSelection = selection_;
     POINT mouse{};
     int hovered = -1;
     if (input->GetMenuMousePosition(mouse)) {
@@ -138,8 +139,10 @@ void GameOverScene::Update(GameApp& app, float dt) {
         selection_ = 1 - selection_;
     }
 
+    if (selection_ != previousSelection && app.Audio()) app.Audio()->PlayMenuSelect();
     if (input->IsKeyTrigger(DIK_RETURN) || input->IsKeyTrigger(DIK_SPACE) ||
         (hovered >= 0 && input->IsMouseLeftTrigger())) {
+        if (app.Audio()) app.Audio()->PlayMenuConfirm();
         if (selection_ == 0) {
             phase_ = Phase::CanLaunch;
             phaseTime_ = headingAlpha_ = menuAlpha_ = 0;

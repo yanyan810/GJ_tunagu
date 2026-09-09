@@ -25,8 +25,6 @@ class MineEffects;
 class ScrewEffects;
 class ShockwaveEffects;
 class AnchorEffects;
-class Player;
-class Debris;
 class UnderwaterEnvironment;
 
 // Boss attacks are only hosted and invoked here. Their implementations belong
@@ -44,11 +42,9 @@ public:
 
 private:
     bool battleScale_ = false;
-    bool battlePlayerControl_ = false;
     bool pendingLoadSettings_ = false;
-    std::unique_ptr<Player> battlePlayer_;
     std::unique_ptr<UnderwaterEnvironment> battleEnvironment_;
-    std::vector<std::unique_ptr<Debris>> battleDebris_;
+    std::vector<std::unique_ptr<Object3d>> battleWalls_;
     void CreateTestField_(GameApp& app);
     void CreateTemporaryBoss_(GameApp& app);
     void ApplyBossTransform_();

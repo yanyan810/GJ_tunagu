@@ -219,8 +219,11 @@ bool GameApp::Initialize_() {
     sceneMgr_->Register("Tutorial", [] { return std::make_unique<TutorialScene>(); });
     sceneMgr_->Register("StageSelect", [] { return std::make_unique<StageSelectScene>(); });
     sceneMgr_->Register("Game", [] { return std::make_unique<GameScene>(); });
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
+    sceneMgr_->Register("BossEntrance", [] { return std::make_unique<GameScene>(true); });
     sceneMgr_->Register("BossTest", [] { return std::make_unique<BossTestScene>(); });
     sceneMgr_->Register("TestBattle", [] { return std::make_unique<TestBattleScene>(); });
+#endif
     sceneMgr_->Register("Ship", [] { return std::make_unique<ShipScene>(); });
     sceneMgr_->Register("GameOver", [] { return std::make_unique<GameOverScene>(); });
     sceneMgr_->Register("GameClear", [] { return std::make_unique<GameClearScene>(); });
