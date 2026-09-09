@@ -74,7 +74,7 @@ void WinApp::Initialize() {
 
 	 hwnd = CreateWindow(
 		wc.lpszClassName, //ウィンドウクラス名
-		L"LE3B_25_ミヤザワ_ハルヒ_一番強い白", //ウィンドウ名
+		L"3028_つなつな", //ウィンドウ名
 		WS_OVERLAPPEDWINDOW, //ウィンドウスタイル
 		CW_USEDEFAULT, //x座標
 		CW_USEDEFAULT, //y座標
