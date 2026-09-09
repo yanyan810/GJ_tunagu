@@ -277,6 +277,7 @@ void Debris::Initialize(Object3dCommon* objCommon, DirectXCommon* dx, Camera* ca
 }
 
 void Debris::ApplyModelTransform_(const Vector3& rotation) {
+    model_->ClearWorldMatrixOverride();
     const Vector3 visualRotation = rotation + modelRotation_;
     const Matrix4x4 basis = Matrix4x4::MakeAffineMatrix(scale_, visualRotation, {});
     model_->SetTranslate(pos_ - TransformCoord(modelCenter_, basis));
@@ -383,6 +384,33 @@ void Debris::UpdateAttached(
 
     // ローカル座標を親（マグロ）のワールド行列で変換
     pos_ = TransformCoord(localPos, parentWorldMatrix);
+
+    if (marineModel_) {
+        // Follow the player's complete orientation, including roll. Remove its
+        // scale and authored +90 degree heading before applying this model's
+        // own correction from its authored heading to forward (+Z).
+        Matrix4x4 parentRotation = Matrix4x4::MakeIdentity4x4();
+        for (int row = 0; row < 3; ++row) {
+            const Vector3 axis = Matrix4x4::Normalize(Vector3{
+                parentWorldMatrix.m[row][0], parentWorldMatrix.m[row][1],
+                parentWorldMatrix.m[row][2] });
+            parentRotation.m[row][0] = axis.x;
+            parentRotation.m[row][1] = axis.y;
+            parentRotation.m[row][2] = axis.z;
+        }
+        const Matrix4x4 heading = Matrix4x4::Multiply(
+            Matrix4x4::RotateY(-1.5707963f), parentRotation);
+        Matrix4x4 world = Matrix4x4::Multiply(
+            Matrix4x4::MakeAffineMatrix(scale_, modelRotation_, {}), heading);
+        const Vector3 translation = pos_ - TransformCoord(modelCenter_, world);
+        world.m[3][0] = translation.x;
+        world.m[3][1] = translation.y;
+        world.m[3][2] = translation.z;
+        rot_ = { parentPitch, parentYaw, 0.0f };
+        model_->SetWorldMatrixOverride(world);
+        model_->Update(dt);
+        return;
+    }
 
     // ワールド回転の決定
     // 親の回転にアタッチ時のローカル回転を足す

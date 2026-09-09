@@ -19,6 +19,8 @@ TutorialScene::TutorialScene() = default;
 TutorialScene::~TutorialScene() = default;
 
 void TutorialScene::OnEnter(GameApp& app) {
+    // Tutorial owns its soundscape, including the transition's remaining menu SE.
+    if (app.Audio()) app.Audio()->StopAll();
     if (app.GetInput()) app.GetInput()->SetCameraControlEnabled(true);
     // カメラの初期化（本編 GameScene と完全に同じ設定）
     camera_ = std::make_unique<Camera>();
@@ -67,9 +69,6 @@ void TutorialScene::OnEnter(GameApp& app) {
 
         player_->SetAudioHandles(app.Audio(), throwSeHandle_, punchSeHandle_);
 
-        app.Audio()->StopSceneAudio();
-        bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/Title.mp3", true);
-        app.Audio()->Play(bgmHandle_, 0.5f);
     }
 
     // 練習用のダミー敵（ボス船）を本編と同じ位置に配置
@@ -96,11 +95,6 @@ void TutorialScene::OnExit(GameApp& app) {
             if (*handle != 0) app.Audio()->Unload(*handle);
             *handle = 0;
         }
-    }
-    if (app.Audio() && bgmHandle_ != 0) {
-        app.Audio()->Stop(bgmHandle_);
-        app.Audio()->Unload(bgmHandle_);
-        bgmHandle_ = 0;
     }
     for (auto& sprite : telopSprites_) {
         sprite.reset();

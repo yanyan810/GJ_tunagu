@@ -4,10 +4,10 @@
 
 int main() {
     OceanBattleFlow flow;
-    flow.Update(59.0f, { 500.0f, 2.0f, -900.0f });
+    flow.Update(29.0f, { 500.0f, 2.0f, -900.0f });
     assert(!flow.locked && !flow.BattleReady());
     flow.Update(0.0f, {}); // paused time cannot start the arena
-    assert(flow.elapsed == 59.0f);
+    assert(flow.elapsed == 29.0f);
     flow.Update(1.0f, { 1200.0f, -5.0f, -2400.0f });
     assert(flow.locked && !flow.BattleReady());
     assert(flow.center.x == 1200.0f && flow.center.z == -2400.0f);
@@ -23,6 +23,6 @@ int main() {
     assert(!flow.locked && flow.elapsed == 0.0f);
     flow.Update(-10.0f, {});
     assert(flow.elapsed == 0.0f);
-    flow.Update(71.0f, { -8000.0f, 0.0f, 9000.0f });
+    flow.Update(41.0f, { -8000.0f, 0.0f, 9000.0f });
     assert(flow.locked && flow.BattleReady() && flow.center.x == -8000.0f);
 }
