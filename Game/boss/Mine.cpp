@@ -6,6 +6,7 @@
 #include "Object3dCommon.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 Mine::Mine() = default;
 Mine::~Mine() = default;
@@ -66,7 +67,12 @@ void Mine::Relaunch(const MineEmissionSample& emission, const MineMotionSettings
 }
 
 void Mine::Update(float dt) {
-    if (!object_ || dt <= 0.0f) return;
+    Update(dt,nullptr,std::numeric_limits<float>::quiet_NaN());
+}
+
+void Mine::Update(float dt,const ReefCollisionWorld* terrain,float floorY) {
+    if (!object_ || !std::isfinite(dt) || dt <= 0.0f) return;
+    const Vector3 previousVisualPosition=visualPosition_;
 
     if (state_ == State::Flying) {
         const Vector3 previousPosition = position_;
@@ -122,6 +128,16 @@ void Mine::Update(float dt) {
     }
 
     if (state_ != State::Exploded) {
+        const auto contact=ResolveMineTerrain(previousVisualPosition,visualPosition_,velocity_,terrain,floorY,settings_.terrain);
+        const Vector3 correction=contact.position-visualPosition_;
+        position_+=correction;basePosition_+=correction;visualPosition_=contact.position;
+        velocity_=contact.velocity;
+        if(contact.contact&&state_==State::Flying) {
+            // A blocked placement must not home back into the seabed every frame.
+            position_=visualPosition_;
+            const auto rebound=velocity_;EnterFloating_();velocity_=rebound;
+        }
+        if(state_==State::Triggered&&triggerTimeRemaining_<=0) EnterExploded_();
         object_->SetTranslate(visualPosition_);
         object_->SetRotate(rotation_);
         object_->Update(dt);
@@ -201,7 +217,7 @@ void Mine::UpdateTriggered_(float dt) {
         visualPosition_ = position_;
     }
 
-    if (triggerTimeRemaining_ <= 0.0f) EnterExploded_();
+    // The host-facing Update resolves terrain before publishing the explosion.
 }
 
 void Mine::EnterExploded_() {

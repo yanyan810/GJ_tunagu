@@ -202,6 +202,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Game\enemy\Enemy.cpp" />
     <ClCompile Include="Game\boss\MineSpawnPoint.cpp" />
+    <ClCompile Include="Game\boss\MineTerrainCollision.cpp" />
     <ClCompile Include="Game\boss\Mine.cpp" />
     <ClCompile Include="Game\boss\Shockwave.cpp" />
     <ClCompile Include="Game\boss\ShockwaveRock.cpp" />
@@ -620,6 +621,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Game\enemy\Enemy.h" />
     <ClInclude Include="Game\boss\MineSpawnPoint.h" />
+    <ClInclude Include="Game\boss\MineTerrainCollision.h" />
     <ClInclude Include="Game\boss\Mine.h" />
     <ClInclude Include="Game\boss\Shockwave.h" />
     <ClInclude Include="Game\boss\ShockwaveRock.h" />

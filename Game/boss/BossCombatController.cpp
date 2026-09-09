@@ -364,7 +364,7 @@ void BossCombatController::Impl::UpdateMines(float dt,Player& player,const Vecto
             meta.gathered=true;
             mine->AddForce(screw.CalculateGatherForce(old,mine->GetVelocity())*dt);
         }
-        mine->Update(dt);
+        mine->Update(dt,beamWorld,groundY);
         if(mine->GetState()==Mine::State::Exploded) continue;
         const Vector3 now=mine->GetPosition();
         bool close=Collision::SegmentSphere(from-old,to-now,{},meta.playerRadius+meta.triggerRadius);
@@ -372,7 +372,7 @@ void BossCombatController::Impl::UpdateMines(float dt,Player& player,const Vecto
             if (CanDamageCreature(*creature) && Collision::SegmentSphere(target.from-old,target.to-now,{},
                 kCreatureRadius+meta.triggerRadius)) { close=true; break; }
         }
-        if(close||meta.age>=meta.lifetime||(meta.released&&now.y<=groundY+1)) {
+        if(close||meta.age>=meta.lifetime) {
             mine->TriggerExplosion(meta.fuse);
         }
     }
@@ -539,8 +539,8 @@ void BossCombatController::Impl::ResolveAttacks(float dt,Player& player,const Ve
             if(!meta.gathered||mine->GetState()==Mine::State::Exploded) continue;
             const float strength=ReleaseMultiplier(mine->GetPosition());
             const auto outward=Unit(Vector3{mine->GetPosition().x-screw.GetGatherPoint().x,0,mine->GetPosition().z-screw.GetGatherPoint().z});
-            mine->AddForce(outward*(activeScrew.releaseSpread*strength)+Vector3{0,-activeScrew.releasePower*strength,0});
-            meta.gathered=false;meta.released=true;mine->TriggerExplosion(1.1f);
+            mine->AddForce(outward*(activeScrew.releaseSpread*strength)+Vector3{0,-settings.battle.screwMineReleasePower*strength,0});
+            meta.gathered=false;meta.released=true;mine->TriggerExplosion(settings.battle.screwMineReleaseFuse);
         }
         playerGathered=false;
     }

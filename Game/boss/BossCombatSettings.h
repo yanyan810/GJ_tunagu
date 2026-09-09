@@ -21,6 +21,7 @@ struct BossBattleOptions {
     AnchorRetargetSettings anchorRetarget{true,2.0f,1.0f,1.0f};
     int screwPayloadCount=4;
     float screwPayloadDelay=.9f, screwPayloadSpawnRadius=8.0f;
+    float screwMineReleasePower=35.0f,screwMineReleaseFuse=1.1f;
     float screwGlow=1.6f, screwFlowSpeed=1.15f, screwBandWidth=1.0f, screwDangerMix=.85f;
     bool waveAtTargetDepth=true;
     float waveHalfHeight=1.5f;
