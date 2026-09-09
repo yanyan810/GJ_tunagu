@@ -1,6 +1,7 @@
 ﻿#include "StageSelectScene.h"
 
 #include "Camera.h"
+#include "AudioSystem.h"
 #include "GameApp.h"
 #include "Input.h"
 #include "Object3dCommon.h"
@@ -106,10 +107,20 @@ SceneLoadTask StageSelectScene::Load(GameApp& app) {
     pendingEntryIndex_ = -1;
     scrollToSelection_ = true;
     time_ = 0.0f;
+    if (app.Audio()) {
+        selectBgm_ = app.Audio()->LoadAudioFile(L"resources/Music/selectscene.mp3", true);
+        zukanBgm_ = app.Audio()->LoadAudioFile(L"resources/Music/zukanBGM.mp3", true);
+        app.Audio()->Play(selectBgm_, 0.6f);
+    }
     co_return;
 }
 
-void StageSelectScene::OnExit(GameApp& /*app*/) {
+void StageSelectScene::OnExit(GameApp& app) {
+    if (app.Audio()) {
+        app.Audio()->Unload(selectBgm_);
+        app.Audio()->Unload(zukanBgm_);
+    }
+    selectBgm_ = zukanBgm_ = 0;
     labels_.clear(); names_.clear(); descriptions_.clear(); panels_.clear();
     titleSprite_.reset();
     for (auto& sprite : menuSprites_) sprite.reset();
@@ -128,6 +139,19 @@ void StageSelectScene::Select_(int direction) {
 }
 
 void StageSelectScene::Update(GameApp& app, float dt) {
+#if defined(_DEBUG) || defined(GAME_DEVELOPMENT_BUILD)
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F7)) {
+        RequestChangeScene_("BossEntrance");
+        return;
+    }
+    if (app.GetInput() && app.GetInput()->IsKeyTrigger(DIK_F5)) {
+        RequestChangeScene_("TestBattle");
+        return;
+    }
+#endif
+    const auto previousMode = mode_;
+    const int previousMenu = menuIndex_, previousEntry = selectedIndex_;
+    bool confirmed = false;
     // Apply clicks before updating/drawing the model and its description together.
     if (pendingEntryIndex_ >= 0) {
         selectedIndex_ = pendingEntryIndex_;
@@ -179,11 +203,12 @@ void StageSelectScene::Update(GameApp& app, float dt) {
         if (input->IsKeyTrigger(DIK_DOWN) || input->IsKeyTrigger(DIK_S))
             menuIndex_ = (menuIndex_ + 1) % 3;
 
-        if (input->IsKeyTrigger(DIK_ESCAPE) || input->IsKeyTrigger(DIK_BACK)) RequestChangeScene_("Title");
+        if (input->IsKeyTrigger(DIK_ESCAPE) || input->IsKeyTrigger(DIK_BACK)) { confirmed = true; RequestChangeScene_("Title"); }
         if (input->IsKeyTrigger(DIK_E)) {
             mode_ = Mode::Encyclopedia;
         } else if (input->IsKeyTrigger(DIK_RETURN) || input->IsKeyTrigger(DIK_SPACE) ||
             (hovered >= 0 && input->IsMouseLeftTrigger())) {
+            confirmed = true;
             if (menuIndex_ == 0) RequestChangeScene_("Tutorial");
             else if (menuIndex_ == 1) mode_ = Mode::Encyclopedia;
             else RequestChangeScene_("Title");
@@ -212,6 +237,15 @@ void StageSelectScene::Update(GameApp& app, float dt) {
             Select_(1);
 
         if (input->IsKeyTrigger(DIK_ESCAPE) || input->IsKeyTrigger(DIK_BACK)) mode_ = Mode::StageSelect;
+    }
+    if (app.Audio()) {
+        if (mode_ != previousMode) {
+            app.Audio()->Stop(previousMode == Mode::StageSelect ? selectBgm_ : zukanBgm_);
+            app.Audio()->Play(mode_ == Mode::StageSelect ? selectBgm_ : zukanBgm_, 0.6f);
+            confirmed = true;
+        }
+        if (confirmed) app.Audio()->PlayMenuConfirm();
+        else if (menuIndex_ != previousMenu || selectedIndex_ != previousEntry) app.Audio()->PlayMenuSelect();
     }
 }
 

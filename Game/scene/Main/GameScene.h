@@ -20,7 +20,7 @@ class BossWaterEffectRenderer;
 // 新しいゲームの実装を始めるための最小シーンです。
 class GameScene final : public IScene {
 public:
-    GameScene();
+    explicit GameScene(bool previewEntrance = false);
     ~GameScene() override;
     void OnEnter(GameApp& app) override;
     SceneLoadTask Load(GameApp& app) override;
@@ -31,6 +31,9 @@ public:
     void DrawImGui(GameApp& app) override;
 
 private:
+    bool previewEntrance_ = false;
+    void UpdateBossAudio_(GameApp& app);
+    unsigned int entranceAudioCues_ = 0;
     enum class DeathPhase { None, CameraMove, Hold, Fade, Black };
     DeathPhase deathPhase_ = DeathPhase::None;
     float deathTime_ = 0, deathAlpha_ = 0, deathAngle_ = 0, deathRadius_ = 0;
@@ -84,6 +87,8 @@ private:
     bool simulationPaused_ = false;
     bool stepOneFrame_ = false;
     int bgmHandle_ = 0;
+    int entranceBgm_ = 0, battleBgm_ = 0;
+    int bossMoveSe_ = 0, fenceFallSe_ = 0, landingSe_ = 0;
     int throwSeHandle_ = 0;
     int punchSeHandle_ = 0;
     int explosionSeHandle_ = 0;

@@ -14,6 +14,8 @@
 #include "ScrewEffects.h"
 #include "ShockwaveRock.h"
 #include "Player.h"
+#include "Debris.h"
+#include "BossCreatureHitState.h"
 #include "Object3d.h"
 #include "DirectXCommon.h"
 #include "FrameProfiler.h"
@@ -22,6 +24,7 @@
 #include <cmath>
 #include <random>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #ifdef USE_IMGUI
 #include "imgui.h"
@@ -67,7 +70,24 @@ struct BossCombatController::Impl {
         float fuse=0.8f, triggerRadius=4, lifetime=9, chainFuse=0.35f, playerRadius=1.25f;
         bool linkShell=false;
     };
-    struct RockMeta { bool hit=false; float playerRadius=1.25f; };
+    struct RockMeta { bool hit=false; float playerRadius=1.25f; std::unordered_set<const Debris*> creatureHits; };
+    struct CreatureTarget {
+        BossCreatureHitState hit;
+        Vector3 previous{}, start{}, end{}, from{}, to{};
+    };
+    std::unordered_map<Debris*, CreatureTarget> creatureTargets;
+    static constexpr float kCreatureRadius = 3.5f; // Same radius as thrown-item contacts.
+    static bool CanDamageCreature(const Debris& creature) {
+        return !creature.IsDead() && creature.GetState() == DebrisState::Floating &&
+            creature.GetMaxHp() > 0 && creature.GetHp() > 0 &&
+            Collision::Finite(creature.GetPosition());
+    }
+    bool HitCreature(Debris& creature, CreatureTarget& target, float damage) {
+        if (!CanDamageCreature(creature) || !target.hit.TryHit(damage)) return false;
+        creature.TakeDamage(damage);
+        return true;
+    }
+    void ResolveCreatureAttacks(bool anchorWasActive, int previousBeamIndex);
     Object3d* ship=nullptr;
     DirectXCommon* dx=nullptr;
     Camera* camera=nullptr;
@@ -180,7 +200,7 @@ void BossCombatController::Reset(Player* player) {
     e.StopTimelines();e.mineFx.Reset();
     for(auto& mine:e.mines) e.minePool.push_back(std::move(mine));
     for(auto& rock:e.rocks) e.rockPool.push_back(std::move(rock));
-    e.mines.clear();e.rocks.clear();
+    e.mines.clear();e.rocks.clear();e.creatureTargets.clear();
     for(auto& [key,meta]:e.mineMeta) meta={};
     for(auto& [key,meta]:e.rockMeta) meta={};
     if(player) e.interaction.Reset(*player);
@@ -323,7 +343,7 @@ void BossCombatController::Impl::SpawnWaveRocks() {
             scaled.outwardDirection={};motion.horizontalPower=0;
         }
         auto rock=std::move(rockPool.back());rockPool.pop_back();
-        rock->Relaunch(scaled,motion,random);rockMeta[rock.get()]={false,settings.playerRadius};
+        rock->Relaunch(scaled,motion,random);rockMeta[rock.get()]={false,settings.playerRadius,{}};
         rocks.push_back(std::move(rock));waveFx.OnRockSpawn(scaled);++stats.rockSpawns;
     }
     }
@@ -347,7 +367,11 @@ void BossCombatController::Impl::UpdateMines(float dt,Player& player,const Vecto
         mine->Update(dt);
         if(mine->GetState()==Mine::State::Exploded) continue;
         const Vector3 now=mine->GetPosition();
-        const bool close=Collision::SegmentSphere(from-old,to-now,{},meta.playerRadius+meta.triggerRadius);
+        bool close=Collision::SegmentSphere(from-old,to-now,{},meta.playerRadius+meta.triggerRadius);
+        for (const auto& [creature, target] : creatureTargets) {
+            if (CanDamageCreature(*creature) && Collision::SegmentSphere(target.from-old,target.to-now,{},
+                kCreatureRadius+meta.triggerRadius)) { close=true; break; }
+        }
         if(close||meta.age>=meta.lifetime||(meta.released&&now.y<=groundY+1)) {
             mine->TriggerExplosion(meta.fuse);
         }
@@ -377,6 +401,10 @@ void BossCombatController::Impl::ProcessExplosions(Player& player,const Vector3&
             if(Collision::SegmentSphere(from,to,event.position,event.radius+mineMeta[mine.get()].playerRadius)) {
                 if(Hit(player,event.damage,event.moveSpeedDamage)) interaction.AddImpulse(Unit(to-event.position)*7);
             }
+            for (auto& [creature, target] : creatureTargets) {
+                if (Collision::SegmentSphere(target.from,target.to,event.position,event.radius+kCreatureRadius))
+                    HitCreature(*creature,target,event.damage);
+            }
             for(auto& other:mines) {
                 if(other.get()==mine.get()) continue;
                 if(Collision::DistanceSquared(other->GetPosition(),event.position)<=event.radius*event.radius)
@@ -392,6 +420,11 @@ void BossCombatController::Impl::UpdateRocks(float dt,Player& player,const Vecto
         const auto old=rock->GetPosition();rock->Update(dt);
         auto& meta=rockMeta[rock.get()];const auto size=rock->GetHalfSize();
         const float radius=std::max({size.x,size.y,size.z});
+        for (auto& [creature, target] : creatureTargets) {
+            if (wasAlive && !meta.creatureHits.contains(creature) &&
+                Collision::SegmentSphere(target.from-old,target.to-rock->GetPosition(),{},radius+kCreatureRadius) &&
+                HitCreature(*creature,target,rock->GetDamage())) meta.creatureHits.insert(creature);
+        }
         if(wasAlive&&!meta.hit&&Collision::SegmentSphere(from-old,to-rock->GetPosition(),{},radius+meta.playerRadius)) {
             if(Hit(player,rock->GetDamage(),rock->GetMoveSpeedDamage())) {
                 meta.hit=true;interaction.AddImpulse(Unit(rock->GetVelocity())*4);
@@ -401,6 +434,47 @@ void BossCombatController::Impl::UpdateRocks(float dt,Player& player,const Vecto
     for(auto it=rocks.begin();it!=rocks.end();) {
         if((*it)->IsAlive()) {++it;continue;}
         rockPool.push_back(std::move(*it));it=rocks.erase(it);
+    }
+}
+
+void BossCombatController::Impl::ResolveCreatureAttacks(bool anchorWasActive,int previousBeamIndex) {
+    for (auto& [creature, target] : creatureTargets) {
+        if (!CanDamageCreature(*creature)) continue;
+        target.hit.BeginAttack(attackSerial);
+        const auto from=target.from,to=target.to;
+        const int index=ping.IsBeamVisible()?ping.GetCurrentBeamIndex():previousBeamIndex;
+        if (index>=0 && index<3 && !target.hit.BeamHit(index)) {
+            for (const auto& origin : rig.GetMuzzlePositions()) {
+                const auto path=PingBeamPath::Trace(origin,ping.GetPingPosition(index),groundY,beamWorld);
+                if (!path.valid) continue;
+                const float scale=settings.battle.beamHitRadiusScale;
+                if (Collision::SegmentBeam(from,to,origin,path.end,activePing.beamWidth*.5f*scale,
+                    activePing.beamHeight*.5f*scale,kCreatureRadius)) {
+                    if (HitCreature(*creature,target,ping.GetDamage())) target.hit.MarkBeam(index);
+                    break;
+                }
+            }
+        }
+        if (anchor.IsDamageActive() || anchorWasActive) {
+            const auto boxes=rig.GetAnchorBoxes();
+            for (size_t i=0;i<boxes.size();++i) {
+                const auto& box=boxes[i];
+                const auto shift=i<previousAnchorBoxes.size()?Translation(box.world)-Translation(previousAnchorBoxes[i].world):Vector3{};
+                if (Collision::SegmentBox(from+shift,to,box.world,box.halfSize,kCreatureRadius)) {
+                    HitCreature(*creature,target,anchor.GetDamage());
+                    break;
+                }
+            }
+        }
+        for (size_t pulse=0;pulse<static_cast<size_t>(volley.Count());++pulse) {
+            const auto& wave=volley.Wave(pulse);
+            if (!volley.GetPulse(pulse).expandedThisStep || target.hit.WaveHit(pulse)) continue;
+            if (wave.GetRadius()<=wave.GetPreviousRadius() && !volley.GetPulse(pulse).launchedThisStep) continue;
+            const float pad=kCreatureRadius/std::min(settings.waveScale.x,settings.waveScale.z)+.4f;
+            if (Collision::SegmentWave(from,to,wave.GetCenter(),settings.waveScale,wave.GetPreviousRadius(),wave.GetRadius(),
+                pad,kCreatureRadius+settings.battle.waveHalfHeight) && HitCreature(*creature,target,settings.waveDamage))
+                target.hit.MarkWave(pulse);
+        }
     }
 }
 
@@ -542,6 +616,7 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
     SpawnWaveRocks();
     UpdateMines(dt,player,from,to);UpdateRocks(dt,player,from,to);
     ResolveAttacks(dt,player,from,to,anchorWasActive,previousBeamIndex);
+    ResolveCreatureAttacks(anchorWasActive,previousBeamIndex);
     pingFx.Update(dt,ping,rig.GetMuzzlePositions(),pingTarget,groundY,beamWorld);
     const bool completed=(stats.attack==Attack::Mine&&minesRemaining==0&&attackTime>settings.windup+settings.mineCount*settings.mineInterval+.5f)
         ||(stats.attack==Attack::PingBeam&&!ping.IsRunning())
@@ -552,7 +627,7 @@ void BossCombatController::Impl::Step(float dt,Player& player,const Vector3& fro
 }
 
 void BossCombatController::Update(float dt,Player& player,const Vector3& arenaCenter,bool enabled,float groundY,
-    const ReefCollisionWorld* beamWorld) {
+    const ReefCollisionWorld* beamWorld, std::span<const std::unique_ptr<Debris>> creatures) {
     auto cpu = FrameProfiler::Get().ScopeCpu("Boss combat update");
     auto& e=*impl_;
     auto& tuning=BossBattleTuning::Get();
@@ -577,8 +652,28 @@ void BossCombatController::Update(float dt,Player& player,const Vector3& arenaCe
     // Small simulation slices keep fast anchors/rocks and short beams from
     // tunnelling through the player's swept position after a frame hitch.
     const int count=std::max(1,static_cast<int>(std::ceil(step*120.0f)));
+    // Keep only live, free-swimming HP targets; never retain removed objects or equipment.
+    std::unordered_set<Debris*> activeCreatures;
+    for (const auto& creature : creatures) {
+        if (!creature || !Impl::CanDamageCreature(*creature)) continue;
+        auto* ptr=creature.get(); activeCreatures.insert(ptr);
+        auto [it, inserted]=e.creatureTargets.try_emplace(ptr);
+        auto& target=it->second;
+        if (inserted) target.previous=ptr->GetPosition();
+        target.start=target.previous; target.end=ptr->GetPosition(); target.previous=target.end;
+    }
+    for (auto it=e.creatureTargets.begin();it!=e.creatureTargets.end();) {
+        if (activeCreatures.contains(it->first)) { ++it; continue; }
+        for (auto& [rock, meta] : e.rockMeta) meta.creatureHits.erase(it->first);
+        it=e.creatureTargets.erase(it);
+    }
     const Vector3 start=e.interaction.GetPreviousPosition(),end=player.GetPosition();
     for(int i=0;i<count&&!player.IsDead();++i) {
+        for (auto& [creature, target] : e.creatureTargets) {
+            target.hit.Advance(step/count);
+            target.from=Mix(target.start,target.end,static_cast<float>(i)/count);
+            target.to=Mix(target.start,target.end,static_cast<float>(i+1)/count);
+        }
         e.Step(step/count,player,Mix(start,end,static_cast<float>(i)/count),Mix(start,end,static_cast<float>(i+1)/count));
     }
     e.interaction.CommitMovement(player);

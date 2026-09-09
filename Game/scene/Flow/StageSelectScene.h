@@ -37,6 +37,7 @@ private:
     std::vector<std::unique_ptr<Debris>> tankEntries_;
     std::vector<std::unique_ptr<TextSprite>> labels_, names_, descriptions_;
     std::vector<std::unique_ptr<Sprite>> panels_;
+    int selectBgm_ = 0, zukanBgm_ = 0;
     int hoveredEntry_ = -1;
     Mode mode_ = Mode::StageSelect;
     int menuIndex_ = 0;

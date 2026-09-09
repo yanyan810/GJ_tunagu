@@ -67,7 +67,7 @@ void TutorialScene::OnEnter(GameApp& app) {
 
         player_->SetAudioHandles(app.Audio(), throwSeHandle_, punchSeHandle_);
 
-        app.Audio()->StopAll();
+        app.Audio()->StopSceneAudio();
         bgmHandle_ = app.Audio()->LoadAudioFile(L"resources/Music/Title.mp3", true);
         app.Audio()->Play(bgmHandle_, 0.5f);
     }
